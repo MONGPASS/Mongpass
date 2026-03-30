@@ -8,10 +8,21 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Gilroy', 'sans-serif'],
+      },
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        primary: "#3182F6",
+        primaryHover: "#2C75DD",
+        surface: "#FFFFFF",
+        surfaceAlt: "#F2F4F6",
       },
+      borderRadius: {
+        '2xl': '1rem',
+        '3xl': '1.5rem',
+      }
     },
   },
   plugins: [],
