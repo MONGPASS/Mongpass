@@ -46,8 +46,12 @@ export default function CommunityPostDetailPage({ params }: { params: { postId: 
   }
 
   useEffect(() => {
-    setUser(getCurrentUser());
+    let active = true;
+    getCurrentUser().then((u) => {
+      if (active) setUser(u);
+    });
     refresh();
+    return () => { active = false; };
   }, [params.postId]);
 
   function handleLike() {

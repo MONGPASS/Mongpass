@@ -26,10 +26,14 @@ export default function ChatListPage() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    const u = getCurrentUser();
-    setUser(u);
-    if (u) setThreads(loadThreadsForUser(u.id));
-    setLoaded(true);
+    let active = true;
+    getCurrentUser().then((u) => {
+      if (!active) return;
+      setUser(u);
+      if (u) setThreads(loadThreadsForUser(u.id));
+      setLoaded(true);
+    });
+    return () => { active = false; };
   }, []);
 
   return (

@@ -14,13 +14,16 @@ export function TopNavBar({ shopId }: { shopId?: string }) {
 
   useEffect(() => {
     if (!shopId) return;
-    const user = getCurrentUser();
-    setFavorite(isFavorite(user?.id ?? null, shopId));
+    let active = true;
+    getCurrentUser().then((user) => {
+      if (active) setFavorite(isFavorite(user?.id ?? null, shopId));
+    });
+    return () => { active = false; };
   }, [shopId]);
 
-  function handleToggleFavorite() {
+  async function handleToggleFavorite() {
     if (!shopId) return;
-    const user = getCurrentUser();
+    const user = await getCurrentUser();
     setFavorite(toggleFavorite(user?.id ?? null, shopId));
   }
 
@@ -181,9 +184,9 @@ export function BottomCTA({
   const closed = shop?.isOpen === false;
   const showOrderButton = Boolean(orderRoute || onCtaClick);
 
-  function handleChat() {
+  async function handleChat() {
     if (!shop) return;
-    const user = getCurrentUser();
+    const user = await getCurrentUser();
     if (!user) {
       router.push(`/login?redirect=/category/${encodeURIComponent(shopId)}`);
       return;
@@ -199,14 +202,14 @@ export function BottomCTA({
     router.push(`/chat/${encodeURIComponent(threadIdFor(user.id, shopId))}`);
   }
 
-  function handleOrder() {
+  async function handleOrder() {
     if (closed) return;
     if (onCtaClick) {
       onCtaClick();
       return;
     }
     if (!orderRoute) return;
-    const user = getCurrentUser();
+    const user = await getCurrentUser();
     if (!user) {
       router.push(`/login?redirect=${encodeURIComponent(orderRoute)}`);
       return;

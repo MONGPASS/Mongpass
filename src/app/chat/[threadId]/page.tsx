@@ -38,18 +38,22 @@ export default function ChatThreadPage({ params }: { params: { threadId: string 
   const [side, setSide] = useState<"user" | "shop" | null>(null);
 
   useEffect(() => {
-    const u = getCurrentUser();
-    setUser(u);
-    const t = findThread(threadId);
-    setThread(t);
-    if (!t || !u) return;
-    setMessages(loadMessagesForThread(threadId));
-    if (t.userId === u.id) {
-      setSide("user");
-    } else {
-      const shop = findShopById(t.shopId);
-      if (shop?.ownerId === u.id) setSide("shop");
-    }
+    let active = true;
+    getCurrentUser().then((u) => {
+      if (!active) return;
+      setUser(u);
+      const t = findThread(threadId);
+      setThread(t);
+      if (!t || !u) return;
+      setMessages(loadMessagesForThread(threadId));
+      if (t.userId === u.id) {
+        setSide("user");
+      } else {
+        const shop = findShopById(t.shopId);
+        if (shop?.ownerId === u.id) setSide("shop");
+      }
+    });
+    return () => { active = false; };
   }, [threadId]);
 
   // Poll every 2s for new messages so the other side's reply appears

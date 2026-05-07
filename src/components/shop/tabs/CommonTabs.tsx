@@ -103,14 +103,18 @@ export function ReviewTab({ shop }: { shop: ShopData }) {
   const [showForm, setShowForm] = useState(false);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
-  const [user, setUser] = useState<ReturnType<typeof getCurrentUser>>(null);
+  const [user, setUser] = useState<Awaited<ReturnType<typeof getCurrentUser>>>(null);
   const [alreadyReviewed, setAlreadyReviewed] = useState(false);
 
   useEffect(() => {
+    let active = true;
     setReviews(loadReviewsForShop(shopId));
-    const u = getCurrentUser();
-    setUser(u);
-    setAlreadyReviewed(userHasReviewed(u?.id ?? null, shopId));
+    getCurrentUser().then((u) => {
+      if (!active) return;
+      setUser(u);
+      setAlreadyReviewed(userHasReviewed(u?.id ?? null, shopId));
+    });
+    return () => { active = false; };
   }, [shopId]);
 
   const summary = useMemo(() => summarizeReviews(shopId), [reviews, shopId]);

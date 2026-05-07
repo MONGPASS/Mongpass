@@ -1,40 +1,20 @@
 'use client';
 
-import { ArrowLeft, ChevronRight, Plus, User as UserIcon } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
-import { User, loadUsers, loginOrSignup, setCurrentUser } from "@/lib/userStore";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
 function LoginInner() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") ?? "/profile";
 
-  const [users, setUsers] = useState<User[]>([]);
-  const [mode, setMode] = useState<"select" | "create">("select");
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-
-  useEffect(() => {
-    const all = loadUsers();
-    setUsers(all);
-    if (all.length === 0) setMode("create");
-  }, []);
-
-  function pickUser(id: string) {
-    setCurrentUser(id);
-    router.push(redirect);
-  }
-
-  function submitNew() {
-    if (!name.trim()) return;
-    loginOrSignup(name, phone || undefined);
-    router.push(redirect);
-  }
+  // Server-side OAuth flow — clicking the button hits a Route Handler
+  // that sets state/PKCE cookies and 302s the user to Google.
+  const signInHref = `/api/auth/google?redirect=${encodeURIComponent(redirect)}`;
 
   return (
-    <main className="w-full min-h-screen bg-gray-50 pb-12">
+    <main className="w-full min-h-screen bg-gray-50">
       <header className="sticky top-0 z-30 bg-white border-b border-gray-200">
         <div className="flex items-center h-14 px-4 gap-3">
           <Link href="/" className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
@@ -44,92 +24,42 @@ function LoginInner() {
         </div>
       </header>
 
-      <div className="px-4 pt-6">
-        <p className="text-sm text-gray-500 mb-5 leading-relaxed">
-          Нэрээ оруулан үргэлжлүүлнэ үү. Хэрэв нэр бүртгэлд байхгүй бол шинээр үүсгэгдэнэ.
+      <div className="px-6 pt-12 pb-8 max-w-md mx-auto text-center">
+        <div className="w-16 h-16 rounded-2xl bg-primary text-white font-black text-3xl flex items-center justify-center mx-auto mb-5 shadow-md">
+          M
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">MongPass-д тавтай морил</h2>
+        <p className="text-sm text-gray-500 mb-8 leading-relaxed">
+          Google акaунтаараа хурдан нэвтрэн орох боломжтой. Утасны дугаар, нууц үг шаардлагагүй.
         </p>
 
-        {mode === "select" && users.length > 0 && (
-          <>
-            <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">
-              Хадгалсан хэрэглэгчид
-            </h2>
-            <div className="bg-white rounded-2xl shadow-sm divide-y divide-gray-100 mb-4">
-              {users.map((u) => (
-                <button
-                  key={u.id}
-                  onClick={() => pickUser(u.id)}
-                  className="w-full flex items-center gap-3 p-4 active:bg-gray-50 text-left"
-                >
-                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 shrink-0">
-                    <UserIcon className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-sm text-gray-900 truncate">{u.name}</p>
-                    {u.phone && <p className="text-[12px] text-gray-500 truncate">{u.phone}</p>}
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setMode("create")}
-              className="w-full bg-white border border-dashed border-gray-300 text-gray-700 font-semibold py-3 rounded-xl flex items-center justify-center gap-2 active:bg-gray-50"
-            >
-              <Plus className="w-4 h-4" /> Шинэ хэрэглэгч
-            </button>
-          </>
-        )}
+        <a
+          href={signInHref}
+          className="w-full inline-flex items-center justify-center gap-3 bg-white border border-gray-200 hover:border-gray-300 text-gray-900 font-semibold py-3 rounded-xl shadow-sm active:scale-[0.98] transition-transform"
+        >
+          <GoogleLogo />
+          <span>Google-ээр нэвтрэх</span>
+        </a>
 
-        {mode === "create" && (
-          <div className="bg-white rounded-2xl shadow-sm p-4">
-            <h2 className="font-bold text-sm text-gray-900 mb-3">
-              {users.length === 0 ? "Хэрэглэгч үүсгэх" : "Шинэ хэрэглэгч"}
-            </h2>
-            <div className="space-y-3">
-              <div>
-                <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">Нэр</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Болд"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
-                  Утас <span className="font-medium text-gray-400">(заавал биш)</span>
-                </label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="010-xxxx-xxxx"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
-                />
-              </div>
-              <button
-                onClick={submitNew}
-                disabled={!name.trim()}
-                className="w-full bg-gray-900 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-40"
-              >
-                Үргэлжлүүлэх
-              </button>
-              {users.length > 0 && (
-                <button
-                  onClick={() => setMode("select")}
-                  className="w-full text-gray-500 text-sm font-medium py-2"
-                >
-                  Буцах
-                </button>
-              )}
-            </div>
-          </div>
-        )}
+        <p className="text-[11px] text-gray-400 mt-6 leading-relaxed">
+          Нэвтрэснээр та манай{" "}
+          <Link href="/" className="underline">үйлчилгээний нөхцөл</Link>-ийг
+          хүлээн зөвшөөрсөнд тооцогдоно.
+        </p>
       </div>
     </main>
+  );
+}
+
+function GoogleLogo() {
+  // Simple Google "G" SVG — keeps us free of an extra dependency just for an icon.
+  return (
+    <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden>
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C33.9 6.1 29.2 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
+      <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.8 15.1 19 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C33.9 6.1 29.2 4 24 4 16.4 4 9.8 8.3 6.3 14.7z" />
+      <path fill="#4CAF50" d="M24 44c5.1 0 9.8-2 13.3-5.2l-6.1-5.2C29.2 35.1 26.7 36 24 36c-5.3 0-9.7-3.4-11.3-8l-6.5 5C9.6 39.6 16.3 44 24 44z" />
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.6l6.1 5.2C40.3 35.6 44 30.3 44 24c0-1.3-.1-2.4-.4-3.5z" />
+    </svg>
   );
 }
 

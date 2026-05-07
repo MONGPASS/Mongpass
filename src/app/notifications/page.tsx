@@ -47,13 +47,17 @@ export default function NotificationsPage() {
   const [lastSeenMs, setLastSeenMs] = useState(0);
 
   useEffect(() => {
-    const u = getCurrentUser();
-    setUser(u);
-    setItems(buildNotifications(u));
-    const seen = getLastSeenAt(u?.id ?? null);
-    setLastSeenMs(seen ? new Date(seen).getTime() : 0);
-    // Mark as read when the page is opened
-    markAllNotificationsSeen(u?.id ?? null);
+    let active = true;
+    getCurrentUser().then((u) => {
+      if (!active) return;
+      setUser(u);
+      setItems(buildNotifications(u));
+      const seen = getLastSeenAt(u?.id ?? null);
+      setLastSeenMs(seen ? new Date(seen).getTime() : 0);
+      // Mark as read when the page is opened
+      markAllNotificationsSeen(u?.id ?? null);
+    });
+    return () => { active = false; };
   }, []);
 
   return (

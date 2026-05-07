@@ -129,7 +129,11 @@ function ShopReviewCard({
   const [owner, setOwner] = useState<User | null>(null);
 
   useEffect(() => {
-    setOwner(findUserById(shop.ownerId));
+    let active = true;
+    findUserById(shop.ownerId).then((u) => {
+      if (active) setOwner(u);
+    });
+    return () => { active = false; };
   }, [shop.ownerId]);
 
   const categoryLabel = CATEGORY_REGISTRY[shop.category]?.label ?? shop.category;
@@ -171,7 +175,7 @@ function ShopReviewCard({
           {owner && (
             <p className="text-[11px] text-gray-500">
               Эзэн: <span className="font-semibold text-gray-700">{owner.name}</span>
-              {owner.phone && ` · ${owner.phone}`}
+              {` · ${owner.email}`}
             </p>
           )}
         </div>

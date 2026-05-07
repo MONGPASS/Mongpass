@@ -40,8 +40,12 @@ export default function CommunityListPage() {
   const [hasUser, setHasUser] = useState(false);
 
   useEffect(() => {
+    let active = true;
     setPosts(loadPosts());
-    setHasUser(getCurrentUser() !== null);
+    getCurrentUser().then((u) => {
+      if (active) setHasUser(u !== null);
+    });
+    return () => { active = false; };
   }, []);
 
   const visible = useMemo(() => {

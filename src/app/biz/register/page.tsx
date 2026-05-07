@@ -32,21 +32,25 @@ export default function ShopRegisterPage() {
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    const user = getCurrentUser();
-    if (!user) {
-      router.replace("/login?redirect=/biz/register");
-      return;
-    }
-    // If user already owns a shop, take them straight to /biz
-    if (findShopByOwner(user.id)) {
-      router.replace("/biz");
-      return;
-    }
-    setAuthChecked(true);
+    let active = true;
+    getCurrentUser().then((user) => {
+      if (!active) return;
+      if (!user) {
+        router.replace("/login?redirect=/biz/register");
+        return;
+      }
+      // If user already owns a shop, take them straight to /biz
+      if (findShopByOwner(user.id)) {
+        router.replace("/biz");
+        return;
+      }
+      setAuthChecked(true);
+    });
+    return () => { active = false; };
   }, [router]);
 
-  function submit() {
-    const user = getCurrentUser();
+  async function submit() {
+    const user = await getCurrentUser();
     if (!user || !category || !name.trim()) return;
     createShop({
       ownerId: user.id,

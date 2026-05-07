@@ -1,0 +1,19 @@
+# Local dev secrets — copy this file to `.dev.vars` (no .example) and
+# fill in the real values. `.dev.vars` is git-ignored.
+#
+# `setupDevPlatform()` in next.config.mjs picks up these values when
+# running `npm run dev`, so route handlers see them on
+# `getRequestContext().env.*` just like in production.
+
+# Google OAuth credentials (same as the values you set on the Pages
+# project in the Cloudflare dashboard).
+GOOGLE_CLIENT_ID=paste-from-google-cloud-console
+GOOGLE_CLIENT_SECRET=paste-from-google-cloud-console
+
+# Comma-separated email allowlist. Anyone in this list automatically
+# becomes admin on first sign-in.
+ADMIN_EMAILS=tulgamaidar3@gmail.com
+
+# Random base64url 32-byte secret for HMAC etc. The same value should
+# be set on Cloudflare Pages (Settings → Variables and Secrets).
+AUTH_SECRET=ZAz4dRo1mlwfDun3a-YiN0LcSqkZP4almbtg2jyijQE

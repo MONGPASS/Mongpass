@@ -38,8 +38,11 @@ export function FavoritesSection() {
   const [shops, setShops] = useState<Shop[]>([]);
 
   useEffect(() => {
-    const user = getCurrentUser();
-    setShops(loadFavoriteShops(user?.id ?? null));
+    let active = true;
+    getCurrentUser().then((user) => {
+      if (active) setShops(loadFavoriteShops(user?.id ?? null));
+    });
+    return () => { active = false; };
   }, []);
 
   return <HorizontalShopList title="Хадгалсан дэлгүүр" shops={shops} />;
@@ -49,8 +52,11 @@ export function RecentlyViewedSection() {
   const [shops, setShops] = useState<Shop[]>([]);
 
   useEffect(() => {
-    const user = getCurrentUser();
-    setShops(loadRecentlyViewedShops(user?.id ?? null));
+    let active = true;
+    getCurrentUser().then((user) => {
+      if (active) setShops(loadRecentlyViewedShops(user?.id ?? null));
+    });
+    return () => { active = false; };
   }, []);
 
   return <HorizontalShopList title="Сүүлд үзсэн" shops={shops} />;

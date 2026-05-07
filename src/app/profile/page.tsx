@@ -14,14 +14,18 @@ export default function ProfilePage() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    const u = getCurrentUser();
-    setUser(u);
-    setShop(u ? findShopByOwner(u.id) : null);
-    setLoaded(true);
+    let active = true;
+    getCurrentUser().then((u) => {
+      if (!active) return;
+      setUser(u);
+      setShop(u ? findShopByOwner(u.id) : null);
+      setLoaded(true);
+    });
+    return () => { active = false; };
   }, []);
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    await logout();
     setUser(null);
     setShop(null);
   }
@@ -37,7 +41,7 @@ export default function ProfilePage() {
             {user ? (
               <>
                 <h2 className="text-[18px] font-bold text-gray-900 truncate">{user.name}</h2>
-                {user.phone && <p className="text-[13px] text-gray-500">{user.phone}</p>}
+                <p className="text-[13px] text-gray-500 truncate">{user.email}</p>
               </>
             ) : (
               <>

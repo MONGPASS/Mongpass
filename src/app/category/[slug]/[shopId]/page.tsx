@@ -55,10 +55,11 @@ export default function CategoryItemPage({
     // Record view only for shops that exist (and skip the owner viewing
     // their own shop preview — they'd flood their own history).
     if (found && found.status === "approved") {
-      const user = getCurrentUser();
-      if (!user || user.id !== found.ownerId) {
-        recordShopView(user?.id ?? null, found.id);
-      }
+      getCurrentUser().then((user) => {
+        if (!user || user.id !== found.ownerId) {
+          recordShopView(user?.id ?? null, found.id);
+        }
+      });
     }
   }, [params.shopId]);
 

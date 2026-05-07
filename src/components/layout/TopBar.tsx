@@ -10,12 +10,18 @@ export default function TopBar() {
   const [unread, setUnread] = useState(0);
 
   useEffect(() => {
-    setUnread(countUnread(getCurrentUser()));
-    // Refresh count on tab focus — picks up new orders/status changes
-    // that happened in another tab (or after the user navigated away).
-    const handler = () => setUnread(countUnread(getCurrentUser()));
+    let active = true;
+    const refresh = async () => {
+      const u = await getCurrentUser();
+      if (active) setUnread(countUnread(u));
+    };
+    refresh();
+    const handler = () => { void refresh(); };
     window.addEventListener("focus", handler);
-    return () => window.removeEventListener("focus", handler);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", handler);
+    };
   }, []);
 
   return (

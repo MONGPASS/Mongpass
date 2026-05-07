@@ -38,27 +38,31 @@ function BizProfilePageInner() {
 
   // Auth/shop gate: redirect to /login or /biz/register if needed.
   useEffect(() => {
-    const user = getCurrentUser();
-    if (!user) {
-      router.replace("/login?redirect=/biz");
-      return;
-    }
-    const shop = findShopByOwner(user.id);
-    if (!shop) {
-      router.replace("/biz/register");
-      return;
-    }
-    setCurrentShop(shop);
-    setShopName(shop.name);
-    setShopImages(shop.images ?? []);
-    setFormData({
-      hours: shop.openHours ?? "",
-      phone: shop.contactPhone ?? "",
-      facebook: shop.facebook ?? "",
-      instagram: shop.instagram ?? "",
-      address: shop.address ?? "",
+    let active = true;
+    getCurrentUser().then((user) => {
+      if (!active) return;
+      if (!user) {
+        router.replace("/login?redirect=/biz");
+        return;
+      }
+      const shop = findShopByOwner(user.id);
+      if (!shop) {
+        router.replace("/biz/register");
+        return;
+      }
+      setCurrentShop(shop);
+      setShopName(shop.name);
+      setShopImages(shop.images ?? []);
+      setFormData({
+        hours: shop.openHours ?? "",
+        phone: shop.contactPhone ?? "",
+        facebook: shop.facebook ?? "",
+        instagram: shop.instagram ?? "",
+        address: shop.address ?? "",
+      });
+      setAuthChecked(true);
     });
-    setAuthChecked(true);
+    return () => { active = false; };
   }, [router]);
 
   useEffect(() => {

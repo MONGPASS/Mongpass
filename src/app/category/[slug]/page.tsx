@@ -37,13 +37,18 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    let active = true;
     setShops(
       loadShops().filter(
         (s) => s.status === "approved" && shopMatchesSlug(s, params.slug),
       ),
     );
-    setHasUser(getCurrentUser() !== null);
-    setLoaded(true);
+    getCurrentUser().then((u) => {
+      if (!active) return;
+      setHasUser(u !== null);
+      setLoaded(true);
+    });
+    return () => { active = false; };
   }, [params.slug]);
 
   const visible = useMemo(() => {

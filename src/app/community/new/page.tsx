@@ -20,13 +20,17 @@ export default function CommunityNewPostPage() {
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    const u = getCurrentUser();
-    if (!u) {
-      router.replace("/login?redirect=/community/new");
-      return;
-    }
-    setUser(u);
-    setAuthChecked(true);
+    let active = true;
+    getCurrentUser().then((u) => {
+      if (!active) return;
+      if (!u) {
+        router.replace("/login?redirect=/community/new");
+        return;
+      }
+      setUser(u);
+      setAuthChecked(true);
+    });
+    return () => { active = false; };
   }, [router]);
 
   function handleImage(e: React.ChangeEvent<HTMLInputElement>) {

@@ -30,18 +30,22 @@ export default function ShopNoticesPage() {
   const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
-    const user = getCurrentUser();
-    if (!user) {
-      router.replace("/login?redirect=/biz/notices");
-      return;
-    }
-    const s = findShopByOwner(user.id);
-    if (!s) {
-      router.replace("/biz/register");
-      return;
-    }
-    setShop(s);
-    setAuthChecked(true);
+    let active = true;
+    getCurrentUser().then((user) => {
+      if (!active) return;
+      if (!user) {
+        router.replace("/login?redirect=/biz/notices");
+        return;
+      }
+      const s = findShopByOwner(user.id);
+      if (!s) {
+        router.replace("/biz/register");
+        return;
+      }
+      setShop(s);
+      setAuthChecked(true);
+    });
+    return () => { active = false; };
   }, [router]);
 
   function flash() {

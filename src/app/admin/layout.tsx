@@ -23,11 +23,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
-    if (!isAdmin(getCurrentUser())) {
-      router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
-      return;
-    }
-    setAuthChecked(true);
+    let active = true;
+    getCurrentUser().then((user) => {
+      if (!active) return;
+      if (!isAdmin(user)) {
+        router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
+        return;
+      }
+      setAuthChecked(true);
+    });
+    return () => { active = false; };
   }, [router, pathname]);
 
   if (!authChecked) {
