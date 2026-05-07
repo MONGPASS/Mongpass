@@ -13,17 +13,13 @@ compatibility_flags = ["nodejs_compat"]
 # Pages: build output produced by `next-on-pages` lives here.
 pages_build_output_dir = ".vercel/output/static"
 
-# D1 — relational data (users, shops, orders, …).
-[[d1_databases]]
-binding = "DB"
-database_name = "mongpass"
-database_id = "45947cfa-422d-48c5-a817-9a47dbc409c2"
-
-# R2 — image storage. Bucket exists ('mongpass-images') and is wired up
-# during Phase 5 of the migration (image uploads). The Pages dashboard's
-# BETA wrangler.toml support currently fails to bind R2 here, so for now
-# we keep the binding out of this file and add it via the dashboard
-# (Settings → Functions → R2 bucket bindings) when Phase 5 needs it.
-# [[r2_buckets]]
-# binding = "IMAGES"
-# bucket_name = "mongpass-images"
+# Bindings (D1, R2) are configured via the Cloudflare Pages dashboard,
+# not via this file. The BETA wrangler.toml reader on Pages currently
+# fails to attach D1/R2 bindings during Function publish even though
+# the resources exist in the account, so we set them in the dashboard
+# under Settings → Functions → Bindings:
+#
+#   D1 binding:    name=DB,     database=mongpass
+#   R2 binding:    name=IMAGES, bucket=mongpass-images
+#
+# Once added in the dashboard they persist across deploys.
