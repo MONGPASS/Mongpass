@@ -118,7 +118,7 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
             </>
           ) : (
             <p className="text-[13px] text-gray-500">
-              "{query}" гэсэн нэртэй дэлгүүр олдсонгүй
+              &ldquo;{query}&rdquo; гэсэн нэртэй дэлгүүр олдсонгүй
             </p>
           )}
         </div>

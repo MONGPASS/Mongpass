@@ -105,7 +105,7 @@ export default function CommunityListPage() {
               </Link>
             </>
           ) : (
-            <p className="text-sm text-gray-400">"{filter}" ангилалд нийтлэл алга байна</p>
+            <p className="text-sm text-gray-400">&ldquo;{filter}&rdquo; ангилалд нийтлэл алга байна</p>
           )}
         </div>
       ) : (

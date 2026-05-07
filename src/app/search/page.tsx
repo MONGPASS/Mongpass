@@ -70,7 +70,7 @@ export default function SearchPage() {
               <Store className="w-5 h-5" />
             </div>
             <p className="text-sm text-gray-500">
-              "<span className="font-bold">{query}</span>"-тай тохирох дэлгүүр алга
+              &ldquo;<span className="font-bold">{query}</span>&rdquo;-тай тохирох дэлгүүр алга
             </p>
           </div>
         ) : (

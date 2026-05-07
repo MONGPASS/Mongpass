@@ -59,7 +59,7 @@ export default function ChatListPage() {
             <MessageCircle className="w-5 h-5" />
           </div>
           <p className="text-sm text-gray-500 mb-1">Чат хараахан байхгүй байна</p>
-          <p className="text-[12px] text-gray-400">Дэлгүүрийн дэлгэрэнгүй хуудаснаас "Чатлах" дарж эхлүүлээрэй</p>
+          <p className="text-[12px] text-gray-400">Дэлгүүрийн дэлгэрэнгүй хуудаснаас &ldquo;Чатлах&rdquo; дарж эхлүүлээрэй</p>
         </div>
       ) : (
         <div className="bg-white divide-y divide-gray-100">

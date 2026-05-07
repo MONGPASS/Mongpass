@@ -132,7 +132,7 @@ export default function ShopNoticesPage() {
       <div className="px-4 pt-4">
         <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm">
           <p className="text-xs text-gray-500 leading-relaxed">
-            Энд бичсэн мэдээ нь сүүлд хэрэглэгчийн талд "Мэдээлэл" таб дээр
+            Энд бичсэн мэдээ нь сүүлд хэрэглэгчийн талд &ldquo;Мэдээлэл&rdquo; таб дээр
             харагдана. Жишээ нь: урамшуулал, цагийн өөрчлөлт, шинэ үйлчилгээ.
           </p>
         </div>

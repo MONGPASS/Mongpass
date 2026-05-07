@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Check, Utensils, Truck, Stethoscope, CarFront, Phone, Pizza, Briefcase, LayoutGrid, Scissors } from "lucide-react";
+import { ArrowLeft, Check, Utensils, Truck, Stethoscope, CarFront, Pizza, Briefcase, LayoutGrid, Scissors } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";

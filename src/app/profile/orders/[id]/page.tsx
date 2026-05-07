@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Plane, Zap, Package, Pizza, Stethoscope, Scissors } from "lucide-react";
+import { ArrowLeft, Plane, Zap, Package, Stethoscope, Scissors } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {

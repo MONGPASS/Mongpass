@@ -3,14 +3,12 @@
 import BottomNav from "@/components/layout/BottomNav";
 import { ChevronRight, Settings, Store, ShoppingBag, Heart, LogIn, LogOut, UserPlus, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { User, getCurrentUser, isAdmin, logout } from "@/lib/userStore";
 import { Shop, findShopByOwner } from "@/lib/shopStore";
 import { CATEGORY_REGISTRY } from "@/lib/categories";
 
 export default function ProfilePage() {
-  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [shop, setShop] = useState<Shop | null>(null);
   const [loaded, setLoaded] = useState(false);

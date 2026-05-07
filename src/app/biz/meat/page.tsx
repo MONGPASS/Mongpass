@@ -248,7 +248,7 @@ export default function MeatAdminPage() {
       <div className="px-4 mt-6">
         {visible.length === 0 ? (
           <p className="text-center text-gray-400 text-sm py-12">
-            "{filter}" ангилалд бараа алга байна
+            &ldquo;{filter}&rdquo; ангилалд бараа алга байна
           </p>
         ) : (
           visible.map((p) => (
