@@ -1,7 +1,18 @@
-import { MapPin, Clock, Phone, Facebook, Instagram } from "lucide-react";
+'use client';
+
+import { MapPin, Clock, Phone, Facebook, Instagram, Star, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { ShopData } from "../types";
+import {
+  Review,
+  addReview,
+  loadReviewsForShop,
+  summarizeReviews,
+  userHasReviewed,
+} from "@/lib/reviewStore";
+import { getCurrentUser } from "@/lib/userStore";
 
 export function HomeTab({ shop }: { shop: ShopData }) {
   return (
@@ -86,18 +97,183 @@ export function InfoTab({ shop }: { shop: ShopData }) {
   );
 }
 
-export function ReviewTab() {
+export function ReviewTab({ shop }: { shop: ShopData }) {
+  const shopId = String(shop.id);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [user, setUser] = useState<ReturnType<typeof getCurrentUser>>(null);
+  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
+
+  useEffect(() => {
+    setReviews(loadReviewsForShop(shopId));
+    const u = getCurrentUser();
+    setUser(u);
+    setAlreadyReviewed(userHasReviewed(u?.id ?? null, shopId));
+  }, [shopId]);
+
+  const summary = useMemo(() => summarizeReviews(shopId), [reviews, shopId]);
+
+  function submit() {
+    if (!comment.trim() || rating < 1 || rating > 5) return;
+    addReview({
+      shopId,
+      userId: user?.id ?? null,
+      userName: user?.name ?? "Зочин",
+      rating,
+      comment: comment.trim(),
+    });
+    setReviews(loadReviewsForShop(shopId));
+    setAlreadyReviewed(userHasReviewed(user?.id ?? null, shopId));
+    setShowForm(false);
+    setComment("");
+    setRating(5);
+  }
+
   return (
-    <div className="p-5 text-gray-400 text-sm font-medium text-center bg-white min-h-[40vh] border-t border-gray-100 flex items-center justify-center">
-      Сэтгэгдэл одоогоор байхгүй байна.
+    <div className="bg-white min-h-[40vh] border-t border-gray-100">
+      {/* Summary header */}
+      <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div>
+            <div className="flex items-center gap-1">
+              <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+              <span className="font-bold text-xl text-gray-900">
+                {summary.count > 0 ? summary.average.toFixed(1) : "—"}
+              </span>
+            </div>
+            <p className="text-[11px] text-gray-500 mt-0.5">{summary.count} сэтгэгдэл</p>
+          </div>
+        </div>
+        {!showForm && !alreadyReviewed && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="bg-gray-900 text-white text-[12px] font-semibold px-4 py-2 rounded-lg"
+          >
+            Сэтгэгдэл бичих
+          </button>
+        )}
+        {!showForm && alreadyReviewed && (
+          <span className="text-[11px] text-gray-400">Та аль хэдийн сэтгэгдэл бичсэн</span>
+        )}
+      </div>
+
+      {/* Submit form */}
+      {showForm && (
+        <div className="px-5 py-4 border-b border-gray-100">
+          <p className="text-[12px] font-bold text-gray-700 mb-2">Үнэлгээ</p>
+          <div className="flex items-center gap-1 mb-4">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                onClick={() => setRating(n)}
+                aria-label={`${n} од`}
+                className="p-1"
+              >
+                <Star
+                  className={`w-7 h-7 ${
+                    n <= rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+                  }`}
+                />
+              </button>
+            ))}
+          </div>
+          <textarea
+            rows={3}
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Туршлагаа товчхон бичнэ үү..."
+            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm resize-none mb-3"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setShowForm(false); setComment(""); }}
+              className="flex-1 bg-gray-100 text-gray-700 font-semibold py-2.5 rounded-lg text-sm"
+            >
+              Болих
+            </button>
+            <button
+              onClick={submit}
+              disabled={!comment.trim()}
+              className="flex-1 bg-gray-900 text-white font-semibold py-2.5 rounded-lg text-sm disabled:opacity-40"
+            >
+              Илгээх
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Review list */}
+      {reviews.length === 0 ? (
+        <div className="py-12 px-5 text-center text-gray-400">
+          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <MessageSquare className="w-5 h-5 text-gray-400" />
+          </div>
+          <p className="text-sm">Сэтгэгдэл хараахан байхгүй байна</p>
+          <p className="text-[11px] mt-1">Эхэнд сэтгэгдэл бичсэн хүн та байх уу?</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-gray-100">
+          {reviews.map((r) => (
+            <div key={r.id} className="px-5 py-4">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-[11px] font-bold">
+                    {r.userName.slice(0, 1).toUpperCase()}
+                  </div>
+                  <span className="font-bold text-sm text-gray-900">{r.userName}</span>
+                </div>
+                <span className="text-[10px] text-gray-400">
+                  {new Date(r.createdAt).toLocaleDateString("mn-MN")}
+                </span>
+              </div>
+              <div className="flex items-center gap-0.5 mb-1.5">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <Star
+                    key={n}
+                    className={`w-3.5 h-3.5 ${
+                      n <= r.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-200"
+                    }`}
+                  />
+                ))}
+              </div>
+              <p className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-wrap">
+                {r.comment}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-export function PhotoTab() {
+export function PhotoTab({ shop }: { shop: ShopData }) {
+  if (!shop.images || shop.images.length === 0) {
+    return (
+      <div className="p-5 text-gray-400 text-sm font-medium text-center bg-white min-h-[40vh] border-t border-gray-100 flex items-center justify-center">
+        Зураг одоогоор байхгүй байна.
+      </div>
+    );
+  }
   return (
-    <div className="p-5 text-gray-400 text-sm font-medium text-center bg-white min-h-[40vh] border-t border-gray-100 flex items-center justify-center">
-      Зураг одоогоор байхгүй байна.
+    <div className="bg-white min-h-[40vh] border-t border-gray-100 px-3 py-3">
+      <div className="grid grid-cols-3 gap-1">
+        {shop.images.map((src, i) => (
+          <div
+            key={i}
+            className="relative aspect-square bg-gray-100 rounded-md overflow-hidden"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={src}
+              alt={`Дэлгүүрийн зураг ${i + 1}`}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

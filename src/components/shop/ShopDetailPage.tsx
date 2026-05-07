@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { ShopCategory, ShopData } from "./types";
 import { TopNavBar, ShopHeader, ImageGallery, TabMenu, BottomCTA } from "./SharedComponents";
 import { HomeTab, InfoTab, ReviewTab, PhotoTab } from "./tabs/CommonTabs";
@@ -20,7 +19,6 @@ interface ShopDetailPageProps {
 }
 
 export default function ShopDetailPage({ category, shopData }: ShopDetailPageProps) {
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState("home");
 
   let serviceTabName = "Үнэ"; // Changed to '가격' (Price) matching the screenshot for default
@@ -39,6 +37,7 @@ export default function ShopDetailPage({ category, shopData }: ShopDetailPagePro
     case "car":
       serviceTabName = "Машин"; ctaText = "Зөвлөгөө авах"; ServiceTabComponent = CarServiceTab; break;
     case "food":
+    case "restaurant":
       serviceTabName = "Цэс"; ctaText = "Захиалах"; ServiceTabComponent = FoodServiceTab; break;
     case "travel":
       serviceTabName = "Багц"; ctaText = "Судлах"; ServiceTabComponent = TravelServiceTab; break;
@@ -48,7 +47,7 @@ export default function ShopDetailPage({ category, shopData }: ShopDetailPagePro
 
   return (
     <div className="w-full min-h-screen bg-white pb-[80px] relative">
-      <TopNavBar />
+      <TopNavBar shopId={String(shopData.id)} />
       <ShopHeader shop={shopData} />
       <ImageGallery images={shopData.images} />
       
@@ -64,11 +63,11 @@ export default function ShopDetailPage({ category, shopData }: ShopDetailPagePro
         {activeTab === "home" && <HomeTab shop={shopData} />}
         {activeTab === "info" && <InfoTab shop={shopData} />}
         {activeTab === "service" && <ServiceTabComponent />}
-        {activeTab === "review" && <ReviewTab />}
-        {activeTab === "photo" && <PhotoTab />}
+        {activeTab === "review" && <ReviewTab shop={shopData} />}
+        {activeTab === "photo" && <PhotoTab shop={shopData} />}
       </div>
 
-      <BottomCTA text={ctaText} />
+      <BottomCTA text={ctaText} shop={shopData} category={category} />
     </div>
   );
 }

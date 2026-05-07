@@ -1,0 +1,25 @@
+# Cloudflare Pages config for MongPass.
+#
+# After running `wrangler d1 create mongpass` and
+# `wrangler r2 bucket create mongpass-images`, paste the
+# returned database_id below. Pages env vars (GOOGLE_CLIENT_ID,
+# GOOGLE_CLIENT_SECRET, ADMIN_EMAILS, AUTH_SECRET, R2_PUBLIC_URL)
+# are set via the Cloudflare dashboard, not this file.
+
+name = "mongpass"
+compatibility_date = "2025-05-07"
+compatibility_flags = ["nodejs_compat"]
+
+# Pages: build output produced by `next-on-pages` lives here.
+pages_build_output_dir = ".vercel/output/static"
+
+# D1 — relational data (users, shops, orders, …).
+[[d1_databases]]
+binding = "DB"
+database_name = "mongpass"
+database_id = "45947cfa-422d-48c5-a817-9a47dbc409c2"
+
+# R2 — image storage (shop banners, product photos, …).
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "mongpass-images"

@@ -1,68 +1,58 @@
+'use client';
+
 import Link from "next/link";
-import { ArrowLeft, Search, Map, SlidersHorizontal, ArrowDownUp, Star, MapPin } from "lucide-react";
+import { ArrowLeft, Search, Map, SlidersHorizontal, ArrowDownUp, Star, MapPin, Store } from "lucide-react";
 import BottomNav from "@/components/layout/BottomNav";
+import { useEffect, useMemo, useState } from "react";
+import { Shop, isShopOpen, loadShops } from "@/lib/shopStore";
+import { summarizeReviews } from "@/lib/reviewStore";
+import { ShopCategory } from "@/components/shop/types";
+import { CATEGORY_REGISTRY } from "@/lib/categories";
+import { getCurrentUser } from "@/lib/userStore";
 
-// Mock Data
-const MOCK_STORES = [
-  {
-    id: 1,
-    name: "Улаанбаатар Зоогийн ...",
-    rating: 4.8,
-    reviews: 128,
-    desc: "Монгол үндэсний хоол, хуушуур, бууз, цуйван. Гэр бүлийн тав тухтай орчин.",
-    location: "Сөүл, Донгдэмун",
-    distance: "1.2 км",
-    isOpen: true,
-    imageColor: "bg-amber-900"
-  },
-  {
-    id: 2,
-    name: "Тал Нутаг Ресторан",
-    rating: 4.5,
-    reviews: 85,
-    desc: "Амттай шөл, хорхог, боодог захиалгаар хийнэ.",
-    location: "Инчон",
-    distance: "15 км",
-    isOpen: false,
-    imageColor: "bg-red-900"
-  },
-  {
-    id: 3,
-    name: "Монгол Гэр",
-    rating: 5.0,
-    reviews: 42,
-    desc: "Найрсаг үйлчилгээ, цэвэрхэн орчин. Өглөөний цай гардаг.",
-    location: "Бусан",
-    distance: "320 км",
-    isOpen: false,
-    imageColor: "bg-orange-800"
-  },
-  {
-    id: 4,
-    name: "Сөүл Бууз & Банш",
-    rating: 4.2,
-    reviews: 200,
-    desc: "Түргэн хоол, хүргэлтийн үйлчилгээтэй. 24 цагаар ажиллана.",
-    location: "Сөүл, Ганнам",
-    distance: "5.4 км",
-    isOpen: true,
-    imageColor: "bg-blue-900" // using colors as placeholder for images
-  },
-];
-
-const categoryNames: Record<string, string> = {
-  meat: "Махны дэлгүүр",
-  cargo: "Карго",
-  hospital: "Эмнэлэг",
-  car: "Хуучин машин",
-  phone: "Утас дугаар",
-  restaurant: "Хоолны газар",
-  travel: "Аялал",
-  other: "Бусад",
-};
+/**
+ * The slug from the URL doesn't always map 1:1 to a `ShopCategory`:
+ *  - "restaurant" and "food" are both valid restaurant categories
+ *  - "phone" exists on the home grid but isn't yet a shop category
+ * This helper returns every category a shop could live under for the slug.
+ */
+function shopMatchesSlug(shop: Shop, slug: string): boolean {
+  if (shop.category === slug) return true;
+  if ((slug === "restaurant" || slug === "food") &&
+      (shop.category === "restaurant" || shop.category === "food")) {
+    return true;
+  }
+  return false;
+}
 
 export default function CategoryPage({ params }: { params: { slug: string } }) {
-  const title = categoryNames[params.slug] || "Үйлчилгээ";
+  const slug = params.slug as ShopCategory;
+  const title = CATEGORY_REGISTRY[slug]?.label ?? "Үйлчилгээ";
+
+  const [shops, setShops] = useState<Shop[]>([]);
+  const [query, setQuery] = useState("");
+  const [hasUser, setHasUser] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    setShops(
+      loadShops().filter(
+        (s) => s.status === "approved" && shopMatchesSlug(s, params.slug),
+      ),
+    );
+    setHasUser(getCurrentUser() !== null);
+    setLoaded(true);
+  }, [params.slug]);
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return shops;
+    return shops.filter((s) =>
+      s.name.toLowerCase().includes(q) ||
+      (s.description ?? "").toLowerCase().includes(q) ||
+      (s.address ?? "").toLowerCase().includes(q),
+    );
+  }, [shops, query]);
 
   return (
     <main className="w-full min-h-screen bg-gray-50 pb-[80px]">
@@ -73,8 +63,12 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
         </Link>
         <h1 className="text-[18px] font-bold text-gray-900">{title}</h1>
         <div className="flex items-center gap-3">
-          <button className="p-1 hover:text-primary transition"><Search size={22} className="text-gray-700" /></button>
-          <button className="p-1 hover:text-primary transition"><Map size={22} className="text-gray-700" /></button>
+          <Link href="/search" className="p-1 hover:text-primary transition" aria-label="Хайх">
+            <Search size={22} className="text-gray-700" />
+          </Link>
+          <button className="p-1 hover:text-primary transition" aria-label="Газрын зураг">
+            <Map size={22} className="text-gray-700" />
+          </button>
         </div>
       </header>
 
@@ -82,67 +76,114 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
       <div className="bg-white px-5 py-4 border-b border-gray-100">
         <div className="relative mb-4">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-          <input 
-            type="text" 
-            placeholder="Бизнесийн нэрээр хайх..." 
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Бизнесийн нэрээр хайх..."
             className="w-full bg-gray-100 rounded-xl py-2.5 pl-10 pr-4 text-[14px] text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-primary/30"
           />
         </div>
 
-        <div className="flex items-center gap-2 mb-4">
-          <button className="flex-1 flex items-center justify-center gap-2 py-2 border border-gray-200 rounded-xl text-[14px] font-semibold text-gray-800 hover:bg-gray-50 transition active:scale-[0.98]">
+        <div className="flex items-center gap-2 mb-1">
+          <button className="flex-1 flex items-center justify-center gap-2 py-2 border border-gray-200 rounded-xl text-[14px] font-semibold text-gray-800 hover:bg-gray-50 transition">
             <SlidersHorizontal size={16} /> Шүүх
           </button>
-          <button className="flex-1 flex items-center justify-center gap-2 py-2 border border-gray-200 rounded-xl text-[14px] font-semibold text-gray-800 hover:bg-gray-50 transition active:scale-[0.98]">
+          <button className="flex-1 flex items-center justify-center gap-2 py-2 border border-gray-200 rounded-xl text-[14px] font-semibold text-gray-800 hover:bg-gray-50 transition">
             <ArrowDownUp size={16} /> Эрэмбэлэх
           </button>
-        </div>
-
-        <div className="flex overflow-x-auto snap-x hide-scroll gap-2 -mx-5 px-5 pb-1">
-          <style dangerouslySetInnerHTML={{__html: `
-            .hide-scroll::-webkit-scrollbar { display: none; }
-            .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
-          `}} />
-          <button className="shrink-0 snap-start px-3.5 py-1.5 bg-blue-50 text-primary text-[13px] font-semibold rounded-full">Нээлттэй</button>
-          <button className="shrink-0 snap-start px-3.5 py-1.5 bg-gray-100 text-gray-700 text-[13px] font-semibold rounded-full">Ойрхон</button>
-          <button className="shrink-0 snap-start px-3.5 py-1.5 bg-gray-100 text-gray-700 text-[13px] font-semibold rounded-full">Өндөр үнэлгээтэй</button>
-          <button className="shrink-0 snap-start px-3.5 py-1.5 bg-gray-100 text-gray-700 text-[13px] font-semibold rounded-full">Хямд үнэ</button>
         </div>
       </div>
 
       {/* List */}
-      <div className="px-5 py-4 flex flex-col gap-4">
-        {MOCK_STORES.map((store) => (
-          <Link href={`/category/${params.slug}/${store.id}`} key={store.id} className="bg-white p-3.5 rounded-2xl flex gap-3 shadow-[0_2px_10px_rgba(0,0,0,0.03)] active:scale-[0.98] transition-transform">
-            <div className={`relative w-[90px] h-[90px] rounded-xl shrink-0 ${store.imageColor} overflow-hidden shadow-sm flex items-center justify-center bg-cover bg-center`}
-                 style={{ backgroundImage: 'linear-gradient(rgba(0,0,0,0.1), rgba(0,0,0,0.3))' }}
-            >
-              <div className={`absolute top-1 left-1 px-1.5 py-[2px] rounded uppercase font-bold text-[9px] text-white shadow-sm
-                ${store.isOpen ? 'bg-emerald-500' : 'bg-red-500'}
-              `}>
-                {store.isOpen ? 'Нээлттэй' : 'Хаалттай'}
-              </div>
-              <span className="text-white font-bold opacity-30 text-2xl drop-shadow-md">IMG</span>
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-[15px] text-gray-900 mb-0.5 truncate">{store.name}</h3>
-              <div className="flex items-center gap-1 mb-1.5">
-                <Star size={12} className="text-yellow-400 fill-yellow-400" />
-                <span className="text-[12px] font-bold text-gray-900">{store.rating}</span>
-                <span className="text-[12px] text-gray-400 font-medium">({store.reviews} сэтгэгдэл)</span>
-              </div>
-              <p className="text-[12px] leading-snug text-gray-600 line-clamp-2 mb-2">
-                {store.desc}
+      {loaded && visible.length === 0 ? (
+        <div className="px-5 py-10 flex flex-col items-center justify-center text-center">
+          <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mb-3 shadow-sm border border-gray-100 text-gray-400">
+            <Store size={22} />
+          </div>
+          {shops.length === 0 ? (
+            <>
+              <p className="text-[14px] font-bold text-gray-700 mb-1">
+                {title} ангилалд дэлгүүр бүртгэгдээгүй байна
               </p>
-              <div className="flex items-center gap-1 text-[11px] font-semibold text-gray-500">
-                <MapPin size={12} className="text-gray-400" />
-                <span>{store.location} • {store.distance}</span>
+              <p className="text-[12px] text-gray-500 mb-5 leading-relaxed max-w-[280px]">
+                Та эхний дэлгүүр болж бүртгүүлэх боломжтой. Бүртгэх нь үнэгүй.
+              </p>
+              <Link
+                href={hasUser ? "/biz/register" : "/login?redirect=/biz/register"}
+                className="bg-gray-900 text-white font-semibold px-5 py-2.5 rounded-xl text-[13px]"
+              >
+                Дэлгүүр бүртгэх
+              </Link>
+            </>
+          ) : (
+            <p className="text-[13px] text-gray-500">
+              "{query}" гэсэн нэртэй дэлгүүр олдсонгүй
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="px-5 py-4 flex flex-col gap-4">
+          {visible.map((shop) => (
+            <Link
+              href={`/category/${params.slug}/${shop.id}`}
+              key={shop.id}
+              className="bg-white p-3.5 rounded-2xl flex gap-3 shadow-[0_2px_10px_rgba(0,0,0,0.03)] active:scale-[0.98] transition-transform"
+            >
+              <div className="relative w-[90px] h-[90px] rounded-xl shrink-0 bg-gradient-to-br from-gray-200 to-gray-300 overflow-hidden shadow-sm flex items-center justify-center">
+                {shop.images && shop.images[0] ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={shop.images[0]} alt={shop.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-white font-bold opacity-50 text-2xl drop-shadow-md">
+                    {shop.name.slice(0, 1).toUpperCase()}
+                  </span>
+                )}
+                <div
+                  className={`absolute top-1 left-1 px-1.5 py-[2px] rounded uppercase font-bold text-[9px] text-white shadow-sm ${
+                    isShopOpen(shop) ? "bg-emerald-500" : "bg-red-500"
+                  }`}
+                >
+                  {isShopOpen(shop) ? "Нээлттэй" : "Хаалттай"}
+                </div>
               </div>
-            </div>
-          </Link>
-        ))}
-      </div>
+
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-[15px] text-gray-900 mb-0.5 truncate">{shop.name}</h3>
+                {(() => {
+                  const sum = summarizeReviews(shop.id);
+                  return (
+                    <div className="flex items-center gap-1 mb-1.5">
+                      <Star size={12} className="text-yellow-400 fill-yellow-400" />
+                      <span className="text-[12px] font-bold text-gray-900">
+                        {sum.count > 0 ? sum.average.toFixed(1) : "—"}
+                      </span>
+                      <span className="text-[12px] text-gray-400 font-medium">
+                        {sum.count > 0 ? `(${sum.count} сэтгэгдэл)` : "(сэтгэгдэл алга)"}
+                      </span>
+                    </div>
+                  );
+                })()}
+                {shop.description ? (
+                  <p className="text-[12px] leading-snug text-gray-600 line-clamp-2 mb-2">
+                    {shop.description}
+                  </p>
+                ) : (
+                  <p className="text-[12px] leading-snug text-gray-400 italic line-clamp-2 mb-2">
+                    Танилцуулга оруулаагүй байна
+                  </p>
+                )}
+                {shop.address && (
+                  <div className="flex items-center gap-1 text-[11px] font-semibold text-gray-500">
+                    <MapPin size={12} className="text-gray-400" />
+                    <span className="truncate">{shop.address}</span>
+                  </div>
+                )}
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
       <BottomNav />
     </main>
   );

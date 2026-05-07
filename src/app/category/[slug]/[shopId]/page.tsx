@@ -1,39 +1,94 @@
+'use client';
+
+import Link from "next/link";
+import { ArrowLeft, Store } from "lucide-react";
+import { useEffect, useState } from "react";
 import ShopDetailPage from "@/components/shop/ShopDetailPage";
 import { ShopCategory, ShopData } from "@/components/shop/types";
+import { Shop, findShopById } from "@/lib/shopStore";
+import { recordShopView } from "@/lib/recentlyViewedStore";
+import { getCurrentUser } from "@/lib/userStore";
+import { summarizeReviews } from "@/lib/reviewStore";
 
-// Mock database fetching based on standard structure
-export default function CategoryItemPage({ params }: { params: { slug: string, shopId: string } }) {
-  // Coerce slug to matching category type
-  const category = (params.slug as ShopCategory) || "other";
-
-  const mockShop: ShopData = {
-    id: params.shopId,
-    name: "Жишээ Дэлгүүр / Эмнэлэг",
-    images: ["/hero", "/gallery1"],
-    rating: 4.8,
-    reviews: 128,
-    address: "Сөүл хот, Тусгай дүүрэг, 12-3",
-    openHours: "Даваа - Баасан: 09:00 - 18:00",
-    phone: "010-1234-5678",
-    facebook: "https://facebook.com/mongpass",
-    instagram: "https://instagram.com/mongpass_kr",
-    isLiked: true,
-    description: "Монголчууддаа зориулсан найдвартай, баталгаатай үйлчилгээ.",
-    notices: [
-      {
-        id: 1,
-        title: "Шинэ жилийн урамшуулал эхэллээ!",
-        date: "2026.11.15",
-        content: "Бүх үйлчилгээндээ 20% хямдрал зарлаж байна. Та амжиж үйлчлүүлээрэй."
-      },
-      {
-        id: 2,
-        title: "Цагийн хуваарьт өөрчлөлт орлоо",
-        date: "2026.04.10",
-        content: "Даваа гаригт амарч, Ням гаригт хэвийн ажиллахаар боллоо."
-      }
-    ]
+/**
+ * Bridge our internal Shop record (lib/shopStore) to the richer ShopData
+ * shape ShopDetailPage expects. Fields we don't yet collect get sensible
+ * placeholder values; future PRs can extend Shop with ratings, hours,
+ * social links, etc.
+ */
+function shopToShopData(shop: Shop): ShopData {
+  const summary = summarizeReviews(shop.id);
+  return {
+    id: shop.id,
+    name: shop.name,
+    images: shop.images ?? [],
+    rating: summary.average,
+    reviews: summary.count,
+    address: shop.address ?? "—",
+    openHours: shop.openHours ?? "—",
+    phone: shop.contactPhone ?? "—",
+    facebook: shop.facebook,
+    instagram: shop.instagram,
+    description: shop.description,
+    notices: (shop.notices ?? []).map((n) => ({
+      id: parseInt(n.id.replace(/[^0-9]/g, "").slice(-9), 10) || 0,
+      title: n.title,
+      content: n.content,
+      date: new Date(n.createdAt).toLocaleDateString("mn-MN"),
+    })),
+    isOpen: shop.isOpen,
   };
+}
 
-  return <ShopDetailPage category={category} shopData={mockShop} />;
+export default function CategoryItemPage({
+  params,
+}: {
+  params: { slug: string; shopId: string };
+}) {
+  const [shop, setShop] = useState<Shop | null | undefined>(undefined);
+
+  useEffect(() => {
+    const found = findShopById(params.shopId);
+    setShop(found ?? null);
+    // Record view only for shops that exist (and skip the owner viewing
+    // their own shop preview — they'd flood their own history).
+    if (found && found.status === "approved") {
+      const user = getCurrentUser();
+      if (!user || user.id !== found.ownerId) {
+        recordShopView(user?.id ?? null, found.id);
+      }
+    }
+  }, [params.shopId]);
+
+  if (shop === undefined) {
+    return <main className="w-full min-h-screen bg-white" />;
+  }
+
+  if (shop === null) {
+    return (
+      <main className="w-full min-h-screen bg-gray-50 flex items-center justify-center px-6">
+        <div className="bg-white rounded-3xl shadow-sm p-8 text-center max-w-md w-full">
+          <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+            <Store className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-bold text-gray-900 mb-2">Дэлгүүр олдсонгүй</h2>
+          <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+            Энэ дэлгүүр устгагдсан эсвэл одоогоор бүртгэлд байхгүй байна.
+          </p>
+          <Link
+            href={`/category/${params.slug}`}
+            className="inline-flex items-center gap-1.5 bg-gray-900 text-white font-semibold px-5 py-2.5 rounded-xl text-sm"
+          >
+            <ArrowLeft className="w-4 h-4" /> Жагсаалт руу буцах
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  // Use the shop's actual category for tab/CTA logic, even if URL slug
+  // differs (e.g. "food" vs "restaurant").
+  const category: ShopCategory = shop.category;
+
+  return <ShopDetailPage category={category} shopData={shopToShopData(shop)} />;
 }

@@ -31,6 +31,14 @@ yarn-error.log*
 # vercel
 .vercel
 
+# cloudflare
+.wrangler
+.dev.vars
+.dev.vars.local
+
+# claude code internal artifacts (plans, etc.)
+.claude
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
