@@ -22,8 +22,7 @@ binding = "DB"
 database_name = "mongpass"
 database_id = "62da2a5c-12dc-432d-ab98-2ef4399971f4"
 
-# R2 binding (image storage) — added in Phase 5 once the bucket is
-# enabled on this account. Uncomment then:
-# [[r2_buckets]]
-# binding = "IMAGES"
-# bucket_name = "mongpass-images"
+# R2 binding (image storage). Used in Phase 5 (presigned uploads).
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "mongpass-images"
