@@ -1,5 +1,7 @@
 'use client';
 
+export const runtime = "edge";
+
 import { ArrowLeft, Plane, Zap, Package, Send, Camera, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";

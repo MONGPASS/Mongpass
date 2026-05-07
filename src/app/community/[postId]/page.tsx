@@ -1,5 +1,7 @@
 'use client';
 
+export const runtime = "edge";
+
 import { ArrowLeft, Heart, MessageCircle, Send, Trash2, Users } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";

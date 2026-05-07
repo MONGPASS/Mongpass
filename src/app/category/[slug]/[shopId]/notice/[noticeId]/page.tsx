@@ -1,5 +1,8 @@
 'use client';
 
+// Cloudflare Pages requires every non-static route to opt into the edge runtime.
+export const runtime = "edge";
+
 import { ArrowLeft, MessageCircle, Send, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";

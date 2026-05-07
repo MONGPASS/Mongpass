@@ -1,5 +1,7 @@
 'use client';
 
+export const runtime = "edge";
+
 import { ArrowLeft, Send, Check, Stethoscope } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";

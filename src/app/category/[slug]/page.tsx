@@ -1,5 +1,7 @@
 'use client';
 
+export const runtime = "edge";
+
 import Link from "next/link";
 import { ArrowLeft, Search, Map, SlidersHorizontal, ArrowDownUp, Star, MapPin, Store } from "lucide-react";
 import BottomNav from "@/components/layout/BottomNav";

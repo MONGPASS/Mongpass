@@ -1,5 +1,7 @@
 'use client';
 
+export const runtime = "edge";
+
 import { ArrowLeft, Plus, Minus, Trash2, Send, Check } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
