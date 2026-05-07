@@ -2,7 +2,7 @@
 
 import { ArrowLeft, Share2, Menu, AlertCircle, ChevronDown, Edit3, ShoppingBag, Camera, Home, PlusSquare, MessageCircle, Settings, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useRef, useEffect } from "react";
+import { Suspense, useState, useRef, useEffect } from "react";
 import { getCategoryInfo } from "@/lib/categories";
 import { ShopCategory } from "@/components/shop/types";
 import { BeautyAppointment, CargoOrder, HospitalAppointment, ORDER_STATUS_LABEL, OrderStatus, RestaurantOrder, formatPrice, getStatusFlow, getStatusLabel, loadOrdersByShop, updateOrderStatus } from "@/lib/orderStore";
@@ -12,7 +12,18 @@ import { BizChatThreadList } from "@/components/biz/BizChatThreadList";
 
 const CATEGORY_HAS_DEDICATED_ORDERS_UI: ShopCategory[] = ["cargo", "restaurant", "food", "hospital", "beauty"];
 
+// Top-level wrapper provides the Suspense boundary required when
+// useSearchParams() is used during render — without it Next.js fails
+// the build trying to statically prerender this page.
 export default function BizProfilePage() {
+  return (
+    <Suspense fallback={<main className="w-full min-h-screen bg-gray-50" />}>
+      <BizProfilePageInner />
+    </Suspense>
+  );
+}
+
+function BizProfilePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [authChecked, setAuthChecked] = useState(false);
