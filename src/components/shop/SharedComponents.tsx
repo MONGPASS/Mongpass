@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { isFavorite, toggleFavorite } from "@/lib/favoriteStore";
 import { getCurrentUser } from "@/lib/userStore";
 import { ensureThread, threadIdFor } from "@/lib/chatStore";
+import { r2Url } from "@/lib/images/upload";
 
 export function TopNavBar({ shopId }: { shopId?: string }) {
   const router = useRouter();
@@ -89,6 +90,10 @@ export function ShopHeader({ shop }: { shop: ShopData }) {
   );
 }
 
+function looksLikeUrl(s: string): boolean {
+  return s.startsWith("http://") || s.startsWith("https://") || s.startsWith("data:") || s.startsWith("/");
+}
+
 export function ImageGallery({ images }: { images: string[] }) {
   // No photos yet → don't take up vertical space at the top of the page.
   if (images.length === 0) return null;
@@ -96,26 +101,32 @@ export function ImageGallery({ images }: { images: string[] }) {
   return (
     <div className="bg-white pb-5">
       <div className="flex overflow-x-auto hide-scroll px-5 gap-3 snap-x snap-mandatory">
-        {images.map((src, i) => (
-          <div
-            key={i}
-            className="snap-start shrink-0 w-[160px] h-[220px] md:w-[240px] md:h-[320px] bg-gray-100 rounded-xl overflow-hidden relative border border-gray-100/50"
-          >
-            {src ? (
-              // base64 / blob / external URL — let the browser resolve.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={src}
-                alt={`Дэлгүүрийн зураг ${i + 1}`}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm font-bold bg-gray-50">
-                IMAGE {i + 1}
-              </div>
-            )}
-          </div>
-        ))}
+        {images.map((src, i) => {
+          // Items in the array can be either an R2 key (Phase 5+
+          // standard) or an old base64 / external URL kept for
+          // backward compat. r2Url() returns a same-origin proxy
+          // path; if the input already looks like a URL, use it as-is.
+          const url = looksLikeUrl(src) ? src : r2Url(src);
+          return (
+            <div
+              key={i}
+              className="snap-start shrink-0 w-[160px] h-[220px] md:w-[240px] md:h-[320px] bg-gray-100 rounded-xl overflow-hidden relative border border-gray-100/50"
+            >
+              {url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={url}
+                  alt={`Дэлгүүрийн зураг ${i + 1}`}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm font-bold bg-gray-50">
+                  IMAGE {i + 1}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

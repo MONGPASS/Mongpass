@@ -1,6 +1,7 @@
 'use client';
 
 import { Camera, ChevronDown, ChevronUp, ImageIcon, Plus, Save, Trash2, X } from "lucide-react";
+import { uploadImage } from "@/lib/images/upload";
 import { useEffect, useState } from "react";
 import {
   BANNER_GRADIENTS,
@@ -207,25 +208,19 @@ export default function AdminBannerPage() {
                       type="file"
                       accept="image/*"
                       className="hidden"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
-                        if (!file) return;
-                        // Soft cap so a single banner doesn't blow the
-                        // 5 MB localStorage budget. Phase 5 will swap to
-                        // R2 and lift this entirely.
-                        if (file.size > 1_500_000) {
-                          alert("Зургийн хэмжээ 1.5MB-аас бага байх ёстой.");
-                          e.target.value = "";
-                          return;
-                        }
-                        const reader = new FileReader();
-                        reader.onload = (ev) => {
-                          if (typeof ev.target?.result === "string") {
-                            setForm((prev) => ({ ...prev, imageDataUrl: ev.target!.result as string }));
-                          }
-                        };
-                        reader.readAsDataURL(file);
                         e.target.value = "";
+                        if (!file) return;
+                        // R2-backed upload: client converts to WebP +
+                        // resizes to ≤1600px, server stores in R2 and
+                        // returns a key we embed via /api/r2/<key>.
+                        const uploaded = await uploadImage(file, "banner");
+                        if (uploaded) {
+                          setForm((prev) => ({ ...prev, imageDataUrl: uploaded.url }));
+                        } else {
+                          alert("Зураг оруулахад алдаа гарлаа. Дахин оролдоно уу.");
+                        }
                       }}
                     />
                     <label

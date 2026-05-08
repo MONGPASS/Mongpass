@@ -18,6 +18,7 @@ import {
   estimateCargoPrice,
   newOrderId,
 } from "@/lib/orderStore";
+import { uploadImage } from "@/lib/images/upload";
 
 const TYPE_ICON: Record<CargoType, typeof Plane> = {
   air: Plane,
@@ -264,15 +265,12 @@ export default function CargoOrderPage({ params }: { params: { shopId: string } 
                     capture="environment"
                     id="cargoItemImage"
                     className="hidden"
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const file = e.target.files?.[0];
-                      if (!file) return;
-                      const reader = new FileReader();
-                      reader.onload = (ev) => {
-                        if (ev.target?.result) setImageDataUrl(ev.target.result as string);
-                      };
-                      reader.readAsDataURL(file);
                       e.target.value = "";
+                      if (!file) return;
+                      const uploaded = await uploadImage(file, "cargo");
+                      if (uploaded) setImageDataUrl(uploaded.url);
                     }}
                   />
                   <label

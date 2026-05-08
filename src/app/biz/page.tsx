@@ -9,6 +9,7 @@ import { BeautyAppointment, CargoOrder, HospitalAppointment, ORDER_STATUS_LABEL,
 import { Shop, findShopByOwner, isShopOpen, toggleOpen, updateShop } from "@/lib/shopStore";
 import { getCurrentUser } from "@/lib/userStore";
 import { BizChatThreadList } from "@/components/biz/BizChatThreadList";
+import { r2Url, uploadImage } from "@/lib/images/upload";
 
 const CATEGORY_HAS_DEDICATED_ORDERS_UI: ShopCategory[] = ["cargo", "restaurant", "food", "hospital", "beauty"];
 
@@ -75,23 +76,48 @@ function BizProfilePageInner() {
     }
   }, [searchParams]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [uploading, setUploading] = useState(false);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files) return;
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        if (ev.target?.result) {
-          setShopImages((prev) => [...prev, ev.target!.result as string]);
+    e.target.value = "";
+    if (!files || !currentShop) return;
+    setUploading(true);
+    try {
+      // Upload one at a time so the order is stable and any failure
+      // doesn't poison the rest of the batch.
+      for (const file of Array.from(files)) {
+        const uploaded = await uploadImage(file, "shop");
+        if (!uploaded) continue;
+        const res = await fetch(
+          `/api/shops/${encodeURIComponent(currentShop.id)}/images`,
+          {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ r2Key: uploaded.key }),
+          },
+        );
+        if (res.ok) {
+          setShopImages((prev) => [...prev, uploaded.key]);
         }
-      };
-      reader.readAsDataURL(file);
-    });
-    e.target.value = '';
+      }
+    } finally {
+      setUploading(false);
+    }
   };
 
-  const removeImage = (index: number) => {
-    setShopImages((prev) => prev.filter((_, i) => i !== index));
+  const removeImage = async (index: number) => {
+    if (!currentShop) return;
+    const key = shopImages[index];
+    if (!key) return;
+    const res = await fetch(
+      `/api/shops/${encodeURIComponent(currentShop.id)}/images/${encodeURIComponent(key)}`,
+      { method: "DELETE", credentials: "same-origin" },
+    );
+    if (res.ok) {
+      setShopImages((prev) => prev.filter((_, i) => i !== index));
+    }
   };
 
   // Editable shop profile fields. Initial values come from currentShop
@@ -273,9 +299,6 @@ function BizProfilePageInner() {
                 
                 <div className="flex flex-col gap-2 mb-2">
                   <label className="text-[14px] font-bold text-gray-900">Дэлгүүрийн зураг оруулах</label>
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-[12px] text-amber-800 leading-relaxed">
-                    📷 Зураг оруулах функц удахгүй идэвхжинэ. Одоогоор хадгалагдахгүй.
-                  </div>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -283,29 +306,39 @@ function BizProfilePageInner() {
                     multiple
                     onChange={handleImageUpload}
                     className="hidden"
-                    disabled
+                    disabled={uploading}
                   />
-                  <div className="flex gap-2 overflow-x-auto hide-scroll pb-1 opacity-50">
-                    {shopImages.map((src, i) => (
-                      <div key={i} className="relative shrink-0 w-[100px] h-[100px] rounded-xl overflow-hidden border border-gray-200">
-                        <img src={src} alt={`shop-${i}`} className="w-full h-full object-cover" />
+                  <div className="flex gap-2 overflow-x-auto hide-scroll pb-1">
+                    {shopImages.map((key, i) => (
+                      <div key={key} className="relative shrink-0 w-[100px] h-[100px] rounded-xl overflow-hidden border border-gray-200">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={r2Url(key)} alt={`shop-${i}`} className="w-full h-full object-cover" />
                         <button
                           onClick={() => removeImage(i)}
                           className="absolute top-1 right-1 bg-black/60 text-white rounded-full w-5 h-5 flex items-center justify-center"
+                          aria-label="Зураг устгах"
                         >
                           <X size={12} strokeWidth={3} />
                         </button>
                       </div>
                     ))}
-                    <button
-                      type="button"
-                      disabled
-                      className="shrink-0 w-[100px] h-[100px] bg-gray-50 border border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center gap-1 text-gray-400 cursor-not-allowed"
-                    >
-                      <Camera size={22} strokeWidth={1.5} />
-                      <span className="text-[11px] font-medium">Удахгүй</span>
-                    </button>
+                    {shopImages.length < 10 && (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        className="shrink-0 w-[100px] h-[100px] bg-gray-50 border border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center gap-1 text-gray-400 hover:bg-gray-100 disabled:opacity-50"
+                      >
+                        <Camera size={22} strokeWidth={1.5} />
+                        <span className="text-[11px] font-medium">
+                          {uploading ? "..." : "Зураг +"}
+                        </span>
+                      </button>
+                    )}
                   </div>
+                  <p className="text-[10px] text-gray-400">
+                    Зургийг WebP-д хувиргаж, 1600px хүртэл багасгана. Хамгийн ихдээ 10 зураг.
+                  </p>
                 </div>
 
                 <hr className="border-gray-100" />

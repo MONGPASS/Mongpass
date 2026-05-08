@@ -9,6 +9,7 @@ import {
   createPost,
 } from "@/lib/communityStore";
 import { User, getCurrentUser } from "@/lib/userStore";
+import { uploadImage } from "@/lib/images/upload";
 
 export default function CommunityNewPostPage() {
   const router = useRouter();
@@ -33,15 +34,19 @@ export default function CommunityNewPostPage() {
     return () => { active = false; };
   }, [router]);
 
-  function handleImage(e: React.ChangeEvent<HTMLInputElement>) {
+  const [uploading, setUploading] = useState(false);
+
+  async function handleImage(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      if (ev.target?.result) setImageDataUrl(ev.target.result as string);
-    };
-    reader.readAsDataURL(file);
     e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    try {
+      const uploaded = await uploadImage(file, "post");
+      if (uploaded) setImageDataUrl(uploaded.url);
+    } finally {
+      setUploading(false);
+    }
   }
 
   function submit() {
