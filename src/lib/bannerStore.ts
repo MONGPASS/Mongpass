@@ -12,8 +12,15 @@ export interface Banner {
   badge: string;
   title: string;
   desc: string;
-  /** One of the keys in BANNER_GRADIENTS — controls colour scheme. */
+  /** One of the keys in BANNER_GRADIENTS — controls fallback colour scheme. */
   gradient: BannerGradient;
+  /**
+   * Optional uploaded background image. When present, the banner
+   * renders this image (with a dark gradient overlay for legibility)
+   * instead of the flat gradient colour scheme. base64 data URL for
+   * now; Phase 5 / Phase 7 will swap to an R2 object key.
+   */
+  imageDataUrl?: string;
 }
 
 export type BannerGradient =

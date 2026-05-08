@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, ChevronUp, ImageIcon, Plus, Save, Trash2, X } from "lucide-react";
+import { Camera, ChevronDown, ChevronUp, ImageIcon, Plus, Save, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   BANNER_GRADIENTS,
@@ -113,21 +113,34 @@ export default function AdminBannerPage() {
               {isAdding ? "Шинэ баннер" : "Баннер засах"}
             </h2>
 
-            {/* Live preview */}
+            {/* Live preview — image takes precedence over gradient */}
             <div className="mb-4">
               <p className="text-[11px] font-bold text-gray-500 mb-1.5">Урьдчилан харах</p>
               <div className={`relative h-32 bg-gradient-to-r ${BANNER_GRADIENTS[form.gradient].from} ${BANNER_GRADIENTS[form.gradient].to} rounded-2xl overflow-hidden shadow-md`}>
-                <div className="absolute inset-0 opacity-20">
-                  <div className="w-full h-full bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,rgba(255,255,255,0.1)_10px,rgba(255,255,255,0.1)_20px)]"></div>
-                </div>
+                {form.imageDataUrl ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={form.imageDataUrl}
+                      alt="banner"
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                    {/* Dark overlay so the white text stays legible on bright photos */}
+                    <div className="absolute inset-0 bg-black/35" />
+                  </>
+                ) : (
+                  <div className="absolute inset-0 opacity-20">
+                    <div className="w-full h-full bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,rgba(255,255,255,0.1)_10px,rgba(255,255,255,0.1)_20px)]"></div>
+                  </div>
+                )}
                 <div className="relative h-full flex flex-col justify-center p-5 text-white text-left">
-                  <span className="inline-block px-2.5 py-1 bg-white/20 text-white text-[10px] font-bold rounded-md w-max mb-2">
+                  <span className="inline-block px-2.5 py-1 bg-white/20 text-white text-[10px] font-bold rounded-md w-max mb-2 backdrop-blur-sm">
                     {form.badge || "Бэйдж"}
                   </span>
-                  <h2 className="text-base font-bold leading-tight mb-1">
+                  <h2 className="text-base font-bold leading-tight mb-1 drop-shadow-sm">
                     {form.title || "Гарчиг"}
                   </h2>
-                  <p className="text-white/80 text-[11px]">{form.desc || "Тайлбар"}</p>
+                  <p className="text-white/90 text-[11px] drop-shadow-sm">{form.desc || "Тайлбар"}</p>
                 </div>
               </div>
             </div>
@@ -167,7 +180,71 @@ export default function AdminBannerPage() {
                 />
               </div>
               <div>
-                <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">Өнгө</label>
+                <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
+                  Зураг <span className="font-medium text-gray-400">(заавал биш)</span>
+                </label>
+                {form.imageDataUrl ? (
+                  <div className="relative rounded-lg overflow-hidden border border-gray-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={form.imageDataUrl}
+                      alt="upload preview"
+                      className="w-full max-h-40 object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, imageDataUrl: undefined })}
+                      className="absolute top-2 right-2 w-7 h-7 bg-black/60 text-white rounded-full flex items-center justify-center"
+                      aria-label="Зураг устгах"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      id="bannerImageUpload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        // Soft cap so a single banner doesn't blow the
+                        // 5 MB localStorage budget. Phase 5 will swap to
+                        // R2 and lift this entirely.
+                        if (file.size > 1_500_000) {
+                          alert("Зургийн хэмжээ 1.5MB-аас бага байх ёстой.");
+                          e.target.value = "";
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          if (typeof ev.target?.result === "string") {
+                            setForm((prev) => ({ ...prev, imageDataUrl: ev.target!.result as string }));
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                        e.target.value = "";
+                      }}
+                    />
+                    <label
+                      htmlFor="bannerImageUpload"
+                      className="flex flex-col items-center justify-center gap-1.5 w-full py-6 border-2 border-dashed border-gray-200 rounded-lg text-gray-400 cursor-pointer hover:bg-gray-50"
+                    >
+                      <Camera className="w-5 h-5" />
+                      <span className="text-xs font-medium">Зураг сонгох</span>
+                    </label>
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      Сонгосон зураг нь баннерын дэвсгэр болж харагдана. Хэмжээ ~1.5MB-аас бага.
+                    </p>
+                  </>
+                )}
+              </div>
+              <div>
+                <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
+                  Өнгө <span className="font-medium text-gray-400">(зураггүй үед хэрэглэгдэнэ)</span>
+                </label>
                 <div className="grid grid-cols-3 gap-2">
                   {(Object.keys(BANNER_GRADIENTS) as BannerGradient[]).map((g) => {
                     const palette = BANNER_GRADIENTS[g];
@@ -218,12 +295,23 @@ export default function AdminBannerPage() {
               return (
                 <div key={b.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
                   <div className={`h-24 bg-gradient-to-r ${grad.from} ${grad.to} relative`}>
+                    {b.imageDataUrl && (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={b.imageDataUrl}
+                          alt=""
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/35" />
+                      </>
+                    )}
                     <div className="absolute inset-0 p-4 flex flex-col justify-center text-white">
-                      <span className="inline-block px-2 py-0.5 bg-white/20 text-[10px] font-bold rounded-md w-max mb-1">
+                      <span className="inline-block px-2 py-0.5 bg-white/20 text-[10px] font-bold rounded-md w-max mb-1 backdrop-blur-sm">
                         {b.badge}
                       </span>
-                      <p className="text-sm font-bold leading-tight">{b.title}</p>
-                      <p className="text-[11px] text-white/80">{b.desc}</p>
+                      <p className="text-sm font-bold leading-tight drop-shadow-sm">{b.title}</p>
+                      <p className="text-[11px] text-white/90 drop-shadow-sm">{b.desc}</p>
                     </div>
                   </div>
                   <div className="p-3 flex items-center gap-2">
