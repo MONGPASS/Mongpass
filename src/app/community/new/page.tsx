@@ -34,19 +34,12 @@ export default function CommunityNewPostPage() {
     return () => { active = false; };
   }, [router]);
 
-  const [uploading, setUploading] = useState(false);
-
   async function handleImage(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    setUploading(true);
-    try {
-      const uploaded = await uploadImage(file, "post");
-      if (uploaded) setImageDataUrl(uploaded.url);
-    } finally {
-      setUploading(false);
-    }
+    const uploaded = await uploadImage(file, "post");
+    if (uploaded) setImageDataUrl(uploaded.url);
   }
 
   function submit() {
