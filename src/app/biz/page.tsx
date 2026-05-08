@@ -80,15 +80,26 @@ function BizProfilePageInner() {
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
+    console.log("[upload] handler START", {
+      hasFiles: !!files,
+      fileCount: files?.length,
+      hasShop: !!currentShop,
+      shopId: currentShop?.id,
+    });
     e.target.value = "";
-    if (!files || !currentShop) return;
+    if (!files || !currentShop) {
+      console.warn("[upload] aborted — no files or no shop");
+      return;
+    }
     setUploading(true);
     let failCount = 0;
     try {
       for (const file of Array.from(files)) {
+        console.log("[upload] processing", file.name, file.type, file.size);
         const uploaded = await uploadImage(file, "shop");
+        console.log("[upload] uploadImage returned", uploaded);
         if (!uploaded) {
-          console.error("Image upload to R2 failed for", file.name);
+          console.error("[upload] R2 upload failed for", file.name);
           failCount++;
           continue;
         }

@@ -55,12 +55,12 @@ export async function uploadImage(
   opts: CompressOptions = {},
 ): Promise<UploadedImage | null> {
   try {
+    console.log("[uploadImage] start", { name: file.name, type: file.type, size: file.size });
     const compressed = await compressToWebP(file, { ...DEFAULT_OPTS, ...opts });
+    console.log("[uploadImage] compressed", { type: compressed.type, size: compressed.size });
     const fd = new FormData();
     fd.append(
       "file",
-      // Give the file a stable name so any server-side log isn't full
-      // of "blob".
       new File([compressed], replaceExt(file.name, "webp"), {
         type: compressed.type,
       }),
@@ -72,9 +72,15 @@ export async function uploadImage(
       credentials: "same-origin",
       body: fd,
     });
-    if (!res.ok) return null;
+    console.log("[uploadImage] /api/upload status:", res.status);
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error("[uploadImage] /api/upload error:", res.status, body);
+      return null;
+    }
     return (await res.json()) as UploadedImage;
-  } catch {
+  } catch (err) {
+    console.error("[uploadImage] exception:", err);
     return null;
   }
 }
