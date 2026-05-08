@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { Shop, isShopOpen } from "@/lib/shopStore";
 import { CATEGORY_REGISTRY } from "@/lib/categories";
+import { r2Url } from "@/lib/images/upload";
 
 interface Props {
   /** Section heading. */
@@ -40,7 +41,7 @@ export function HorizontalShopList({ title, shops, seeAllHref, badge }: Props) {
 
 function ShopMiniCard({ shop, badge }: { shop: Shop; badge?: "new" | "featured" }) {
   const categoryLabel = CATEGORY_REGISTRY[shop.category]?.label ?? shop.category;
-  const cover = shop.images?.[0];
+  const cover = r2Url(shop.images?.[0]);
   const closed = !isShopOpen(shop);
 
   return (

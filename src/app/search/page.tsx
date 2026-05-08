@@ -4,6 +4,7 @@ import { ArrowLeft, Search as SearchIcon, MapPin, Star, Store } from "lucide-rea
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Shop, isShopOpen, loadApprovedShops } from "@/lib/shopStore";
+import { r2Url } from "@/lib/images/upload";
 import { CATEGORY_REGISTRY } from "@/lib/categories";
 
 export default function SearchPage() {
@@ -86,7 +87,7 @@ export default function SearchPage() {
             <div className="flex flex-col gap-3">
               {results.map((shop) => {
                 const categoryLabel = CATEGORY_REGISTRY[shop.category]?.label ?? shop.category;
-                const cover = shop.images?.[0];
+                const cover = r2Url(shop.images?.[0]);
                 return (
                   <Link
                     href={`/category/${shop.category}/${shop.id}`}

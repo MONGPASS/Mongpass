@@ -7,6 +7,7 @@ import BottomNav from "@/components/layout/BottomNav";
 import { ChatThread, loadThreadsForUser } from "@/lib/chatStore";
 import { User, getCurrentUser } from "@/lib/userStore";
 import { Shop, findShopById } from "@/lib/shopStore";
+import { r2Url } from "@/lib/images/upload";
 
 function fmtRelative(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -82,7 +83,7 @@ export default function ChatListPage() {
         <div className="bg-white divide-y divide-gray-100">
           {threads.map((t) => {
             const shop = shopsById.get(t.shopId) ?? null;
-            const cover = shop?.images?.[0];
+            const cover = r2Url(shop?.images?.[0]);
             return (
               <Link
                 key={t.id}

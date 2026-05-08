@@ -7,6 +7,7 @@ import { ArrowLeft, Search, Map, SlidersHorizontal, ArrowDownUp, Star, MapPin, S
 import BottomNav from "@/components/layout/BottomNav";
 import { useEffect, useMemo, useState } from "react";
 import { Shop, isShopOpen, loadApprovedShops } from "@/lib/shopStore";
+import { r2Url } from "@/lib/images/upload";
 import { summarizeReviews } from "@/lib/reviewStore";
 import { ShopCategory } from "@/components/shop/types";
 import { CATEGORY_REGISTRY } from "@/lib/categories";
@@ -137,7 +138,7 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
               <div className="relative w-[90px] h-[90px] rounded-xl shrink-0 bg-gradient-to-br from-gray-200 to-gray-300 overflow-hidden shadow-sm flex items-center justify-center">
                 {shop.images && shop.images[0] ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={shop.images[0]} alt={shop.name} className="w-full h-full object-cover" />
+                  <img src={r2Url(shop.images[0])} alt={shop.name} className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-white font-bold opacity-50 text-2xl drop-shadow-md">
                     {shop.name.slice(0, 1).toUpperCase()}

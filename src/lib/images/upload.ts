@@ -85,10 +85,22 @@ export async function uploadImage(
   }
 }
 
-/** Returns a same-origin URL the browser can render given an R2 key. */
-export function r2Url(key: string | null | undefined): string | undefined {
-  if (!key) return undefined;
-  return `/api/r2/${key}`;
+/**
+ * Returns a same-origin URL the browser can render given an R2 key.
+ * If the input already looks like a URL (http(s):// data: /…), it's
+ * returned unchanged so legacy / test images keep working.
+ */
+export function r2Url(keyOrUrl: string | null | undefined): string | undefined {
+  if (!keyOrUrl) return undefined;
+  if (
+    keyOrUrl.startsWith("http://") ||
+    keyOrUrl.startsWith("https://") ||
+    keyOrUrl.startsWith("data:") ||
+    keyOrUrl.startsWith("/")
+  ) {
+    return keyOrUrl;
+  }
+  return `/api/r2/${keyOrUrl}`;
 }
 
 // ===================== internals =====================

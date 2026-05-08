@@ -14,6 +14,7 @@ import {
 } from "@/lib/chatStore";
 import { User, getCurrentUser } from "@/lib/userStore";
 import { Shop, findShopById } from "@/lib/shopStore";
+import { r2Url } from "@/lib/images/upload";
 
 function fmtTime(iso: string): string {
   const d = new Date(iso);
@@ -107,7 +108,7 @@ export default function ChatThreadPage({ params }: { params: { threadId: string 
 
   // What name to show in header — opposite side from "me"
   const otherName = side === "shop" ? thread.userName : thread.shopName;
-  const cover = shop?.images?.[0];
+  const cover = r2Url(shop?.images?.[0]);
 
   // Group consecutive messages by date for date dividers
   const grouped: Array<{ type: "date"; date: string } | { type: "msg"; msg: ChatMessage }> = [];

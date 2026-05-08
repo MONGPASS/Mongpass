@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Shop, ShopStatus, SHOP_STATUS_LABEL, approveShop, loadShopsByStatus, rejectShop, toggleFeatured } from "@/lib/shopStore";
 import { User, findUserById } from "@/lib/userStore";
 import { CATEGORY_REGISTRY } from "@/lib/categories";
+import { r2Url } from "@/lib/images/upload";
 
 type Tab = "pending" | "approved" | "rejected";
 
@@ -164,7 +165,7 @@ function ShopReviewCard({
         <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 font-bold text-lg shrink-0 overflow-hidden">
           {shop.images && shop.images[0] ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={shop.images[0]} alt={shop.name} className="w-full h-full object-cover" />
+            <img src={r2Url(shop.images[0])} alt={shop.name} className="w-full h-full object-cover" />
           ) : (
             shop.name.slice(0, 1).toUpperCase()
           )}

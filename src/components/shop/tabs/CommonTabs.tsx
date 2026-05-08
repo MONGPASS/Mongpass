@@ -13,6 +13,7 @@ import {
   userHasReviewed,
 } from "@/lib/reviewStore";
 import { getCurrentUser } from "@/lib/userStore";
+import { r2Url } from "@/lib/images/upload";
 
 export function HomeTab({ shop }: { shop: ShopData }) {
   return (
@@ -271,7 +272,7 @@ export function PhotoTab({ shop }: { shop: ShopData }) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={src}
+              src={r2Url(src)}
               alt={`Дэлгүүрийн зураг ${i + 1}`}
               className="w-full h-full object-cover"
             />
