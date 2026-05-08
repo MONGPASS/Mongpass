@@ -1,67 +1,131 @@
-import { Shop, loadShops } from "@/lib/shopStore";
-
 /**
- * Per-user favorite shop IDs. Stored under a key suffixed with userId so
- * different logged-in users have separate favorites on the same browser.
+ * Favorite store — backed by /api/favorites (D1). Keyed by user, so a
+ * favorite added on phone shows up on desktop. Anonymous users get an
+ * empty list (no client-side persistence) — they're prompted to sign
+ * in at the call site.
  *
- * Anonymous (logged-out) users get a single shared "anon" bucket — good
- * enough for the demo. Real auth would tie this to user_id in the DB.
+ * In-memory cache of the favorite ids keeps the heart icon snappy:
+ * the first call hits the network, subsequent reads are instant until
+ * a toggle invalidates the cache.
  */
 
-const KEY_PREFIX = "mongpass:favorites:";
+import { Shop } from "@/lib/shopStore";
 
-function key(userId: string | null): string {
-  return `${KEY_PREFIX}${userId ?? "anon"}`;
+let cachedIds: Set<string> | null = null;
+let pendingFetch: Promise<Set<string>> | null = null;
+
+async function fetchFavoriteIds(): Promise<Set<string>> {
+  if (cachedIds) return cachedIds;
+  if (pendingFetch) return pendingFetch;
+  pendingFetch = (async () => {
+    try {
+      const res = await fetch("/api/favorites", { credentials: "same-origin" });
+      if (!res.ok) {
+        cachedIds = new Set();
+        return cachedIds;
+      }
+      const data = (await res.json()) as { shopIds?: string[] };
+      cachedIds = new Set(data.shopIds ?? []);
+      return cachedIds;
+    } catch {
+      cachedIds = new Set();
+      return cachedIds;
+    } finally {
+      pendingFetch = null;
+    }
+  })();
+  return pendingFetch;
 }
 
-export function loadFavoriteIds(userId: string | null): string[] {
-  if (typeof window === "undefined") return [];
+function invalidate(): void {
+  cachedIds = null;
+}
+
+export async function loadFavoriteIds(
+  userId: string | null,
+): Promise<string[]> {
+  // userId param kept for source compat; the API uses the session.
+  void userId;
+  const ids = await fetchFavoriteIds();
+  return Array.from(ids);
+}
+
+export async function isFavorite(
+  userId: string | null,
+  shopId: string,
+): Promise<boolean> {
+  // Anonymous users can't have favorites — server returns empty.
+  if (!userId) return false;
+  const ids = await fetchFavoriteIds();
+  return ids.has(shopId);
+}
+
+export async function addFavorite(
+  userId: string | null,
+  shopId: string,
+): Promise<void> {
+  void userId;
+  const res = await fetch("/api/favorites", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ shopId }),
+  });
+  if (res.ok) {
+    if (cachedIds) cachedIds.add(shopId);
+  }
+}
+
+export async function removeFavorite(
+  userId: string | null,
+  shopId: string,
+): Promise<void> {
+  void userId;
+  const res = await fetch("/api/favorites", {
+    method: "DELETE",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ shopId }),
+  });
+  if (res.ok) {
+    if (cachedIds) cachedIds.delete(shopId);
+  }
+}
+
+/**
+ * Toggle returns the *new* favorited state so callers can update their
+ * heart icon without a separate read.
+ */
+export async function toggleFavorite(
+  userId: string | null,
+  shopId: string,
+): Promise<boolean> {
+  const currently = await isFavorite(userId, shopId);
+  if (currently) {
+    await removeFavorite(userId, shopId);
+    return false;
+  }
+  await addFavorite(userId, shopId);
+  return true;
+}
+
+export async function loadFavoriteShops(
+  userId: string | null,
+): Promise<Shop[]> {
+  void userId;
   try {
-    const raw = window.localStorage.getItem(key(userId));
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as string[];
-    return Array.isArray(parsed) ? parsed : [];
+    const res = await fetch("/api/favorites", { credentials: "same-origin" });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { shops?: Shop[] };
+    // Refresh the id cache too while we're here.
+    cachedIds = new Set((data.shops ?? []).map((s) => s.id));
+    return data.shops ?? [];
   } catch {
     return [];
   }
 }
 
-function saveFavoriteIds(userId: string | null, ids: string[]): void {
-  if (typeof window === "undefined") return;
-  if (ids.length === 0) {
-    window.localStorage.removeItem(key(userId));
-  } else {
-    window.localStorage.setItem(key(userId), JSON.stringify(ids));
-  }
-}
-
-export function isFavorite(userId: string | null, shopId: string): boolean {
-  return loadFavoriteIds(userId).includes(shopId);
-}
-
-export function addFavorite(userId: string | null, shopId: string): void {
-  const ids = loadFavoriteIds(userId);
-  if (ids.includes(shopId)) return;
-  saveFavoriteIds(userId, [shopId, ...ids]);
-}
-
-export function removeFavorite(userId: string | null, shopId: string): void {
-  saveFavoriteIds(userId, loadFavoriteIds(userId).filter((id) => id !== shopId));
-}
-
-export function toggleFavorite(userId: string | null, shopId: string): boolean {
-  if (isFavorite(userId, shopId)) {
-    removeFavorite(userId, shopId);
-    return false;
-  }
-  addFavorite(userId, shopId);
-  return true;
-}
-
-/** Resolve favorite IDs to actual Shop records (approved only). */
-export async function loadFavoriteShops(userId: string | null): Promise<Shop[]> {
-  const ids = new Set(loadFavoriteIds(userId));
-  if (ids.size === 0) return [];
-  const all = await loadShops();
-  return all.filter((s) => ids.has(s.id));
+/** Clear cache — call from logout flow if you want immediate flush. */
+export function clearFavoriteCache(): void {
+  invalidate();
 }

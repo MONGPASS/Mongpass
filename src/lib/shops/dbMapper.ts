@@ -31,7 +31,15 @@ export interface ShopRow {
 }
 
 /** Pure row → Shop conversion. Does NOT load images/notices joins. */
-export function rowToShop(row: ShopRow, opts: { images?: string[]; notices?: ShopNotice[] } = {}): Shop {
+export function rowToShop(
+  row: ShopRow,
+  opts: {
+    images?: string[];
+    notices?: ShopNotice[];
+    reviewCount?: number;
+    avgRating?: number;
+  } = {},
+): Shop {
   return {
     id: row.id,
     ownerId: row.owner_id,
@@ -52,6 +60,8 @@ export function rowToShop(row: ShopRow, opts: { images?: string[]; notices?: Sho
     notices: opts.notices ?? [],
     bankAccount: row.bank_account ?? undefined,
     deliveryFee: row.delivery_fee ?? undefined,
+    reviewCount: opts.reviewCount ?? 0,
+    avgRating: opts.avgRating ?? 0,
     createdAt: row.created_at,
   };
 }
@@ -66,7 +76,7 @@ export async function hydrateShops(db: D1Database, rows: ShopRow[]): Promise<Sho
   const ids = rows.map((r) => r.id);
   const placeholders = ids.map(() => "?").join(",");
 
-  const [imagesRes, noticesRes] = await Promise.all([
+  const [imagesRes, noticesRes, reviewsRes] = await Promise.all([
     db
       .prepare(
         `SELECT shop_id, r2_key, sort_order FROM shop_images
@@ -83,6 +93,16 @@ export async function hydrateShops(db: D1Database, rows: ShopRow[]): Promise<Sho
       )
       .bind(...ids)
       .all<{ id: string; shop_id: string; title: string; content: string; created_at: string }>(),
+    // One aggregate query is way cheaper than letting the client do
+    // N+1 to summarise ratings on the category list page.
+    db
+      .prepare(
+        `SELECT shop_id, COUNT(*) AS n, AVG(rating) AS avg_rating
+           FROM reviews WHERE shop_id IN (${placeholders})
+           GROUP BY shop_id`,
+      )
+      .bind(...ids)
+      .all<{ shop_id: string; n: number; avg_rating: number }>(),
   ]);
 
   const imagesByShop = new Map<string, string[]>();
@@ -104,10 +124,23 @@ export async function hydrateShops(db: D1Database, rows: ShopRow[]): Promise<Sho
     noticesByShop.set(r.shop_id, arr);
   }
 
-  return rows.map((row) =>
-    rowToShop(row, {
+  const reviewsByShop = new Map<string, { count: number; avg: number }>();
+  for (const r of reviewsRes.results ?? []) {
+    reviewsByShop.set(r.shop_id, {
+      count: r.n,
+      // Round to one decimal so ".0" / ".5" formatting on the client
+      // matches what the previous client-side helper produced.
+      avg: Math.round((r.avg_rating ?? 0) * 10) / 10,
+    });
+  }
+
+  return rows.map((row) => {
+    const r = reviewsByShop.get(row.id);
+    return rowToShop(row, {
       images: imagesByShop.get(row.id),
       notices: noticesByShop.get(row.id),
-    }),
-  );
+      reviewCount: r?.count,
+      avgRating: r?.avg,
+    });
+  });
 }

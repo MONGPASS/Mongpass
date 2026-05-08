@@ -16,16 +16,23 @@ export function TopNavBar({ shopId }: { shopId?: string }) {
   useEffect(() => {
     if (!shopId) return;
     let active = true;
-    getCurrentUser().then((user) => {
-      if (active) setFavorite(isFavorite(user?.id ?? null, shopId));
-    });
+    (async () => {
+      const user = await getCurrentUser();
+      const fav = await isFavorite(user?.id ?? null, shopId);
+      if (active) setFavorite(fav);
+    })();
     return () => { active = false; };
   }, [shopId]);
 
   async function handleToggleFavorite() {
     if (!shopId) return;
     const user = await getCurrentUser();
-    setFavorite(toggleFavorite(user?.id ?? null, shopId));
+    if (!user) {
+      router.push(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+      return;
+    }
+    const next = await toggleFavorite(user.id, shopId);
+    setFavorite(next);
   }
 
   return (

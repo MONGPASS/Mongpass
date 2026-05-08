@@ -20,7 +20,8 @@ export default function AdminOverviewPage() {
       loadShopsByStatus("pending"),
       loadShopsByStatus("approved"),
       loadShopsByStatus("rejected"),
-    ]).then(([pending, approved, rejected]) => {
+      loadBanners(),
+    ]).then(([pending, approved, rejected, banners]) => {
       if (!active) return;
       setStats({
         shops: {
@@ -30,7 +31,7 @@ export default function AdminOverviewPage() {
           rejected: rejected.length,
           featured: approved.filter((s) => s.featured === true).length,
         },
-        banners: loadBanners().length,
+        banners: banners.length,
       });
     });
     return () => { active = false; };

@@ -84,25 +84,14 @@ function BizProfilePageInner() {
     // e.target.value = "" empties it, which would silently leave us
     // looping over zero files.
     const fileList = Array.from(e.target.files ?? []);
-    console.log("[upload] handler START", {
-      fileCount: fileList.length,
-      hasShop: !!currentShop,
-      shopId: currentShop?.id,
-    });
     e.target.value = "";
-    if (fileList.length === 0 || !currentShop) {
-      console.warn("[upload] aborted — no files or no shop");
-      return;
-    }
+    if (fileList.length === 0 || !currentShop) return;
     setUploading(true);
     let failCount = 0;
     try {
       for (const file of fileList) {
-        console.log("[upload] processing", file.name, file.type, file.size);
         const uploaded = await uploadImage(file, "shop");
-        console.log("[upload] uploadImage returned", uploaded);
         if (!uploaded) {
-          console.error("[upload] R2 upload failed for", file.name);
           failCount++;
           continue;
         }

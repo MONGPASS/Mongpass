@@ -55,9 +55,7 @@ export async function uploadImage(
   opts: CompressOptions = {},
 ): Promise<UploadedImage | null> {
   try {
-    console.log("[uploadImage] start", { name: file.name, type: file.type, size: file.size });
     const compressed = await compressToWebP(file, { ...DEFAULT_OPTS, ...opts });
-    console.log("[uploadImage] compressed", { type: compressed.type, size: compressed.size });
     const fd = new FormData();
     fd.append(
       "file",
@@ -72,15 +70,16 @@ export async function uploadImage(
       credentials: "same-origin",
       body: fd,
     });
-    console.log("[uploadImage] /api/upload status:", res.status);
     if (!res.ok) {
+      // Surface server errors to the developer console so a 4xx
+      // doesn't go completely silent — but no debug breadcrumbs.
       const body = await res.text().catch(() => "");
-      console.error("[uploadImage] /api/upload error:", res.status, body);
+      console.error("uploadImage failed:", res.status, body);
       return null;
     }
     return (await res.json()) as UploadedImage;
   } catch (err) {
-    console.error("[uploadImage] exception:", err);
+    console.error("uploadImage exception:", err);
     return null;
   }
 }

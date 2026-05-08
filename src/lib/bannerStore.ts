@@ -1,10 +1,12 @@
 /**
- * Home page hero banner content. Fully admin-editable; falls back to a
- * sensible default set so the home page never looks empty.
+ * Home page hero banner content — backed by /api/banners (D1, admin-
+ * editable). Falls back to a small default set when the table is
+ * empty so a freshly-seeded production never looks barren.
  *
- * Each banner uses a Tailwind gradient pair (from/to) chosen from a
- * small palette to keep the visual consistent without letting admins
- * paste arbitrary colors.
+ * Each banner pairs a Tailwind gradient with optional uploaded
+ * imagery (R2 key). The gradient is a fallback for rows without an
+ * uploaded photo and for the live-edit preview before the client
+ * uploads.
  */
 
 export interface Banner {
@@ -12,15 +14,13 @@ export interface Banner {
   badge: string;
   title: string;
   desc: string;
-  /** One of the keys in BANNER_GRADIENTS — controls fallback colour scheme. */
   gradient: BannerGradient;
   /**
-   * Optional uploaded background image. When present, the banner
-   * renders this image (with a dark gradient overlay for legibility)
-   * instead of the flat gradient colour scheme. base64 data URL for
-   * now; Phase 5 / Phase 7 will swap to an R2 object key.
+   * R2 object key when present (e.g. "banner/<rand>.webp"). Render
+   * via r2Url(); legacy data URLs / external URLs also pass through
+   * unchanged.
    */
-  imageDataUrl?: string;
+  imageR2Key?: string;
 }
 
 export type BannerGradient =
@@ -39,8 +39,6 @@ export const BANNER_GRADIENTS: Record<BannerGradient, { from: string; to: string
   pink: { from: "from-pink-500", to: "to-rose-600", label: "Ягаан-улаан" },
   slate: { from: "from-slate-700", to: "to-slate-900", label: "Хар" },
 };
-
-const STORAGE_KEY = "mongpass:banners:v1";
 
 export const defaultBanners: Banner[] = [
   {
@@ -66,21 +64,39 @@ export const defaultBanners: Banner[] = [
   },
 ];
 
-export function loadBanners(): Banner[] {
-  if (typeof window === "undefined") return defaultBanners;
+export async function loadBanners(): Promise<Banner[]> {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultBanners;
-    const parsed = JSON.parse(raw) as Banner[];
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : defaultBanners;
+    const res = await fetch("/api/banners", { credentials: "same-origin" });
+    if (!res.ok) return defaultBanners;
+    const data = (await res.json()) as { banners?: Banner[] };
+    const list = data.banners ?? [];
+    // Empty table → show seeds. The admin page's first save replaces
+    // the seeds with whatever was authored.
+    return list.length > 0 ? list : defaultBanners;
   } catch {
     return defaultBanners;
   }
 }
 
-export function saveBanners(banners: Banner[]): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(banners));
+/**
+ * Replace the full banner list. Admin-only on the server side. Returns
+ * the persisted list (with any server-assigned ids) so the caller can
+ * sync state — or null on failure.
+ */
+export async function saveBanners(banners: Banner[]): Promise<Banner[] | null> {
+  try {
+    const res = await fetch("/api/banners", {
+      method: "PUT",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ banners }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { banners?: Banner[] };
+    return data.banners ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export function newBannerId(): string {

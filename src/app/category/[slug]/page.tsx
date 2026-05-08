@@ -8,7 +8,6 @@ import BottomNav from "@/components/layout/BottomNav";
 import { useEffect, useMemo, useState } from "react";
 import { Shop, isShopOpen, loadApprovedShops } from "@/lib/shopStore";
 import { r2Url } from "@/lib/images/upload";
-import { summarizeReviews } from "@/lib/reviewStore";
 import { ShopCategory } from "@/components/shop/types";
 import { CATEGORY_REGISTRY } from "@/lib/categories";
 import { getCurrentUser } from "@/lib/userStore";
@@ -156,15 +155,18 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
               <div className="flex-1 min-w-0">
                 <h3 className="font-bold text-[15px] text-gray-900 mb-0.5 truncate">{shop.name}</h3>
                 {(() => {
-                  const sum = summarizeReviews(shop.id);
+                  // Counts arrive on the Shop record itself via a SQL
+                  // aggregate in hydrateShops — no per-row fetch.
+                  const count = shop.reviewCount ?? 0;
+                  const avg = shop.avgRating ?? 0;
                   return (
                     <div className="flex items-center gap-1 mb-1.5">
                       <Star size={12} className="text-yellow-400 fill-yellow-400" />
                       <span className="text-[12px] font-bold text-gray-900">
-                        {sum.count > 0 ? sum.average.toFixed(1) : "—"}
+                        {count > 0 ? avg.toFixed(1) : "—"}
                       </span>
                       <span className="text-[12px] text-gray-400 font-medium">
-                        {sum.count > 0 ? `(${sum.count} сэтгэгдэл)` : "(сэтгэгдэл алга)"}
+                        {count > 0 ? `(${count} сэтгэгдэл)` : "(сэтгэгдэл алга)"}
                       </span>
                     </div>
                   );

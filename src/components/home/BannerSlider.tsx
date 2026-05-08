@@ -2,12 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { BANNER_GRADIENTS, Banner, defaultBanners, loadBanners } from "@/lib/bannerStore";
+import { r2Url } from "@/lib/images/upload";
 
 export default function BannerSlider() {
   const [banners, setBanners] = useState<Banner[]>(defaultBanners);
 
   useEffect(() => {
-    setBanners(loadBanners());
+    let active = true;
+    loadBanners().then((list) => {
+      if (active) setBanners(list);
+    });
+    return () => { active = false; };
   }, []);
 
   if (banners.length === 0) return null;
@@ -31,11 +36,11 @@ export default function BannerSlider() {
               key={banner.id}
               className={`relative min-w-[85%] h-40 bg-gradient-to-r ${grad.from} ${grad.to} rounded-2xl overflow-hidden shadow-md shrink-0 snap-center`}
             >
-              {banner.imageDataUrl ? (
+              {banner.imageR2Key ? (
                 <>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={banner.imageDataUrl}
+                    src={r2Url(banner.imageR2Key)}
                     alt=""
                     className="absolute inset-0 w-full h-full object-cover"
                   />

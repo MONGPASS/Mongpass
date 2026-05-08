@@ -1,7 +1,7 @@
 'use client';
 
 import { Camera, ChevronDown, ChevronUp, ImageIcon, Plus, Save, Trash2, X } from "lucide-react";
-import { uploadImage } from "@/lib/images/upload";
+import { r2Url, uploadImage } from "@/lib/images/upload";
 import { useEffect, useState } from "react";
 import {
   BANNER_GRADIENTS,
@@ -27,12 +27,21 @@ export default function AdminBannerPage() {
   const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
-    setBanners(loadBanners());
+    let active = true;
+    loadBanners().then((list) => {
+      if (active) setBanners(list);
+    });
+    return () => { active = false; };
   }, []);
 
-  function persist(next: Banner[]) {
+  async function persist(next: Banner[]) {
+    // Optimistic update: render immediately, sync to server, then
+    // overwrite local state with the server's response (which carries
+    // any server-minted ids for new entries).
     setBanners(next);
-    saveBanners(next);
+    const saved = await saveBanners(next);
+    if (saved) setBanners(saved);
+    else alert("Хадгалж чадсангүй. Сүлжээгээ шалгана уу.");
     setSavedFlash(true);
     setTimeout(() => setSavedFlash(false), 1500);
   }
@@ -118,11 +127,11 @@ export default function AdminBannerPage() {
             <div className="mb-4">
               <p className="text-[11px] font-bold text-gray-500 mb-1.5">Урьдчилан харах</p>
               <div className={`relative h-32 bg-gradient-to-r ${BANNER_GRADIENTS[form.gradient].from} ${BANNER_GRADIENTS[form.gradient].to} rounded-2xl overflow-hidden shadow-md`}>
-                {form.imageDataUrl ? (
+                {form.imageR2Key ? (
                   <>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={form.imageDataUrl}
+                      src={r2Url(form.imageR2Key)}
                       alt="banner"
                       className="absolute inset-0 w-full h-full object-cover"
                     />
@@ -184,17 +193,17 @@ export default function AdminBannerPage() {
                 <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
                   Зураг <span className="font-medium text-gray-400">(заавал биш)</span>
                 </label>
-                {form.imageDataUrl ? (
+                {form.imageR2Key ? (
                   <div className="relative rounded-lg overflow-hidden border border-gray-200">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={form.imageDataUrl}
+                      src={r2Url(form.imageR2Key)}
                       alt="upload preview"
                       className="w-full max-h-40 object-cover"
                     />
                     <button
                       type="button"
-                      onClick={() => setForm({ ...form, imageDataUrl: undefined })}
+                      onClick={() => setForm({ ...form, imageR2Key: undefined })}
                       className="absolute top-2 right-2 w-7 h-7 bg-black/60 text-white rounded-full flex items-center justify-center"
                       aria-label="Зураг устгах"
                     >
@@ -217,7 +226,10 @@ export default function AdminBannerPage() {
                         // returns a key we embed via /api/r2/<key>.
                         const uploaded = await uploadImage(file, "banner");
                         if (uploaded) {
-                          setForm((prev) => ({ ...prev, imageDataUrl: uploaded.url }));
+                          // Persist the raw R2 key (not the proxy URL) so
+                          // PUT /api/banners stores it canonically. r2Url()
+                          // converts it for <img> rendering everywhere.
+                          setForm((prev) => ({ ...prev, imageR2Key: uploaded.key }));
                         } else {
                           alert("Зураг оруулахад алдаа гарлаа. Дахин оролдоно уу.");
                         }
@@ -290,11 +302,11 @@ export default function AdminBannerPage() {
               return (
                 <div key={b.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
                   <div className={`h-24 bg-gradient-to-r ${grad.from} ${grad.to} relative`}>
-                    {b.imageDataUrl && (
+                    {b.imageR2Key && (
                       <>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={b.imageDataUrl}
+                          src={r2Url(b.imageR2Key)}
                           alt=""
                           className="absolute inset-0 w-full h-full object-cover"
                         />

@@ -40,6 +40,10 @@ export interface Shop {
   bankAccount?: string;
   /** Per-order delivery fee in KRW. Undefined when not configured. */
   deliveryFee?: number;
+  /** Number of reviews. Computed server-side via aggregate join. */
+  reviewCount?: number;
+  /** Average rating 0..5, rounded to 1 decimal. 0 when no reviews. */
+  avgRating?: number;
   createdAt: string;
 }
 

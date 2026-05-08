@@ -10,7 +10,6 @@ import { ShopCategory, ShopData } from "@/components/shop/types";
 import { Shop, findShopById } from "@/lib/shopStore";
 import { recordShopView } from "@/lib/recentlyViewedStore";
 import { getCurrentUser } from "@/lib/userStore";
-import { summarizeReviews } from "@/lib/reviewStore";
 
 /**
  * Bridge our internal Shop record (lib/shopStore) to the richer ShopData
@@ -19,13 +18,12 @@ import { summarizeReviews } from "@/lib/reviewStore";
  * social links, etc.
  */
 function shopToShopData(shop: Shop): ShopData {
-  const summary = summarizeReviews(shop.id);
   return {
     id: shop.id,
     name: shop.name,
     images: shop.images ?? [],
-    rating: summary.average,
-    reviews: summary.count,
+    rating: shop.avgRating ?? 0,
+    reviews: shop.reviewCount ?? 0,
     address: shop.address ?? "—",
     openHours: shop.openHours ?? "—",
     phone: shop.contactPhone ?? "—",

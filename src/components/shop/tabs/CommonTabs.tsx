@@ -105,35 +105,46 @@ export function ReviewTab({ shop }: { shop: ShopData }) {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [user, setUser] = useState<Awaited<ReturnType<typeof getCurrentUser>>>(null);
-  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     let active = true;
-    setReviews(loadReviewsForShop(shopId));
-    getCurrentUser().then((u) => {
+    (async () => {
+      const [list, u] = await Promise.all([
+        loadReviewsForShop(shopId),
+        getCurrentUser(),
+      ]);
       if (!active) return;
+      setReviews(list);
       setUser(u);
-      setAlreadyReviewed(userHasReviewed(u?.id ?? null, shopId));
-    });
+    })();
     return () => { active = false; };
   }, [shopId]);
 
-  const summary = useMemo(() => summarizeReviews(shopId), [reviews, shopId]);
+  const summary = useMemo(() => summarizeReviews(reviews), [reviews]);
+  const alreadyReviewed = userHasReviewed(reviews, user?.id ?? null);
 
-  function submit() {
-    if (!comment.trim() || rating < 1 || rating > 5) return;
-    addReview({
-      shopId,
-      userId: user?.id ?? null,
-      userName: user?.name ?? "Зочин",
-      rating,
-      comment: comment.trim(),
-    });
-    setReviews(loadReviewsForShop(shopId));
-    setAlreadyReviewed(userHasReviewed(user?.id ?? null, shopId));
-    setShowForm(false);
-    setComment("");
-    setRating(5);
+  async function submit() {
+    if (!comment.trim() || rating < 1 || rating > 5 || submitting) return;
+    setSubmitting(true);
+    try {
+      const created = await addReview({
+        shopId,
+        rating,
+        comment: comment.trim(),
+      });
+      if (!created) {
+        // 401 (logged out) / 409 (already reviewed) / 404 (shop not approved)
+        alert("Сэтгэгдэл нэмэхэд алдаа гарлаа. Та нэвтэрсэн эсэхээ шалгана уу.");
+        return;
+      }
+      setReviews(await loadReviewsForShop(shopId));
+      setShowForm(false);
+      setComment("");
+      setRating(5);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
