@@ -83,12 +83,16 @@ function BizProfilePageInner() {
     e.target.value = "";
     if (!files || !currentShop) return;
     setUploading(true);
+    let okCount = 0;
+    let failCount = 0;
     try {
-      // Upload one at a time so the order is stable and any failure
-      // doesn't poison the rest of the batch.
       for (const file of Array.from(files)) {
         const uploaded = await uploadImage(file, "shop");
-        if (!uploaded) continue;
+        if (!uploaded) {
+          console.error("Image upload to R2 failed for", file.name);
+          failCount++;
+          continue;
+        }
         const res = await fetch(
           `/api/shops/${encodeURIComponent(currentShop.id)}/images`,
           {
@@ -100,10 +104,18 @@ function BizProfilePageInner() {
         );
         if (res.ok) {
           setShopImages((prev) => [...prev, uploaded.key]);
+          okCount++;
+        } else {
+          const body = await res.text().catch(() => "");
+          console.error("shop_images POST failed:", res.status, body);
+          failCount++;
         }
       }
     } finally {
       setUploading(false);
+      if (failCount > 0) {
+        alert(`Зураг оруулахад алдаа гарлаа (${failCount} файл амжилтгүй). Browser console-оос дэлгэрэнгүй мэдээллийг харна уу.`);
+      }
     }
   };
 
