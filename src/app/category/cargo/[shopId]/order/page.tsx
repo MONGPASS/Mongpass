@@ -45,12 +45,17 @@ export default function CargoOrderPage({ params }: { params: { shopId: string } 
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    const r = loadRoutes();
-    setRoutes(r);
-    if (!selectedRouteId && r.length > 0) {
-      setSelectedRouteId(r[0].id);
-    }
-  }, [selectedRouteId]);
+    let active = true;
+    loadRoutes(params.shopId).then((r) => {
+      if (!active) return;
+      setRoutes(r);
+      if (!selectedRouteId && r.length > 0) {
+        setSelectedRouteId(r[0].id);
+      }
+    });
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.shopId]);
 
   const selectedRoute = useMemo(
     () => routes.find((r) => r.id === selectedRouteId) ?? null,

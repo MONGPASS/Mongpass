@@ -2,15 +2,19 @@
 
 import { ArrowLeft, Plus, Edit2, Trash2, Save, X, Plane, Zap, Package } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   CargoRoute,
   CargoType,
   CARGO_TYPE_LABEL,
+  createRoute,
+  deleteRoute,
   loadRoutes,
-  saveRoutes,
-  newId,
+  updateRoute,
 } from "@/lib/cargoStore";
+import { findShopByOwner } from "@/lib/shopStore";
+import { getCurrentUser } from "@/lib/userStore";
 
 const TYPE_ICON: Record<CargoType, typeof Plane> = {
   air: Plane,
@@ -28,19 +32,47 @@ const emptyForm: Omit<CargoRoute, "id"> = {
 };
 
 export default function CargoAdminPage() {
+  const router = useRouter();
+  const [shopId, setShopId] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [routes, setRoutes] = useState<CargoRoute[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [form, setForm] = useState<Omit<CargoRoute, "id">>(emptyForm);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [busy, setBusy] = useState(false);
 
+  // Resolve which shop this owner is editing.
   useEffect(() => {
-    setRoutes(loadRoutes());
-  }, []);
+    let active = true;
+    (async () => {
+      const user = await getCurrentUser();
+      if (!active) return;
+      if (!user) {
+        router.replace("/login?redirect=/biz/cargo");
+        return;
+      }
+      const shop = await findShopByOwner(user.id);
+      if (!active) return;
+      if (!shop) {
+        router.replace("/biz/register");
+        return;
+      }
+      if (shop.category !== "cargo") {
+        // The owner has a non-cargo shop — bounce them home.
+        router.replace("/biz");
+        return;
+      }
+      setShopId(shop.id);
+      const list = await loadRoutes(shop.id);
+      if (!active) return;
+      setRoutes(list);
+      setAuthChecked(true);
+    })();
+    return () => { active = false; };
+  }, [router]);
 
-  function persist(next: CargoRoute[]) {
-    setRoutes(next);
-    saveRoutes(next);
+  function flash() {
     setSavedFlash(true);
     setTimeout(() => setSavedFlash(false), 1500);
   }
@@ -54,7 +86,14 @@ export default function CargoAdminPage() {
   function startEdit(route: CargoRoute) {
     const { id, ...rest } = route;
     void id;
-    setForm(rest);
+    setForm({
+      type: rest.type,
+      fromCity: rest.fromCity,
+      toCity: rest.toCity,
+      pricePerKg: rest.pricePerKg,
+      transitDays: rest.transitDays,
+      schedule: rest.schedule ?? "",
+    });
     setEditingId(route.id);
     setIsAdding(false);
   }
@@ -64,20 +103,40 @@ export default function CargoAdminPage() {
     setIsAdding(false);
   }
 
-  function submit() {
+  async function submit() {
+    if (!shopId || busy) return;
     if (!form.fromCity.trim() || !form.toCity.trim() || !form.pricePerKg.trim()) return;
-    if (isAdding) {
-      persist([...routes, { id: newId(), ...form }]);
-      setIsAdding(false);
-    } else if (editingId) {
-      persist(routes.map((r) => (r.id === editingId ? { id: r.id, ...form } : r)));
-      setEditingId(null);
+    setBusy(true);
+    try {
+      if (isAdding) {
+        const created = await createRoute(shopId, form);
+        if (created) {
+          setRoutes((prev) => [...prev, created]);
+          setIsAdding(false);
+          flash();
+        }
+      } else if (editingId) {
+        const updated = await updateRoute(shopId, editingId, form);
+        if (updated) {
+          setRoutes((prev) => prev.map((r) => (r.id === editingId ? updated : r)));
+          setEditingId(null);
+          flash();
+        }
+      }
+    } finally {
+      setBusy(false);
     }
   }
 
-  function remove(id: string) {
+  async function remove(id: string) {
+    if (!shopId) return;
     if (!confirm("Энэ чиглэлийг устгах уу?")) return;
-    persist(routes.filter((r) => r.id !== id));
+    const ok = await deleteRoute(shopId, id);
+    if (ok) setRoutes((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  if (!authChecked) {
+    return <main className="w-full min-h-screen bg-gray-50" />;
   }
 
   const showForm = isAdding || editingId !== null;
@@ -97,11 +156,8 @@ export default function CargoAdminPage() {
       <div className="px-4 pt-4">
         <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm">
           <p className="text-xs text-gray-500 leading-relaxed">
-            Энд нэмсэн чиглэл нь сүүлд хэрэглэгчийн талд{" "}
-            <Link href="/category/cargo/1" className="text-blue-600 underline">
-              /category/cargo/1
-            </Link>{" "}
-            хуудсан дээр харагдана.
+            Энд нэмсэн чиглэл нь зөвхөн таны дэлгүүрийн хуудсан дээр харагдана.
+            Үнэ, хугацаа, хуваарийг засаж болно.
           </p>
         </div>
 
@@ -190,11 +246,13 @@ export default function CargoAdminPage() {
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">Хуваарь</label>
+                <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
+                  Хуваарь <span className="font-medium text-gray-400">(заавал биш)</span>
+                </label>
                 <input
                   type="text"
                   placeholder="Лхагва, Бямба"
-                  value={form.schedule}
+                  value={form.schedule ?? ""}
                   onChange={(e) => setForm({ ...form, schedule: e.target.value })}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
                 />
@@ -203,10 +261,10 @@ export default function CargoAdminPage() {
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={submit}
-                  disabled={!form.fromCity.trim() || !form.toCity.trim() || !form.pricePerKg.trim()}
+                  disabled={busy || !form.fromCity.trim() || !form.toCity.trim() || !form.pricePerKg.trim()}
                   className="flex-1 bg-blue-500 text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  <Save className="w-4 h-4" /> Хадгалах
+                  <Save className="w-4 h-4" /> {busy ? "Хадгалаж буй..." : "Хадгалах"}
                 </button>
                 <button
                   onClick={cancel}

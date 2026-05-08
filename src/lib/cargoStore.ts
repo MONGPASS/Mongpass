@@ -1,3 +1,9 @@
+/**
+ * Cargo route catalog — backed by /api/shops/[id]/cargo-routes.
+ * Every function takes a shopId so the routes are scoped per-shop
+ * (Phase 4 fix for the global-localStorage demo bug).
+ */
+
 export type CargoType = "air" | "express" | "regular";
 
 export interface CargoRoute {
@@ -5,12 +11,10 @@ export interface CargoRoute {
   type: CargoType;
   fromCity: string;
   toCity: string;
-  pricePerKg: string;   // e.g. "8,000₩"
-  transitDays: string;  // e.g. "5-7 хоног"
-  schedule: string;     // e.g. "Лхагва, Бямба"
+  pricePerKg: string;   // free-form string, e.g. "8,000₩"
+  transitDays: string;  // free-form string, e.g. "5-7 хоног"
+  schedule?: string;    // optional, e.g. "Лхагва, Бямба"
 }
-
-const STORAGE_KEY = "mongpass:cargo:routes:v3";
 
 export const CARGO_TYPE_LABEL: Record<CargoType, string> = {
   air: "Агаарын ачаа",
@@ -18,53 +22,75 @@ export const CARGO_TYPE_LABEL: Record<CargoType, string> = {
   regular: "Энгийн ачаа",
 };
 
-export const defaultRoutes: CargoRoute[] = [
-  {
-    id: "seed-1",
-    type: "air",
-    fromCity: "Сөүл",
-    toCity: "Улаанбаатар",
-    pricePerKg: "8,500₩",
-    transitDays: "5-7 хоног",
-    schedule: "Лхагва, Бямба",
-  },
-  {
-    id: "seed-2",
-    type: "express",
-    fromCity: "Сөүл",
-    toCity: "Улаанбаатар",
-    pricePerKg: "5,500₩",
-    transitDays: "10-14 хоног",
-    schedule: "Долоо хоног бүр",
-  },
-  {
-    id: "seed-3",
-    type: "regular",
-    fromCity: "Бусан",
-    toCity: "Улаанбаатар",
-    pricePerKg: "2,800₩",
-    transitDays: "30-45 хоног",
-    schedule: "Сар бүр",
-  },
-];
+// ===================== HTTP helpers =====================
 
-export function loadRoutes(): CargoRoute[] {
-  if (typeof window === "undefined") return defaultRoutes;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultRoutes;
-    const parsed = JSON.parse(raw) as CargoRoute[];
-    return Array.isArray(parsed) ? parsed : defaultRoutes;
-  } catch {
-    return defaultRoutes;
-  }
+async function getJson<T>(url: string): Promise<T | null> {
+  const res = await fetch(url, { credentials: "same-origin" });
+  if (!res.ok) return null;
+  return (await res.json()) as T;
 }
 
-export function saveRoutes(routes: CargoRoute[]): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(routes));
+async function postJson<T>(url: string, body: unknown): Promise<T | null> {
+  const res = await fetch(url, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as T;
 }
 
-export function newId(): string {
-  return `r-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+async function patchJson<T>(url: string, body: unknown): Promise<T | null> {
+  const res = await fetch(url, {
+    method: "PATCH",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as T;
+}
+
+async function del(url: string): Promise<boolean> {
+  const res = await fetch(url, { method: "DELETE", credentials: "same-origin" });
+  return res.ok;
+}
+
+// ===================== API =====================
+
+export async function loadRoutes(shopId: string): Promise<CargoRoute[]> {
+  const data = await getJson<{ routes: CargoRoute[] }>(
+    `/api/shops/${encodeURIComponent(shopId)}/cargo-routes`,
+  );
+  return data?.routes ?? [];
+}
+
+export async function createRoute(
+  shopId: string,
+  route: Omit<CargoRoute, "id">,
+): Promise<CargoRoute | null> {
+  const data = await postJson<{ route: CargoRoute }>(
+    `/api/shops/${encodeURIComponent(shopId)}/cargo-routes`,
+    route,
+  );
+  return data?.route ?? null;
+}
+
+export async function updateRoute(
+  shopId: string,
+  routeId: string,
+  patch: Partial<Omit<CargoRoute, "id">>,
+): Promise<CargoRoute | null> {
+  const data = await patchJson<{ route: CargoRoute }>(
+    `/api/shops/${encodeURIComponent(shopId)}/cargo-routes/${encodeURIComponent(routeId)}`,
+    patch,
+  );
+  return data?.route ?? null;
+}
+
+export async function deleteRoute(shopId: string, routeId: string): Promise<boolean> {
+  return del(
+    `/api/shops/${encodeURIComponent(shopId)}/cargo-routes/${encodeURIComponent(routeId)}`,
+  );
 }
