@@ -101,8 +101,13 @@ export default function AdminBannerPage() {
         </div>
       )}
 
-      <div className="px-4 pt-4">
-        <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm">
+      {/* Layout: stacked on phone (existing UX), two-pane on lg+ where
+          the editor sits on the left and the list of saved banners on
+          the right — admin can edit one banner without losing visual
+          context of the others. */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-6">
+        <div className="space-y-4">
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
           <p className="text-xs text-gray-500 leading-relaxed">
             Эдгээр баннер нь нүүр хуудасны дээд хэсэгт гүйх формоор харагдана. Дарааллыг сум дээр дарж өөрчилнө.
           </p>
@@ -111,7 +116,7 @@ export default function AdminBannerPage() {
         {!showForm && (
           <button
             onClick={startAdd}
-            className="w-full bg-gray-900 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-sm mb-4"
+            className="w-full bg-gray-900 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-sm"
           >
             <Plus className="w-5 h-5" /> Шинэ баннер нэмэх
           </button>
@@ -287,6 +292,15 @@ export default function AdminBannerPage() {
             </div>
           </div>
         )}
+        </div>
+        {/* Right pane on lg+: the saved banner list. On phone this just
+            stacks below the form, matching the original behaviour. */}
+        <div className="space-y-4 mt-4 lg:mt-0">
+        <div className="hidden lg:block bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+          <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+            Хадгалагдсан баннер ({banners.length})
+          </p>
+        </div>
 
         {banners.length === 0 ? (
           <div className="bg-white rounded-2xl py-12 text-center shadow-sm">
@@ -359,6 +373,7 @@ export default function AdminBannerPage() {
             })}
           </div>
         )}
+        </div>
       </div>
     </>
   );

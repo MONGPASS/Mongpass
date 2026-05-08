@@ -75,41 +75,59 @@ export default function AdminShopsPage() {
 
   return (
     <>
-      {/* Status sub-tabs */}
-      <div className="flex bg-white border-b border-gray-100">
-        {(["pending", "approved", "rejected"] as Tab[]).map((k) => (
-          <button
-            key={k}
-            onClick={() => setTab(k)}
-            className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-1.5 ${tab === k ? "text-gray-900 border-b-2 border-gray-900" : "text-gray-400"}`}
-          >
-            {SHOP_STATUS_LABEL[k]}
-            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${tab === k ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-500"}`}>
-              {counts[k]}
-            </span>
-          </button>
-        ))}
+      {/* Status sub-tabs — pill-style on desktop, full-width on mobile.
+          The pill style looks more at home in a wide content area than
+          a stretched-tab row would. */}
+      <div className="bg-white rounded-xl lg:rounded-2xl border border-gray-200 mb-4 lg:mb-6 overflow-hidden">
+        <div className="flex">
+          {(["pending", "approved", "rejected"] as Tab[]).map((k) => (
+            <button
+              key={k}
+              onClick={() => setTab(k)}
+              className={`flex-1 py-3 lg:py-4 text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${
+                tab === k
+                  ? "text-gray-900 border-b-2 border-gray-900 bg-gray-50"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              {SHOP_STATUS_LABEL[k]}
+              <span
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                  tab === k ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-500"
+                }`}
+              >
+                {counts[k]}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="px-4 pt-4 space-y-3">
-        {filtered.length === 0 && (
-          <div className="bg-white rounded-2xl shadow-sm py-12 text-center">
-            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-400">
-              <Store className="w-5 h-5" />
-            </div>
-            <p className="text-sm text-gray-500">{SHOP_STATUS_LABEL[tab]} төлөвт дэлгүүр байхгүй</p>
+      {/* Card grid — 1 col on phone (existing UX), 2 col on lg, 3 col on
+          xl so an admin can scan many pending shops without scrolling
+          forever. */}
+      {filtered.length === 0 ? (
+        <div className="bg-white rounded-2xl shadow-sm py-12 lg:py-16 text-center border border-gray-100">
+          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-400">
+            <Store className="w-5 h-5" />
           </div>
-        )}
-        {filtered.map((shop) => (
-          <ShopReviewCard
-            key={shop.id}
-            shop={shop}
-            onApprove={() => handleApprove(shop.id)}
-            onStartReject={() => startReject(shop.id)}
-            onToggleFeatured={() => handleToggleFeatured(shop.id)}
-          />
-        ))}
-      </div>
+          <p className="text-sm text-gray-500">
+            {SHOP_STATUS_LABEL[tab]} төлөвт дэлгүүр байхгүй
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 lg:gap-4">
+          {filtered.map((shop) => (
+            <ShopReviewCard
+              key={shop.id}
+              shop={shop}
+              onApprove={() => handleApprove(shop.id)}
+              onStartReject={() => startReject(shop.id)}
+              onToggleFeatured={() => handleToggleFeatured(shop.id)}
+            />
+          ))}
+        </div>
+      )}
 
       {rejectingId && (
         <RejectModal
