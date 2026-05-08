@@ -9,11 +9,19 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        // The CSS variable is set by next/font in src/app/layout.tsx and
-        // currently resolves to Manrope (the free Gilroy alternative).
-        // Listing 'Gilroy' first means a licensed Gilroy install on the
-        // user's system would take precedence automatically.
-        sans: ['Gilroy', 'var(--font-sans)', 'sans-serif'],
+        // Gilroy is loaded via @font-face in src/app/globals.css.
+        // The system fallbacks render Cyrillic/Hangul nicely while
+        // Gilroy is fetching, then it swaps in.
+        sans: [
+          'Gilroy',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'system-ui',
+          'Roboto',
+          '"Apple SD Gothic Neo"',
+          '"Noto Sans KR"',
+          'sans-serif',
+        ],
       },
       colors: {
         background: "var(--background)",
