@@ -9,11 +9,11 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        // Gilroy is loaded via @font-face in src/app/globals.css.
-        // The system fallbacks render Cyrillic/Hangul nicely while
-        // Gilroy is fetching, then it swaps in.
+        // Inter (free, OFL) loaded via next/font in src/app/layout.tsx.
+        // Cyrillic subset is included so Mongolian text shares the
+        // family. System fallbacks cover Korean glyphs naturally.
         sans: [
-          'Gilroy',
+          'var(--font-sans)',
           '-apple-system',
           'BlinkMacSystemFont',
           'system-ui',

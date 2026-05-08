@@ -2,41 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-@font-face {
-  font-family: 'Gilroy';
-  font-style: normal;
-  font-weight: 300;
-  font-display: swap;
-  src: url('https://fonts.cdnfonts.com/s/16219/Gilroy-Light.woff') format('woff');
-}
-@font-face {
-  font-family: 'Gilroy';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('https://fonts.cdnfonts.com/s/16219/Gilroy-Regular.woff') format('woff');
-}
-@font-face {
-  font-family: 'Gilroy';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url('https://fonts.cdnfonts.com/s/16219/Gilroy-Medium.woff') format('woff');
-}
-@font-face {
-  font-family: 'Gilroy';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('https://fonts.cdnfonts.com/s/16219/Gilroy-Bold.woff') format('woff');
-}
-@font-face {
-  font-family: 'Gilroy';
-  font-style: normal;
-  font-weight: 900;
-  font-display: swap;
-  src: url('https://fonts.cdnfonts.com/s/16219/Gilroy-Heavy.woff') format('woff');
-}
+/* Inter is loaded site-wide via next/font in src/app/layout.tsx
+   (subsets: latin, cyrillic — covers English + Mongolian). The CSS
+   variable --font-sans is set on <body> there; we just reference it. */
 
 :root {
   --background: #FFFFFF;
@@ -46,7 +14,7 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: 'Gilroy', -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

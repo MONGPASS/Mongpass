@@ -1,10 +1,16 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-// Gilroy is loaded site-wide via @font-face declarations in globals.css
-// (light/regular/medium/bold/heavy from cdnfonts.com) — no next/font
-// loader needed here. Tailwind's font-sans family already lists
-// 'Gilroy' first.
+// Inter — free, SIL Open Font License. The latin + cyrillic subsets
+// cover Mongolian (Cyrillic script) so headings and body share the
+// same family across English and Mongolian copy.
+const sans = Inter({
+  subsets: ["latin", "cyrillic"],
+  variable: "--font-sans",
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "MongPass - MongolHub",
@@ -25,7 +31,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="mn">
-      <body className="font-sans antialiased">
+      <body className={`${sans.variable} font-sans antialiased`}>
         <div className="mobile-container">
           {children}
         </div>
