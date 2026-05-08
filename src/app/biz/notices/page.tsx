@@ -8,7 +8,6 @@ import {
   Shop,
   ShopNotice,
   findShopByOwner,
-  newNoticeId,
 } from "@/lib/shopStore";
 import { getCurrentUser } from "@/lib/userStore";
 
@@ -28,6 +27,18 @@ export default function ShopNoticesPage() {
   const [form, setForm] = useState(empty);
   const [savedFlash, setSavedFlash] = useState(false);
 
+  const [busy, setBusy] = useState(false);
+
+  async function refreshNotices(shopId: string) {
+    const res = await fetch(
+      `/api/shops/${encodeURIComponent(shopId)}/notices`,
+      { credentials: "same-origin" },
+    );
+    if (!res.ok) return;
+    const data = (await res.json()) as { notices: ShopNotice[] };
+    setShop((prev) => (prev ? { ...prev, notices: data.notices } : prev));
+  }
+
   useEffect(() => {
     let active = true;
     (async () => {
@@ -44,7 +55,11 @@ export default function ShopNoticesPage() {
         return;
       }
       setShop(s);
-      setAuthChecked(true);
+      // Pull the latest notices from the API in case the shop record's
+      // cached list is stale (the shops API returns them, but this
+      // ensures we get fresh data right after a write).
+      await refreshNotices(s.id);
+      if (active) setAuthChecked(true);
     })();
     return () => { active = false; };
   }, [router]);
@@ -52,15 +67,6 @@ export default function ShopNoticesPage() {
   function flash() {
     setSavedFlash(true);
     setTimeout(() => setSavedFlash(false), 1500);
-  }
-
-  function persist(notices: ShopNotice[]) {
-    // TODO(phase-7): persist via /api/shops/[id]/notices CRUD.
-    // For now we keep the edits in component state so the UI stays
-    // interactive, but they don't survive a page reload.
-    if (!shop) return;
-    setShop({ ...shop, notices });
-    flash();
   }
 
   function startAdd() {
@@ -80,39 +86,68 @@ export default function ShopNoticesPage() {
     setIsAdding(false);
   }
 
-  function submit() {
-    if (!shop) return;
+  async function submit() {
+    if (!shop || busy) return;
     if (!form.title.trim() || !form.content.trim()) return;
-    const list = shop.notices ?? [];
-    let next: ShopNotice[];
-    if (isAdding) {
-      next = [
-        {
-          id: newNoticeId(),
-          title: form.title.trim(),
-          content: form.content.trim(),
-          createdAt: new Date().toISOString(),
-        },
-        ...list,
-      ];
-    } else if (editingId) {
-      next = list.map((n) =>
-        n.id === editingId
-          ? { ...n, title: form.title.trim(), content: form.content.trim() }
-          : n,
-      );
-    } else {
-      return;
+    setBusy(true);
+    try {
+      if (isAdding) {
+        const res = await fetch(
+          `/api/shops/${encodeURIComponent(shop.id)}/notices`,
+          {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: form.title.trim(),
+              content: form.content.trim(),
+            }),
+          },
+        );
+        if (!res.ok) {
+          alert("Мэдээ хадгалахад алдаа гарлаа.");
+          return;
+        }
+      } else if (editingId) {
+        const res = await fetch(
+          `/api/shops/${encodeURIComponent(shop.id)}/notices/${encodeURIComponent(editingId)}`,
+          {
+            method: "PATCH",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: form.title.trim(),
+              content: form.content.trim(),
+            }),
+          },
+        );
+        if (!res.ok) {
+          alert("Мэдээ засахад алдаа гарлаа.");
+          return;
+        }
+      } else {
+        return;
+      }
+      await refreshNotices(shop.id);
+      setIsAdding(false);
+      setEditingId(null);
+      flash();
+    } finally {
+      setBusy(false);
     }
-    persist(next);
-    setIsAdding(false);
-    setEditingId(null);
   }
 
-  function remove(id: string) {
+  async function remove(id: string) {
     if (!shop) return;
     if (!confirm("Энэ мэдээллийг устгах уу?")) return;
-    persist((shop.notices ?? []).filter((n) => n.id !== id));
+    const res = await fetch(
+      `/api/shops/${encodeURIComponent(shop.id)}/notices/${encodeURIComponent(id)}`,
+      { method: "DELETE", credentials: "same-origin" },
+    );
+    if (res.ok) {
+      await refreshNotices(shop.id);
+      flash();
+    }
   }
 
   if (!authChecked || !shop) {
@@ -180,10 +215,10 @@ export default function ShopNoticesPage() {
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={submit}
-                  disabled={!form.title.trim() || !form.content.trim()}
+                  disabled={busy || !form.title.trim() || !form.content.trim()}
                   className="flex-1 bg-blue-500 text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  <Save className="w-4 h-4" /> Хадгалах
+                  <Save className="w-4 h-4" /> {busy ? "..." : "Хадгалах"}
                 </button>
                 <button
                   onClick={cancel}
