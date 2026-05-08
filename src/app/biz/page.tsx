@@ -273,6 +273,9 @@ function BizProfilePageInner() {
                 
                 <div className="flex flex-col gap-2 mb-2">
                   <label className="text-[14px] font-bold text-gray-900">Дэлгүүрийн зураг оруулах</label>
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-[12px] text-amber-800 leading-relaxed">
+                    📷 Зураг оруулах функц удахгүй идэвхжинэ. Одоогоор хадгалагдахгүй.
+                  </div>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -280,8 +283,9 @@ function BizProfilePageInner() {
                     multiple
                     onChange={handleImageUpload}
                     className="hidden"
+                    disabled
                   />
-                  <div className="flex gap-2 overflow-x-auto hide-scroll pb-1">
+                  <div className="flex gap-2 overflow-x-auto hide-scroll pb-1 opacity-50">
                     {shopImages.map((src, i) => (
                       <div key={i} className="relative shrink-0 w-[100px] h-[100px] rounded-xl overflow-hidden border border-gray-200">
                         <img src={src} alt={`shop-${i}`} className="w-full h-full object-cover" />
@@ -294,14 +298,14 @@ function BizProfilePageInner() {
                       </div>
                     ))}
                     <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="shrink-0 w-[100px] h-[100px] bg-gray-50 border border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center gap-1 text-gray-400 hover:bg-gray-100 transition-colors"
+                      type="button"
+                      disabled
+                      className="shrink-0 w-[100px] h-[100px] bg-gray-50 border border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center gap-1 text-gray-400 cursor-not-allowed"
                     >
                       <Camera size={22} strokeWidth={1.5} />
-                      <span className="text-[11px] font-medium">Зураг +</span>
+                      <span className="text-[11px] font-medium">Удахгүй</span>
                     </button>
                   </div>
-                  <p className="text-[11px] text-gray-400">Олон зураг нэг дор оруулах боломжтой</p>
                 </div>
 
                 <hr className="border-gray-100" />
@@ -394,47 +398,17 @@ function BizProfilePageInner() {
                 </button>
               </div>
             ) : (
-              <div className="bg-white mt-2 p-5 border-y border-gray-100 flex flex-col gap-5">
-                <h3 className="font-bold text-gray-900 text-[16px]">Хяналтын самбар (Dashboard)</h3>
-                
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex flex-col items-center justify-center text-center">
-                    <p className="text-[12px] text-gray-500 font-bold mb-1">Нийт хандалт</p>
-                    <p className="text-[22px] font-black text-gray-900">1,245</p>
-                  </div>
-                  <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex flex-col items-center justify-center text-center">
-                    <p className="text-[12px] text-blue-600 font-bold mb-1">Шинэ захиалга</p>
-                    <p className="text-[22px] font-black text-blue-700">12</p>
-                  </div>
-                  <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex flex-col items-center justify-center text-center">
-                    <p className="text-[12px] text-gray-500 font-bold mb-1">Шинэ дагагч</p>
-                    <p className="text-[22px] font-black text-gray-900">+34</p>
-                  </div>
-                  <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 flex flex-col items-center justify-center text-center">
-                    <p className="text-[12px] text-orange-600 font-bold mb-1">Сэтгэгдэл</p>
-                    <p className="text-[22px] font-black text-orange-700">89</p>
-                  </div>
-                </div>
-
-                <div className="mt-2 border border-gray-100 rounded-2xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-bold text-[14px] text-gray-800">Хийх ажлын жагсаалт</h4>
-                    <span className="text-[11px] font-bold text-gray-400">Өнөөдөр</span>
-                  </div>
-                  <ul className="text-[13px] text-gray-600 flex flex-col gap-3">
-                    <li className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 font-medium">
-                        <div className="w-2 h-2 rounded-full bg-blue-500"></div> 3 шинэ захиалга байна
-                      </div>
-                      <ChevronDown size={14} className="text-gray-400 rotate-[-90deg]" />
-                    </li>
-                    <li className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 font-medium">
-                        <div className="w-2 h-2 rounded-full bg-orange-500"></div> Баталгаажуулалт хүлээгдэж байна
-                      </div>
-                      <ChevronDown size={14} className="text-gray-400 rotate-[-90deg]" />
-                    </li>
-                  </ul>
+              <div className="bg-white mt-2 p-5 border-y border-gray-100 flex flex-col gap-4">
+                <h3 className="font-bold text-gray-900 text-[16px]">
+                  Сайн байна уу, {currentShop.name}!
+                </h3>
+                <p className="text-[13px] text-gray-600 leading-relaxed">
+                  Дээд талын <b>Засах</b> цэснээс дэлгүүрийн мэдээллээ удирдах,
+                  <b> Захиалга</b> цэснээс ирсэн захиалгуудыг харах,
+                  <b> Чат</b> цэснээс үйлчлүүлэгчтэй харилцаж болно.
+                </p>
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-[12px] text-blue-700 leading-relaxed">
+                  📊 Хандалт, орлого зэрэг статистик удахгүй нэмэгдэнэ.
                 </div>
               </div>
             )}

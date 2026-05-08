@@ -71,10 +71,20 @@ export function ShopHeader({ shop }: { shop: ShopData }) {
         </span>
       </div>
 
-      <div className="flex items-center gap-1 text-[13px] text-blue-600 font-medium pb-2">
-        <BadgeCheck size={16} className="fill-blue-600 text-white" />
-        Баталгаажсан газар
-      </div>
+      {/* "Verified" badge only for shops that have actually been
+          approved by an admin. Owner-viewing-their-own-pending-shop
+          would otherwise see a misleading badge. */}
+      {shop.status === "approved" && (
+        <div className="flex items-center gap-1 text-[13px] text-blue-600 font-medium pb-2">
+          <BadgeCheck size={16} className="fill-blue-600 text-white" />
+          Баталгаажсан газар
+        </div>
+      )}
+      {shop.status === "pending" && (
+        <div className="text-[12px] text-yellow-700 font-medium pb-2">
+          ⏳ Баталгаажуулалт хүлээгдэж буй
+        </div>
+      )}
     </div>
   );
 }

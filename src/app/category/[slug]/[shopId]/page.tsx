@@ -39,6 +39,7 @@ function shopToShopData(shop: Shop): ShopData {
       date: new Date(n.createdAt).toLocaleDateString("mn-MN"),
     })),
     isOpen: shop.isOpen,
+    status: shop.status,
   };
 }
 
