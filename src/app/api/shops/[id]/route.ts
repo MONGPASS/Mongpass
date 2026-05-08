@@ -23,7 +23,8 @@ async function loadShop(
     .prepare(
       `SELECT id, owner_id, category, name, description, contact_phone,
               address, open_hours, facebook, instagram, status,
-              rejection_reason, reviewed_at, featured, is_open, created_at
+              rejection_reason, reviewed_at, featured, is_open,
+              bank_account, delivery_fee, created_at
          FROM shops WHERE id = ?`,
     )
     .bind(id)
@@ -68,6 +69,12 @@ export async function PATCH(
     openHours: string;
     facebook: string;
     instagram: string;
+    bankAccount: string;
+    /**
+     * KRW integer. `null` (or 0) is allowed and means "free shipping".
+     * Anything else must be a finite non-negative number.
+     */
+    deliveryFee: number | null;
   }>;
 
   // Only allow changing user-editable fields here. status / featured /
@@ -88,11 +95,24 @@ export async function PATCH(
     ["openHours", "open_hours"],
     ["facebook", "facebook"],
     ["instagram", "instagram"],
+    ["bankAccount", "bank_account"],
   ] as const) {
     if (body[field] !== undefined) {
+      const v = body[field];
       updates.push(`${column} = ?`);
-      values.push(body[field]?.trim() || null);
+      values.push(typeof v === "string" ? v.trim() || null : null);
     }
+  }
+  if (body.deliveryFee !== undefined) {
+    const v = body.deliveryFee;
+    if (v !== null && (!Number.isFinite(v) || v < 0)) {
+      return Response.json(
+        { error: "deliveryFee must be a non-negative number or null" },
+        { status: 400 },
+      );
+    }
+    updates.push("delivery_fee = ?");
+    values.push(v === null ? null : Math.round(v));
   }
 
   // Editing a rejected shop bumps it back into review.

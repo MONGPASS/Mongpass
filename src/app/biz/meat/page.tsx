@@ -12,7 +12,7 @@ import {
   updateMeatProduct,
   deleteMeatProduct,
 } from "@/lib/meatProductStore";
-import { findShopByOwner } from "@/lib/shopStore";
+import { Shop, findShopByOwner, updateShop } from "@/lib/shopStore";
 import { getCurrentUser } from "@/lib/userStore";
 
 const empty: Omit<MeatProduct, "id"> = {
@@ -35,6 +35,13 @@ export default function MeatAdminPage() {
   const [form, setForm] = useState<Omit<MeatProduct, "id">>(empty);
   const [savedFlash, setSavedFlash] = useState(false);
 
+  // Payment settings — saved on the Shop itself (one row per shop) so
+  // we don't need a separate table just for two scalars.
+  const [bankAccount, setBankAccount] = useState("");
+  const [deliveryFee, setDeliveryFee] = useState("");
+  const [paymentBusy, setPaymentBusy] = useState(false);
+  const [paymentFlash, setPaymentFlash] = useState(false);
+
   useEffect(() => {
     let active = true;
     (async () => {
@@ -55,11 +62,51 @@ export default function MeatAdminPage() {
         return;
       }
       setShopId(shop.id);
+      setBankAccount(shop.bankAccount ?? "");
+      setDeliveryFee(
+        shop.deliveryFee !== undefined ? String(shop.deliveryFee) : "",
+      );
       setProducts(await loadMeatProducts(shop.id));
       if (active) setAuthChecked(true);
     })();
     return () => { active = false; };
   }, [router]);
+
+  async function savePayment() {
+    if (!shopId || paymentBusy) return;
+    // Empty delivery fee → null (uses store-default behaviour, hides line).
+    // Otherwise must parse to a non-negative integer.
+    let fee: number | null = null;
+    const trimmed = deliveryFee.trim();
+    if (trimmed) {
+      // Allow "5,000" / "5000원" by stripping non-digits before parsing.
+      const cleaned = trimmed.replace(/[^\d]/g, "");
+      if (!cleaned) {
+        alert("Хүргэлтийн төлбөр буруу байна");
+        return;
+      }
+      fee = Number(cleaned);
+    }
+    setPaymentBusy(true);
+    try {
+      const updated: Shop | null = await updateShop(shopId, {
+        bankAccount: bankAccount.trim(),
+        deliveryFee: fee,
+      });
+      if (updated) {
+        setBankAccount(updated.bankAccount ?? "");
+        setDeliveryFee(
+          updated.deliveryFee !== undefined ? String(updated.deliveryFee) : "",
+        );
+        setPaymentFlash(true);
+        setTimeout(() => setPaymentFlash(false), 1500);
+      }
+    } catch {
+      alert("Хадгалж чадсангүй. Дахин оролдоно уу.");
+    } finally {
+      setPaymentBusy(false);
+    }
+  }
 
   function flash() {
     setSavedFlash(true);
@@ -141,6 +188,56 @@ export default function MeatAdminPage() {
       </header>
 
       <div className="px-4 pt-4">
+        {/* Payment settings — bank account + delivery fee.
+            Empty values → user-facing order page hides the relevant
+            line. Owner can still take orders by chat without these. */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-sm text-gray-900">Төлбөр &amp; хүргэлт</h2>
+            {paymentFlash && (
+              <span className="text-[11px] text-green-600 font-semibold">Хадгалагдлаа</span>
+            )}
+          </div>
+          <p className="text-[11px] text-gray-500 mb-3 leading-relaxed">
+            Үйлчлүүлэгч захиалга өгөх үед нийт үнэ дээр хүргэлтийн төлбөр нэмэгдэн харагдаж,
+            доорх данс руу шилжүүлэх зааварчилгаа гарна.
+          </p>
+          <div className="space-y-3">
+            <div>
+              <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
+                Хүлээн авах данс
+              </label>
+              <input
+                type="text"
+                placeholder="Шинхан 110-000-000000 / Холбогдох нэр"
+                value={bankAccount}
+                onChange={(e) => setBankAccount(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
+                Хүргэлтийн төлбөр (₩)
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="0 = үнэгүй хүргэлт"
+                value={deliveryFee}
+                onChange={(e) => setDeliveryFee(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
+              />
+            </div>
+            <button
+              onClick={savePayment}
+              disabled={paymentBusy}
+              className="w-full bg-gray-900 text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              <Save className="w-4 h-4" /> {paymentBusy ? "Хадгалж байна..." : "Төлбөрийн тохиргоо хадгалах"}
+            </button>
+          </div>
+        </div>
+
         <div className="flex gap-2 overflow-x-auto hide-scroll pb-2 mb-3">
           {MEAT_PRODUCT_CATEGORIES.map((c) => (
             <button

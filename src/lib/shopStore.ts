@@ -36,6 +36,10 @@ export interface Shop {
   featured?: boolean;
   isOpen?: boolean;
   notices?: ShopNotice[];
+  /** Free-text bank info shown on order pages, e.g. "신한 110-..." */
+  bankAccount?: string;
+  /** Per-order delivery fee in KRW. Undefined when not configured. */
+  deliveryFee?: number;
   createdAt: string;
 }
 
@@ -156,7 +160,12 @@ export async function createShop(
 
 export async function updateShop(
   id: string,
-  patch: Partial<Pick<Shop, "name" | "description" | "contactPhone" | "address" | "openHours" | "facebook" | "instagram">>,
+  patch: Partial<
+    Pick<Shop, "name" | "description" | "contactPhone" | "address" | "openHours" | "facebook" | "instagram" | "bankAccount">
+  > & {
+    /** null is allowed and means "clear the value". */
+    deliveryFee?: number | null;
+  },
 ): Promise<Shop | null> {
   const data = await patchJson<{ shop: Shop }>(
     `/api/shops/${encodeURIComponent(id)}`,

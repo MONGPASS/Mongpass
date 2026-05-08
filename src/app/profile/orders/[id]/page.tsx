@@ -2,13 +2,14 @@
 
 export const runtime = "edge";
 
-import { ArrowLeft, Plane, Zap, Package, Stethoscope, Scissors } from "lucide-react";
+import { ArrowLeft, Plane, Zap, Package, Stethoscope, Scissors, Copy, Check } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   BeautyAppointment,
   CargoOrder,
   HospitalAppointment,
+  MeatOrder,
   Order,
   OrderStatus,
   RestaurantOrder,
@@ -267,6 +268,7 @@ function CategoryHeader({ order }: { order: Order }) {
     food: { label: "Хоол", bg: "bg-orange-50", text: "text-orange-600" },
     hospital: { label: "Эмнэлэг", bg: "bg-purple-50", text: "text-purple-600" },
     beauty: { label: "Гоо сайхан", bg: "bg-pink-50", text: "text-pink-600" },
+    meat: { label: "Мах", bg: "bg-red-50", text: "text-red-600" },
   };
   const m = meta[order.shopCategory];
   return (
@@ -281,6 +283,96 @@ function CategoryHeader({ order }: { order: Order }) {
   );
 }
 
+function MeatDetail({ order }: { order: MeatOrder }) {
+  const [copied, setCopied] = useState(false);
+  async function copyBank() {
+    try {
+      await navigator.clipboard.writeText(order.bankAccountSnapshot);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* ignore */
+    }
+  }
+  return (
+    <>
+      <Section title="Бараа">
+        <div className="divide-y divide-gray-100">
+          {order.items.map((it) => (
+            <div key={it.productId} className="py-2 flex items-baseline justify-between gap-3 text-sm">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  {it.category}
+                </p>
+                <p className="text-gray-900 font-medium truncate">
+                  {it.name} <span className="text-gray-400">×{it.qty}</span>
+                </p>
+              </div>
+              <span className="text-gray-700 shrink-0">{it.price}</span>
+            </div>
+          ))}
+          <div className="pt-3 space-y-1">
+            <div className="flex justify-between text-[13px] text-gray-600">
+              <span>Барааны дүн</span>
+              <span>{formatPrice(order.subtotalAmount)}</span>
+            </div>
+            {order.deliveryFee > 0 && (
+              <div className="flex justify-between text-[13px] text-gray-600">
+                <span>Хүргэлт</span>
+                <span>{formatPrice(order.deliveryFee)}</span>
+              </div>
+            )}
+            <div className="flex justify-between items-baseline pt-1">
+              <span className="text-sm font-bold text-gray-700">Нийт төлөх</span>
+              <span className="font-bold text-base text-orange-600">
+                {formatPrice(order.totalAmount)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      {order.bankAccountSnapshot && (
+        <Section title="Шилжүүлэх данс">
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-3.5">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <p className="text-[13px] font-bold text-gray-900 break-all flex-1">
+                {order.bankAccountSnapshot}
+              </p>
+              <button
+                type="button"
+                onClick={copyBank}
+                className="shrink-0 flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-white border border-blue-200 rounded-lg px-2 py-1"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3 h-3" /> Хуулагдсан
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3" /> Хуулах
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="text-[11px] text-blue-700/80 leading-relaxed">
+              Дээрх данс руу <b>{formatPrice(order.totalAmount)}</b> шилжүүлсний дараа
+              дэлгүүр захиалгыг баталгаажуулна.
+            </p>
+          </div>
+        </Section>
+      )}
+
+      <Section title="Хүргэх мэдээлэл">
+        <Row label="Нэр" value={order.customer.name} />
+        <Row label="Утас" value={order.customer.phone} />
+        <Row label="Хаяг" value={order.customer.address} />
+        {order.notes && <Row label="Тэмдэглэл" value={order.notes} />}
+      </Section>
+    </>
+  );
+}
+
 function OrderBody({ order }: { order: Order }) {
   switch (order.shopCategory) {
     case "cargo":
@@ -292,6 +384,8 @@ function OrderBody({ order }: { order: Order }) {
       return <HospitalDetail order={order} />;
     case "beauty":
       return <BeautyDetail order={order} />;
+    case "meat":
+      return <MeatDetail order={order} />;
     default:
       return null;
   }

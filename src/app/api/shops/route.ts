@@ -67,7 +67,8 @@ export async function GET(request: Request): Promise<Response> {
     .prepare(
       `SELECT id, owner_id, category, name, description, contact_phone,
               address, open_hours, facebook, instagram, status,
-              rejection_reason, reviewed_at, featured, is_open, created_at
+              rejection_reason, reviewed_at, featured, is_open,
+              bank_account, delivery_fee, created_at
          FROM shops
          ${where}
          ORDER BY created_at DESC
@@ -141,7 +142,8 @@ export async function POST(request: Request): Promise<Response> {
     .prepare(
       `SELECT id, owner_id, category, name, description, contact_phone,
               address, open_hours, facebook, instagram, status,
-              rejection_reason, reviewed_at, featured, is_open, created_at
+              rejection_reason, reviewed_at, featured, is_open,
+              bank_account, delivery_fee, created_at
          FROM shops WHERE id = ?`,
     )
     .bind(id)

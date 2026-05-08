@@ -181,8 +181,10 @@ function orderRouteFor(category: ShopCategory | undefined, shopId: string): stri
       return `/category/hospital/${shopId}/book`;
     case "beauty":
       return `/category/beauty/${shopId}/book`;
+    case "meat":
+      return `/category/meat/${shopId}/order`;
     default:
-      // meat / car / travel / other — no dedicated order route yet.
+      // car / travel / other — no dedicated order route yet.
       return null;
   }
 }

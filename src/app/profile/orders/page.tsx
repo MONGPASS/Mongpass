@@ -1,12 +1,13 @@
 'use client';
 
-import { ArrowLeft, Plane, Zap, Package, Pizza, Stethoscope, Scissors, ShoppingBag } from "lucide-react";
+import { ArrowLeft, Plane, Zap, Package, Pizza, Stethoscope, Scissors, ShoppingBag, Beef } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   BeautyAppointment,
   CargoOrder,
   HospitalAppointment,
+  MeatOrder,
   Order,
   OrderStatus,
   RestaurantOrder,
@@ -152,6 +153,33 @@ function BeautyCard({ order }: { order: BeautyAppointment }) {
   );
 }
 
+function MeatCard({ order }: { order: MeatOrder }) {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm p-4">
+      <div className="flex items-start gap-3 mb-3">
+        <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center text-red-500 shrink-0">
+          <Beef className="w-5 h-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              Мах · {fmtDateTime(order.createdAt)}
+            </span>
+            <StatusBadge category={order.shopCategory} status={order.status} />
+          </div>
+          <p className="font-bold text-sm text-gray-900 mb-1">
+            {order.items.length} зүйл ·{" "}
+            <span className="text-orange-600">{formatPrice(order.totalAmount)}</span>
+          </p>
+          <p className="text-[11px] text-gray-500 truncate">
+            {order.items.map((i) => `${i.name}×${i.qty}`).join(", ")}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function OrderCard({ order }: { order: Order }) {
   switch (order.shopCategory) {
     case "cargo":
@@ -163,6 +191,8 @@ function OrderCard({ order }: { order: Order }) {
       return <HospitalCard order={order} />;
     case "beauty":
       return <BeautyCard order={order} />;
+    case "meat":
+      return <MeatCard order={order} />;
     default:
       return null;
   }

@@ -54,6 +54,12 @@ const STATUS_LABEL_BY_CATEGORY: Partial<
     received: "Баталгаажсан",
     delivered: "Дууссан",
   },
+  meat: {
+    pending: "Шилжүүлэг хүлээж буй",
+    received: "Төлбөр баталгаажсан",
+    in_transit: "Бэлдэж/Хүргэж буй",
+    delivered: "Хүргэгдсэн",
+  },
 };
 
 const APPOINTMENT_FLOW: OrderStatus[] = ["pending", "received", "delivered"];
@@ -134,7 +140,40 @@ export interface BeautyAppointment extends BaseOrder {
   notes?: string;
 }
 
-export type Order = CargoOrder | RestaurantOrder | HospitalAppointment | BeautyAppointment;
+export interface MeatOrderItem {
+  productId: string;
+  category: string;
+  name: string;
+  /** Display string ("22,000₩") so we don't lose currency / unit semantics. */
+  price: string;
+  unit: string;
+  qty: number;
+}
+
+/**
+ * Meat shop bank-transfer order. Customer picks quantities, sees a
+ * total = subtotal + delivery fee, and is shown a bank account string
+ * to wire the money to. The order sits in "pending" until the owner
+ * marks it received (= they've seen the deposit).
+ */
+export interface MeatOrder extends BaseOrder {
+  shopCategory: "meat";
+  items: MeatOrderItem[];
+  subtotalAmount: number;
+  deliveryFee: number;
+  totalAmount: number;
+  /** Snapshot of the bank string at order time so it never changes after the fact. */
+  bankAccountSnapshot: string;
+  customer: { name: string; phone: string; address: string };
+  notes?: string;
+}
+
+export type Order =
+  | CargoOrder
+  | RestaurantOrder
+  | HospitalAppointment
+  | BeautyAppointment
+  | MeatOrder;
 
 // ===================== HTTP helpers =====================
 

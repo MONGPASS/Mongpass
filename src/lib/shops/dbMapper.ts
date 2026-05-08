@@ -25,6 +25,8 @@ export interface ShopRow {
   reviewed_at: string | null;
   featured: number;
   is_open: number;
+  bank_account: string | null;
+  delivery_fee: number | null;
   created_at: string;
 }
 
@@ -48,6 +50,8 @@ export function rowToShop(row: ShopRow, opts: { images?: string[]; notices?: Sho
     featured: row.featured === 1,
     isOpen: row.is_open === 1,
     notices: opts.notices ?? [],
+    bankAccount: row.bank_account ?? undefined,
+    deliveryFee: row.delivery_fee ?? undefined,
     createdAt: row.created_at,
   };
 }

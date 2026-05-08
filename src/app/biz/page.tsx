@@ -5,13 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState, useRef, useEffect } from "react";
 import { getCategoryInfo } from "@/lib/categories";
 import { ShopCategory } from "@/components/shop/types";
-import { BeautyAppointment, CargoOrder, HospitalAppointment, ORDER_STATUS_LABEL, OrderStatus, RestaurantOrder, formatPrice, getStatusFlow, getStatusLabel, loadOrdersByShop, updateOrderStatus } from "@/lib/orderStore";
+import { BeautyAppointment, CargoOrder, HospitalAppointment, MeatOrder, ORDER_STATUS_LABEL, OrderStatus, RestaurantOrder, formatPrice, getStatusFlow, getStatusLabel, loadOrdersByShop, updateOrderStatus } from "@/lib/orderStore";
 import { Shop, findShopByOwner, isShopOpen, toggleOpen, updateShop } from "@/lib/shopStore";
 import { getCurrentUser } from "@/lib/userStore";
 import { BizChatThreadList } from "@/components/biz/BizChatThreadList";
 import { r2Url, uploadImage } from "@/lib/images/upload";
 
-const CATEGORY_HAS_DEDICATED_ORDERS_UI: ShopCategory[] = ["cargo", "restaurant", "food", "hospital", "beauty"];
+const CATEGORY_HAS_DEDICATED_ORDERS_UI: ShopCategory[] = ["cargo", "restaurant", "food", "hospital", "beauty", "meat"];
 
 // Top-level wrapper provides the Suspense boundary required when
 // useSearchParams() is used during render — without it Next.js fails
@@ -486,6 +486,9 @@ function BizProfilePageInner() {
         {!isEditingProfile && activeTab === "Захиалга" && currentShop.category === "beauty" && (
           <BeautyAppointmentsList shopId={currentShop.id} />
         )}
+        {!isEditingProfile && activeTab === "Захиалга" && currentShop.category === "meat" && (
+          <MeatOrdersList shopId={currentShop.id} />
+        )}
 
         {/* Categories without a dedicated orders renderer (currently meat) — show empty state */}
         {!isEditingProfile && activeTab === "Захиалга" &&
@@ -815,6 +818,91 @@ function RestaurantOrdersList({ shopId, category }: { shopId: string; category: 
               {order.notes && <p className="text-orange-600 mt-1">💬 {order.notes}</p>}
             </div>
             <StatusSelect category="restaurant" status={order.status} onChange={(s) => changeStatus(order.id, s)} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Meat shop order list — bank-transfer flow. The owner sees the
+ * customer's contact info, what they ordered, and the total they owe;
+ * "Хүлээн авсан" status here means the deposit has been confirmed.
+ */
+function MeatOrdersList({ shopId }: { shopId: string }) {
+  const [orders, setOrders] = useState<MeatOrder[]>([]);
+  const [filter, setFilter] = useState<OrderStatus | "all">("all");
+
+  async function refresh() {
+    const list = await loadOrdersByShop("meat", shopId);
+    setOrders(list as MeatOrder[]);
+  }
+
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shopId]);
+
+  async function changeStatus(id: string, status: OrderStatus) {
+    await updateOrderStatus(id, status);
+    await refresh();
+  }
+
+  const visible = filter === "all" ? orders : orders.filter((o) => o.status === filter);
+
+  return (
+    <div className="bg-gray-50 mt-2 min-h-screen">
+      <div className="bg-white p-5 border-y border-gray-100">
+        <h3 className="font-bold text-gray-900 text-[16px] mb-3">Махны захиалгууд</h3>
+        <StatusFilter category="meat" filter={filter} setFilter={setFilter} />
+      </div>
+
+      <div className="px-4 py-4 space-y-3 pb-24">
+        {visible.length === 0 && (
+          <p className="text-center text-gray-400 text-sm py-12">Захиалга байхгүй байна</p>
+        )}
+        {visible.map((order) => (
+          <div key={order.id} className="bg-white rounded-2xl shadow-sm p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                {order.id.slice(0, 14)}
+              </span>
+              <span className="text-[11px] text-gray-500">{fmtDateTime(order.createdAt)}</span>
+            </div>
+            <p className="font-bold text-sm text-gray-900 mb-2">{order.customer.name}</p>
+            <div className="space-y-1 mb-3">
+              {order.items.map((it) => (
+                <div key={it.productId} className="flex justify-between text-[12px]">
+                  <span className="text-gray-700 min-w-0 truncate">
+                    {it.name} <span className="text-gray-400">×{it.qty}</span>
+                  </span>
+                  <span className="text-gray-500 shrink-0 ml-2">{it.price}</span>
+                </div>
+              ))}
+              <div className="flex justify-between pt-2 border-t border-gray-100 text-[12px]">
+                <span className="text-gray-500">Барааны дүн</span>
+                <span className="text-gray-700">{formatPrice(order.subtotalAmount)}</span>
+              </div>
+              {order.deliveryFee > 0 && (
+                <div className="flex justify-between text-[12px]">
+                  <span className="text-gray-500">Хүргэлт</span>
+                  <span className="text-gray-700">{formatPrice(order.deliveryFee)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-[13px]">
+                <span className="font-bold text-gray-900">Нийт төлөх</span>
+                <span className="font-bold text-orange-600">{formatPrice(order.totalAmount)}</span>
+              </div>
+            </div>
+            <div className="text-[11px] text-gray-500 space-y-0.5">
+              <p>📞 {order.customer.phone}</p>
+              <p className="truncate" title={order.customer.address}>
+                📍 {order.customer.address}
+              </p>
+              {order.notes && <p className="text-orange-600 mt-1">💬 {order.notes}</p>}
+            </div>
+            <StatusSelect category="meat" status={order.status} onChange={(s) => changeStatus(order.id, s)} />
           </div>
         ))}
       </div>

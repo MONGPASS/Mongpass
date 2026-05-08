@@ -1,0 +1,417 @@
+'use client';
+
+export const runtime = "edge";
+
+import { ArrowLeft, Check, Copy, Minus, Plus, Send } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import {
+  MeatProduct,
+  MEAT_PRODUCT_CATEGORIES,
+  loadMeatProducts,
+} from "@/lib/meatProductStore";
+import {
+  MeatOrder,
+  MeatOrderItem,
+  addOrder,
+  formatPrice,
+  newOrderId,
+  parsePrice,
+} from "@/lib/orderStore";
+import { Shop, findShopById } from "@/lib/shopStore";
+import { getCurrentUser } from "@/lib/userStore";
+import { useRouter } from "next/navigation";
+
+export default function MeatOrderPage({ params }: { params: { shopId: string } }) {
+  const router = useRouter();
+  const [shop, setShop] = useState<Shop | null | undefined>(undefined);
+  const [products, setProducts] = useState<MeatProduct[]>([]);
+  const [filter, setFilter] = useState<string>(MEAT_PRODUCT_CATEGORIES[0]);
+  // Map of productId → quantity. 0 (or absent) means not in cart.
+  const [qtyById, setQtyById] = useState<Record<string, number>>({});
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [notes, setNotes] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [bankCopied, setBankCopied] = useState(false);
+
+  // Auth gate + initial load.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const u = await getCurrentUser();
+      if (!active) return;
+      if (!u) {
+        router.replace(
+          `/login?redirect=/category/meat/${encodeURIComponent(params.shopId)}/order`,
+        );
+        return;
+      }
+      const [s, ps] = await Promise.all([
+        findShopById(params.shopId),
+        loadMeatProducts(params.shopId),
+      ]);
+      if (!active) return;
+      setShop(s);
+      setProducts(ps);
+    })();
+    return () => { active = false; };
+  }, [params.shopId, router]);
+
+  function setQty(id: string, qty: number) {
+    setQtyById((prev) => {
+      const next = { ...prev };
+      if (qty <= 0) delete next[id];
+      else next[id] = Math.min(qty, 99);
+      return next;
+    });
+  }
+
+  // Derived totals — computed every render off the qty map + product list.
+  const { subtotal, items } = useMemo(() => {
+    const items: MeatOrderItem[] = [];
+    let subtotal = 0;
+    for (const p of products) {
+      const qty = qtyById[p.id] ?? 0;
+      if (qty <= 0) continue;
+      const lineUnit = parsePrice(p.price);
+      subtotal += lineUnit * qty;
+      items.push({
+        productId: p.id,
+        category: p.category,
+        name: p.name,
+        price: p.price,
+        unit: p.unit,
+        qty,
+      });
+    }
+    return { subtotal, items };
+  }, [products, qtyById]);
+
+  const deliveryFee = shop?.deliveryFee ?? 0;
+  const total = subtotal + deliveryFee;
+  const bankAccount = shop?.bankAccount?.trim() ?? "";
+
+  const visibleProducts = products.filter((p) => p.category === filter);
+
+  const canSubmit =
+    items.length > 0 &&
+    name.trim().length > 0 &&
+    phone.trim().length > 0 &&
+    address.trim().length > 0 &&
+    bankAccount.length > 0 &&
+    !busy;
+
+  async function copyBank() {
+    if (!bankAccount) return;
+    try {
+      await navigator.clipboard.writeText(bankAccount);
+      setBankCopied(true);
+      setTimeout(() => setBankCopied(false), 1500);
+    } catch {
+      /* clipboard blocked — silent fallback */
+    }
+  }
+
+  async function submit() {
+    if (!shop || !canSubmit) return;
+    setBusy(true);
+    try {
+      const order: MeatOrder = {
+        id: newOrderId(),
+        shopCategory: "meat",
+        shopId: shop.id,
+        createdAt: new Date().toISOString(),
+        status: "pending",
+        items,
+        subtotalAmount: subtotal,
+        deliveryFee,
+        totalAmount: total,
+        bankAccountSnapshot: bankAccount,
+        customer: {
+          name: name.trim(),
+          phone: phone.trim(),
+          address: address.trim(),
+        },
+        notes: notes.trim() || undefined,
+      };
+      const created = await addOrder(order);
+      if (created) setSubmitted(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (shop === undefined) {
+    return <main className="w-full min-h-screen bg-gray-50" />;
+  }
+
+  if (shop === null) {
+    return (
+      <main className="w-full min-h-screen bg-gray-50 flex items-center justify-center px-6">
+        <div className="bg-white rounded-3xl shadow-sm p-8 text-center max-w-md w-full">
+          <p className="text-sm text-gray-500 mb-4">Дэлгүүр олдсонгүй.</p>
+          <Link
+            href="/"
+            className="inline-block bg-gray-900 text-white font-semibold px-5 py-2.5 rounded-xl text-sm"
+          >
+            Нүүр рүү
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  if (submitted) {
+    return (
+      <main className="w-full min-h-screen bg-gray-50 flex items-center justify-center px-6">
+        <div className="bg-white rounded-3xl shadow-sm p-8 text-center max-w-md w-full">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-green-600">
+            <Check className="w-7 h-7" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Захиалга илгээгдлээ!</h2>
+          <p className="text-sm text-gray-500 mb-2 leading-relaxed">
+            Доорх данс руу <span className="font-bold text-gray-900">{formatPrice(total)}</span>{" "}
+            шилжүүлсний дараа дэлгүүр баталгаажуулна.
+          </p>
+          <div className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 mb-6 text-sm font-bold text-gray-900 break-all">
+            {bankAccount}
+          </div>
+          <Link
+            href="/profile/orders"
+            className="inline-block bg-gray-900 text-white font-semibold px-5 py-2.5 rounded-xl text-sm"
+          >
+            Миний захиалгууд руу
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="w-full min-h-screen bg-gray-50 pb-32">
+      <header className="sticky top-0 z-30 bg-white border-b border-gray-200">
+        <div className="flex items-center h-14 px-4 gap-3">
+          <Link
+            href={`/category/meat/${encodeURIComponent(shop.id)}`}
+            className="p-2 -ml-2 hover:bg-gray-100 rounded-full"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <div className="flex-1 min-w-0">
+            <h1 className="font-bold text-base truncate">Захиалга өгөх</h1>
+            <p className="text-[11px] text-gray-500 truncate">{shop.name}</p>
+          </div>
+        </div>
+      </header>
+
+      {/* If the owner hasn't set the bank account yet, surface a clear
+          banner; we still let the user browse products but block submit. */}
+      {!bankAccount && (
+        <div className="mx-4 mt-4 bg-amber-50 border border-amber-200 rounded-xl p-3 text-[12px] text-amber-800">
+          Энэ дэлгүүр одоогоор төлбөр хүлээж авах данс тохируулаагүй байна.
+          Захиалга өгөхийн өмнө дэлгүүртэй чатаар холбоо барина уу.
+        </div>
+      )}
+
+      {/* Category filter */}
+      <div className="px-4 pt-4">
+        <div className="flex gap-2 overflow-x-auto hide-scroll pb-2 mb-3">
+          {MEAT_PRODUCT_CATEGORIES.map((c) => (
+            <button
+              key={c}
+              onClick={() => setFilter(c)}
+              className={`shrink-0 px-4 py-2 rounded-full text-[13px] font-bold border transition-colors ${
+                filter === c
+                  ? "bg-orange-500 border-orange-500 text-white"
+                  : "border-gray-200 bg-white text-gray-600"
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+
+        {/* Product list */}
+        {visibleProducts.length === 0 ? (
+          <p className="text-center text-gray-400 text-sm py-12">
+            &ldquo;{filter}&rdquo; ангилалд бараа алга байна
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {visibleProducts.map((p) => {
+              const qty = qtyById[p.id] ?? 0;
+              return (
+                <div
+                  key={p.id}
+                  className="bg-white rounded-2xl p-3 shadow-sm flex gap-3 items-center"
+                >
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-bold text-sm text-gray-900 truncate">{p.name}</h4>
+                    <p className="text-[12px] text-gray-500 truncate mb-1">{p.description}</p>
+                    <p className="text-[14px] font-bold text-orange-600">
+                      {p.price}{" "}
+                      <span className="text-[11px] text-gray-500 font-normal">/ {p.unit}</span>
+                    </p>
+                  </div>
+                  {qty === 0 ? (
+                    <button
+                      onClick={() => setQty(p.id, 1)}
+                      className="shrink-0 bg-orange-500 text-white rounded-full w-9 h-9 flex items-center justify-center"
+                      aria-label="Сагсанд нэмэх"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <div className="shrink-0 flex items-center gap-2 bg-gray-50 rounded-full px-1 py-1 border border-gray-100">
+                      <button
+                        onClick={() => setQty(p.id, qty - 1)}
+                        className="w-7 h-7 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-700"
+                        aria-label="Хасах"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="text-sm font-bold w-6 text-center">{qty}</span>
+                      <button
+                        onClick={() => setQty(p.id, qty + 1)}
+                        className="w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center"
+                        aria-label="Нэмэх"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Customer info */}
+      <section className="bg-white mx-4 mt-4 rounded-2xl shadow-sm p-4 space-y-3">
+        <h3 className="font-bold text-sm text-gray-900">Хүлээн авагчийн мэдээлэл</h3>
+        <div>
+          <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">Нэр</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Бат-Эрдэнэ"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">Утас</label>
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="010-1234-5678"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">Хүргэх хаяг</label>
+          <input
+            type="text"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="서울시 ..."
+            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
+            Тэмдэглэл <span className="font-medium text-gray-400">(заавал биш)</span>
+          </label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            placeholder="Хүргэлтийн цаг г.м"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm resize-none"
+          />
+        </div>
+      </section>
+
+      {/* Order summary + bank info */}
+      <section className="bg-white mx-4 mt-4 rounded-2xl shadow-sm p-4">
+        <h3 className="font-bold text-sm text-gray-900 mb-3">Захиалгын дүн</h3>
+        <div className="space-y-2 text-[13px]">
+          <div className="flex items-center justify-between text-gray-600">
+            <span>Барааны дүн ({items.length} төрөл)</span>
+            <span>{formatPrice(subtotal)}</span>
+          </div>
+          {shop.deliveryFee !== undefined && (
+            <div className="flex items-center justify-between text-gray-600">
+              <span>Хүргэлтийн төлбөр</span>
+              <span>
+                {deliveryFee === 0 ? (
+                  <span className="text-green-600 font-semibold">Үнэгүй</span>
+                ) : (
+                  formatPrice(deliveryFee)
+                )}
+              </span>
+            </div>
+          )}
+          <div className="border-t border-gray-100 pt-2 flex items-center justify-between">
+            <span className="font-bold text-gray-900">Нийт төлөх дүн</span>
+            <span className="text-lg font-bold text-orange-600">{formatPrice(total)}</span>
+          </div>
+        </div>
+
+        {bankAccount && items.length > 0 && (
+          <div className="mt-4 bg-blue-50 border border-blue-100 rounded-xl p-3.5">
+            <p className="text-[11px] font-bold text-blue-700 mb-1">
+              Доорх данс руу нийт дүнг шилжүүлнэ үү
+            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[13px] font-bold text-gray-900 break-all flex-1">
+                {bankAccount}
+              </p>
+              <button
+                type="button"
+                onClick={copyBank}
+                className="shrink-0 flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-white border border-blue-200 rounded-lg px-2 py-1"
+              >
+                {bankCopied ? (
+                  <>
+                    <Check className="w-3 h-3" /> Хуулагдсан
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3" /> Хуулах
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="text-[11px] text-blue-700/80 mt-2 leading-relaxed">
+              Шилжүүлгийн дараа дэлгүүр төлбөрийг баталгаажуулсны дараа захиалга бэлдэж эхэлнэ.
+            </p>
+          </div>
+        )}
+      </section>
+
+      {/* Sticky submit */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-40">
+        <div className="max-w-[480px] mx-auto">
+          <button
+            onClick={submit}
+            disabled={!canSubmit}
+            className="w-full bg-orange-500 text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-40 flex items-center justify-center gap-2"
+          >
+            <Send className="w-4 h-4" />
+            {busy
+              ? "Илгээж байна..."
+              : items.length === 0
+              ? "Бараа сонгоно уу"
+              : `${formatPrice(total)} — Захиалга өгөх`}
+          </button>
+        </div>
+      </div>
+    </main>
+  );
+}
