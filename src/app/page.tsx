@@ -1,3 +1,4 @@
+import Link from "next/link";
 import TopBar from "@/components/layout/TopBar";
 import BannerSlider from "@/components/home/BannerSlider";
 import CategoryGrid from "@/components/home/CategoryGrid";
@@ -33,7 +34,29 @@ export default function Home() {
         {/* Personalised: re-engagement on return visits */}
         <RecentlyViewedSection />
 
-        <div className="flex-1 bg-white pb-10" />
+        {/* Footer — Google OAuth requires a privacy/terms link on the
+            production homepage; users also expect the basics here. */}
+        <footer className="bg-white pt-8 pb-10 px-5 text-center border-t border-gray-100">
+          <p className="text-[11px] text-gray-400 mb-3">
+            © {new Date().getFullYear()} MongPass. Бүх эрх хуулиар хамгаалагдсан.
+          </p>
+          <nav className="flex items-center justify-center gap-4 text-[12px] font-medium">
+            <Link href="/privacy" className="text-gray-500 hover:text-gray-700">
+              Нууцлалын бодлого
+            </Link>
+            <span className="text-gray-300">·</span>
+            <Link href="/terms" className="text-gray-500 hover:text-gray-700">
+              Үйлчилгээний нөхцөл
+            </Link>
+            <span className="text-gray-300">·</span>
+            <a
+              href="mailto:tulgamaidar3@gmail.com"
+              className="text-gray-500 hover:text-gray-700"
+            >
+              Холбогдох
+            </a>
+          </nav>
+        </footer>
       </div>
       <BottomNav />
     </main>
