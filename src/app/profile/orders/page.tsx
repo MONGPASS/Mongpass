@@ -15,7 +15,7 @@ import {
 } from "@/lib/orderStore";
 import { ShopCategory } from "@/components/shop/types";
 import { CargoType } from "@/lib/cargoStore";
-import { loadMyOrders } from "@/lib/myOrdersStore";
+import { loadOrders } from "@/lib/orderStore";
 
 const STATUS_BADGE: Record<OrderStatus, string> = {
   pending: "bg-yellow-100 text-yellow-700",
@@ -175,7 +175,11 @@ export default function MyOrdersPage() {
   const [tab, setTab] = useState<TabKey>("all");
 
   useEffect(() => {
-    setOrders(loadMyOrders());
+    let active = true;
+    loadOrders({ mine: true }).then((list) => {
+      if (active) setOrders(list);
+    });
+    return () => { active = false; };
   }, []);
 
   const sorted = [...orders].sort(

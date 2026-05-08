@@ -15,7 +15,7 @@ import {
   formatPrice,
   getStatusFlow,
   getStatusLabel,
-  loadOrders,
+  findOrderById,
 } from "@/lib/orderStore";
 import { ShopCategory } from "@/components/shop/types";
 import { CargoType } from "@/lib/cargoStore";
@@ -301,8 +301,11 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
   const [order, setOrder] = useState<Order | null | undefined>(undefined);
 
   useEffect(() => {
-    const found = loadOrders().find((o) => o.id === params.id) ?? null;
-    setOrder(found);
+    let active = true;
+    findOrderById(params.id).then((o) => {
+      if (active) setOrder(o);
+    });
+    return () => { active = false; };
   }, [params.id]);
 
   if (order === undefined) {

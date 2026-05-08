@@ -52,12 +52,14 @@ export default function NotificationsPage() {
       const u = await getCurrentUser();
       if (!active) return;
       setUser(u);
-      const list = await buildNotifications(u);
+      const [list, seen] = await Promise.all([
+        buildNotifications(u),
+        getLastSeenAt(u?.id ?? null),
+      ]);
       if (!active) return;
       setItems(list);
-      const seen = getLastSeenAt(u?.id ?? null);
       setLastSeenMs(seen ? new Date(seen).getTime() : 0);
-      // Mark as read when the page is opened
+      // Mark as read when the page is opened (server-side persists)
       markAllNotificationsSeen(u?.id ?? null);
     })();
     return () => { active = false; };

@@ -19,7 +19,6 @@ import {
   formatPrice,
   newOrderId,
 } from "@/lib/orderStore";
-import { addMyOrderId } from "@/lib/myOrdersStore";
 
 export default function RestaurantCheckoutPage({ params }: { params: { shopId: string } }) {
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -37,7 +36,7 @@ export default function RestaurantCheckoutPage({ params }: { params: { shopId: s
     setCart(updateQty(params.shopId, itemId, qty));
   }
 
-  function submit() {
+  async function submit() {
     if (cart.length === 0 || !name.trim() || !phone.trim() || !address.trim()) return;
     const order: RestaurantOrder = {
       id: newOrderId(),
@@ -56,8 +55,8 @@ export default function RestaurantCheckoutPage({ params }: { params: { shopId: s
       customer: { name: name.trim(), phone: phone.trim(), address: address.trim() },
       notes: notes.trim() || undefined,
     };
-    addOrder(order);
-    addMyOrderId(order.id);
+    const created = await addOrder(order);
+    if (!created) return;
     clearCart(params.shopId);
     setSubmitted(true);
   }

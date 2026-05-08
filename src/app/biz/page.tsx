@@ -524,17 +524,19 @@ function CargoOrdersList({ shopId }: { shopId: string }) {
   const [orders, setOrders] = useState<CargoOrder[]>([]);
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
 
-  useEffect(() => {
-    setOrders(loadOrdersByShop("cargo", shopId) as CargoOrder[]);
-  }, [shopId]);
-
-  function refresh() {
-    setOrders(loadOrdersByShop("cargo", shopId) as CargoOrder[]);
+  async function refresh() {
+    const list = await loadOrdersByShop("cargo", shopId);
+    setOrders(list as CargoOrder[]);
   }
 
-  function changeStatus(orderId: string, status: OrderStatus) {
-    updateOrderStatus(orderId, status);
+  useEffect(() => {
     refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shopId]);
+
+  async function changeStatus(orderId: string, status: OrderStatus) {
+    await updateOrderStatus(orderId, status);
+    await refresh();
   }
 
   const visible = filter === "all" ? orders : orders.filter((o) => o.status === filter);
@@ -697,17 +699,19 @@ function RestaurantOrdersList({ shopId, category }: { shopId: string; category: 
   const [orders, setOrders] = useState<RestaurantOrder[]>([]);
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
 
-  useEffect(() => {
-    setOrders(loadOrdersByShop(category, shopId) as RestaurantOrder[]);
-  }, [shopId, category]);
-
-  function refresh() {
-    setOrders(loadOrdersByShop(category, shopId) as RestaurantOrder[]);
+  async function refresh() {
+    const list = await loadOrdersByShop(category, shopId);
+    setOrders(list as RestaurantOrder[]);
   }
 
-  function changeStatus(id: string, status: OrderStatus) {
-    updateOrderStatus(id, status);
+  useEffect(() => {
     refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shopId, category]);
+
+  async function changeStatus(id: string, status: OrderStatus) {
+    await updateOrderStatus(id, status);
+    await refresh();
   }
 
   const visible = filter === "all" ? orders : orders.filter((o) => o.status === filter);
@@ -765,13 +769,19 @@ function HospitalAppointmentsList({ shopId }: { shopId: string }) {
   const [items, setItems] = useState<HospitalAppointment[]>([]);
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
 
+  async function refresh() {
+    const list = await loadOrdersByShop("hospital", shopId);
+    setItems(list as HospitalAppointment[]);
+  }
+
   useEffect(() => {
-    setItems(loadOrdersByShop("hospital", shopId) as HospitalAppointment[]);
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopId]);
 
-  function changeStatus(id: string, status: OrderStatus) {
-    updateOrderStatus(id, status);
-    setItems(loadOrdersByShop("hospital", shopId) as HospitalAppointment[]);
+  async function changeStatus(id: string, status: OrderStatus) {
+    await updateOrderStatus(id, status);
+    await refresh();
   }
 
   const visible = filter === "all" ? items : items.filter((o) => o.status === filter);
@@ -819,13 +829,19 @@ function BeautyAppointmentsList({ shopId }: { shopId: string }) {
   const [items, setItems] = useState<BeautyAppointment[]>([]);
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
 
+  async function refresh() {
+    const list = await loadOrdersByShop("beauty", shopId);
+    setItems(list as BeautyAppointment[]);
+  }
+
   useEffect(() => {
-    setItems(loadOrdersByShop("beauty", shopId) as BeautyAppointment[]);
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopId]);
 
-  function changeStatus(id: string, status: OrderStatus) {
-    updateOrderStatus(id, status);
-    setItems(loadOrdersByShop("beauty", shopId) as BeautyAppointment[]);
+  async function changeStatus(id: string, status: OrderStatus) {
+    await updateOrderStatus(id, status);
+    await refresh();
   }
 
   const visible = filter === "all" ? items : items.filter((o) => o.status === filter);

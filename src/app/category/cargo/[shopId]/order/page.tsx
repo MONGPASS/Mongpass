@@ -18,7 +18,6 @@ import {
   estimateCargoPrice,
   newOrderId,
 } from "@/lib/orderStore";
-import { addMyOrderId } from "@/lib/myOrdersStore";
 
 const TYPE_ICON: Record<CargoType, typeof Plane> = {
   air: Plane,
@@ -73,8 +72,11 @@ export default function CargoOrderPage({ params }: { params: { shopId: string } 
     receiverName.trim().length > 0 &&
     receiverPhone.trim().length > 0;
 
-  function submit() {
+  async function submit() {
     if (!selectedRoute || !canSubmit) return;
+    // The server fills id / createdAt / status, so the values here are
+    // only placeholders to satisfy the type. customer_user_id comes
+    // from the session.
     const order: CargoOrder = {
       id: newOrderId(),
       shopCategory: "cargo",
@@ -106,8 +108,8 @@ export default function CargoOrderPage({ params }: { params: { shopId: string } 
       },
       estimatedPrice,
     };
-    addOrder(order);
-    addMyOrderId(order.id);
+    const created = await addOrder(order);
+    if (!created) return;
     setSubmitted(true);
   }
 

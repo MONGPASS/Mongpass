@@ -12,7 +12,6 @@ import {
   addOrder,
   newOrderId,
 } from "@/lib/orderStore";
-import { addMyOrderId } from "@/lib/myOrdersStore";
 
 export default function HospitalBookPage({ params }: { params: { shopId: string } }) {
   const searchParams = useSearchParams();
@@ -46,7 +45,7 @@ export default function HospitalBookPage({ params }: { params: { shopId: string 
     preferredDate.trim().length > 0 &&
     preferredTime.trim().length > 0;
 
-  function submit() {
+  async function submit() {
     if (!selectedDoctor || !canSubmit) return;
     const order: HospitalAppointment = {
       id: newOrderId(),
@@ -68,8 +67,8 @@ export default function HospitalBookPage({ params }: { params: { shopId: string 
       },
       symptom: symptom.trim() || undefined,
     };
-    addOrder(order);
-    addMyOrderId(order.id);
+    const created = await addOrder(order);
+    if (!created) return;
     setSubmitted(true);
   }
 

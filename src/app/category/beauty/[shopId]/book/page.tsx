@@ -17,7 +17,6 @@ import {
   addOrder,
   newOrderId,
 } from "@/lib/orderStore";
-import { addMyOrderId } from "@/lib/myOrdersStore";
 
 export default function BeautyBookPage({ params }: { params: { shopId: string } }) {
   const searchParams = useSearchParams();
@@ -58,7 +57,7 @@ export default function BeautyBookPage({ params }: { params: { shopId: string } 
     preferredDate.trim().length > 0 &&
     preferredTime.trim().length > 0;
 
-  function submit() {
+  async function submit() {
     if (!selectedService || !canSubmit) return;
     const order: BeautyAppointment = {
       id: newOrderId(),
@@ -82,8 +81,8 @@ export default function BeautyBookPage({ params }: { params: { shopId: string } 
       },
       notes: notes.trim() || undefined,
     };
-    addOrder(order);
-    addMyOrderId(order.id);
+    const created = await addOrder(order);
+    if (!created) return;
     setSubmitted(true);
   }
 

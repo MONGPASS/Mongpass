@@ -1,3 +1,13 @@
+/**
+ * Notifications are *derived* from existing data — orders + shops —
+ * rather than stored as separate records. The only persisted state is
+ * a per-user `last_seen_at` timestamp; anything created after that is
+ * unread.
+ *
+ * Phase 3 moves both the order data and the seen-state to D1, so the
+ * unread badge follows the user across devices.
+ */
+
 import {
   Order,
   OrderStatus,
@@ -5,65 +15,94 @@ import {
   loadOrders,
 } from "@/lib/orderStore";
 import { ShopCategory } from "@/components/shop/types";
-import { findShopById, loadShopsByStatus } from "@/lib/shopStore";
-import { loadMyOrderIds } from "@/lib/myOrdersStore";
+import { findShopById, findShopByOwner, loadShopsByStatus } from "@/lib/shopStore";
 import { User } from "@/lib/userStore";
 
-/**
- * Notifications are *derived* from existing data — orders, shops, etc.
- * — rather than stored as separate records. The only persisted state is
- * a per-user "lastSeenAt" timestamp; anything created after that is
- * considered unread.
- *
- * When we move to a real backend we'd swap the derivation for a proper
- * notifications table with push/email triggers, but the read-state UX
- * (bell icon + unread count) stays the same.
- */
-
 export type NotificationKind =
-  | "order-status"     // your order changed status
-  | "new-order"        // shop owner: new order received
-  | "shop-pending";    // admin: new shop awaiting review
+  | "order-status"
+  | "new-order"
+  | "shop-pending";
 
 export interface Notification {
-  id: string;          // stable per-source-event id
+  id: string;
   kind: NotificationKind;
   title: string;
   body: string;
-  href: string;        // deep link target
-  createdAt: string;   // ISO
+  href: string;
+  createdAt: string;
 }
 
-const SEEN_KEY_PREFIX = "mongpass:notifications:lastSeenAt:";
+// ===================== Seen state (D1-backed via /api/notifications/seen) =====================
 
-export function getLastSeenAt(userId: string | null): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(SEEN_KEY_PREFIX + (userId ?? "anon"));
+let cachedLastSeenAt: string | null | undefined = undefined;
+let pendingFetch: Promise<string | null> | null = null;
+
+async function fetchLastSeen(): Promise<string | null> {
+  if (cachedLastSeenAt !== undefined) return cachedLastSeenAt;
+  if (pendingFetch) return pendingFetch;
+  pendingFetch = (async () => {
+    try {
+      const res = await fetch("/api/notifications/seen", { credentials: "same-origin" });
+      if (!res.ok) {
+        cachedLastSeenAt = null;
+        return null;
+      }
+      const data = (await res.json()) as { lastSeenAt: string | null };
+      cachedLastSeenAt = data.lastSeenAt;
+      return data.lastSeenAt;
+    } catch {
+      cachedLastSeenAt = null;
+      return null;
+    } finally {
+      pendingFetch = null;
+    }
+  })();
+  return pendingFetch;
 }
 
-export function markAllNotificationsSeen(userId: string | null): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(SEEN_KEY_PREFIX + (userId ?? "anon"), new Date().toISOString());
+/** Async wrapper kept under the same name so consumers don't have to change. */
+export async function getLastSeenAt(userId: string | null): Promise<string | null> {
+  // userId is unused (the API uses the session) but kept for source compat.
+  void userId;
+  return fetchLastSeen();
 }
 
-/**
- * Build the notification feed for a given user. Order: newest first.
- * Different roles see different sources:
- *  - Every user sees status updates on their own orders (customer side)
- *  - Shop owners see new orders to their shop
- *  - Admins see shops awaiting approval
- */
+export async function markAllNotificationsSeen(userId: string | null): Promise<void> {
+  void userId;
+  try {
+    const res = await fetch("/api/notifications/seen", {
+      method: "POST",
+      credentials: "same-origin",
+    });
+    if (res.ok) {
+      const data = (await res.json()) as { lastSeenAt: string };
+      cachedLastSeenAt = data.lastSeenAt;
+    }
+  } catch {
+    // Network error — leave the cache; the next page load will try again.
+  }
+}
+
+// ===================== Notification builders =====================
+
+/** Helper for a shop owner — collect orders they should be notified about. */
+async function loadOwnerPendingOrders(userId: string): Promise<{ shop: { id: string; name: string }; order: Order }[]> {
+  // Each user owns at most one shop (enforced server-side); fetch its
+  // pending orders if there is one.
+  const shop = await findShopByOwner(userId);
+  if (!shop) return [];
+  const list = await loadOrders({ shopId: shop.id, status: "pending" });
+  return list.map((order) => ({ shop: { id: shop.id, name: shop.name }, order }));
+}
+
 export async function buildNotifications(user: User | null): Promise<Notification[]> {
   if (!user) return [];
 
   const out: Notification[] = [];
 
-  // Customer side: orders the user submitted. Orders themselves are
-  // still localStorage in Phase 2; Phase 3 will move them to D1.
-  const myOrderIds = new Set(loadMyOrderIds());
-  const allOrders = loadOrders();
-  for (const order of allOrders) {
-    if (!myOrderIds.has(order.id)) continue;
+  // Customer side: status updates on the user's own orders.
+  const myOrders = await loadOrders({ mine: true });
+  for (const order of myOrders) {
     const eventAt = order.statusUpdatedAt ?? order.createdAt;
     out.push({
       id: `${order.id}:status:${order.status}`,
@@ -75,26 +114,20 @@ export async function buildNotifications(user: User | null): Promise<Notificatio
     });
   }
 
-  // Shop owner side: new (pending) orders to their shop
-  const approved = await loadShopsByStatus("approved");
-  const ownedShops = approved.filter((s) => s.ownerId === user.id);
-  for (const shop of ownedShops) {
-    const pendingOrders = allOrders.filter(
-      (o) => o.shopId === shop.id && o.status === "pending",
-    );
-    for (const order of pendingOrders) {
-      out.push({
-        id: `${order.id}:new-order`,
-        kind: "new-order",
-        title: `Шинэ захиалга — ${shop.name}`,
-        body: await orderTitle(order),
-        href: "/biz",
-        createdAt: order.createdAt,
-      });
-    }
+  // Shop owner side: new (pending) orders to any shop they own.
+  const ownerOrders = await loadOwnerPendingOrders(user.id);
+  for (const { shop, order } of ownerOrders) {
+    out.push({
+      id: `${order.id}:new-order`,
+      kind: "new-order",
+      title: `Шинэ захиалга — ${shop.name}`,
+      body: await orderTitle(order),
+      href: "/biz",
+      createdAt: order.createdAt,
+    });
   }
 
-  // Admin side: pending shops awaiting review
+  // Admin side: pending shops awaiting review.
   if (user.role === "admin") {
     const pending = await loadShopsByStatus("pending");
     for (const shop of pending) {
@@ -115,35 +148,29 @@ export async function buildNotifications(user: User | null): Promise<Notificatio
 }
 
 export async function countUnread(user: User | null): Promise<number> {
-  const lastSeen = getLastSeenAt(user?.id ?? null);
+  const [list, lastSeen] = await Promise.all([
+    buildNotifications(user),
+    fetchLastSeen(),
+  ]);
   const lastSeenMs = lastSeen ? new Date(lastSeen).getTime() : 0;
-  const list = await buildNotifications(user);
   return list.filter((n) => new Date(n.createdAt).getTime() > lastSeenMs).length;
 }
 
-/**
- * Friendly customer-facing status message — sounds more natural than
- * "status updated to: pending" for the common cases.
- */
 function customerStatusBody(category: ShopCategory, status: OrderStatus): string {
   if (status === "cancelled") return "Захиалга цуцлагдсан";
-  // First touch — "your order is in"
   if (status === "pending") {
     if (category === "hospital" || category === "beauty") {
       return "Хүсэлт амжилттай илгээгдлээ. Удахгүй холбогдоно";
     }
     return "Захиалга илгээгдлээ. Удахгүй баталгаажна";
   }
-  // Final delivery state — celebrate it slightly
   if (status === "delivered") {
     if (category === "hospital" || category === "beauty") return "Үйлчилгээ дууссан";
     return "Захиалга хүргэгдсэн!";
   }
-  // Everything else — fall back to the localised status label
   return getStatusLabel(category, status);
 }
 
-/** Best-effort, human-readable title for a notification about an order. */
 async function orderTitle(order: Order): Promise<string> {
   const shop = await findShopById(order.shopId);
   const shopName = shop?.name ?? "Дэлгүүр";
