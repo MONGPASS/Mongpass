@@ -59,18 +59,31 @@ export async function GET(
   if (auth === "forbidden") return forbidden();
   if (auth === "notfound") return notFound("Thread not found");
 
-  const result = await db
-    .prepare(
-      `SELECT id, thread_id, sender, text, created_at
-         FROM chat_messages WHERE thread_id = ?
-         ORDER BY created_at ASC, rowid ASC
-         LIMIT 1000`,
-    )
-    .bind(params.threadId)
-    .all<MessageRow>();
+  // Reading the thread auto-marks it seen for the caller's side, so
+  // the unread badge clears the moment the chat page mounts and polls.
+  // The other side's read timestamp is left alone.
+  const readColumn =
+    auth.side === "user" ? "user_last_read_at" : "shop_last_read_at";
+  const now = new Date().toISOString();
+
+  const [, msgs] = await db.batch([
+    db
+      .prepare(
+        `UPDATE chat_threads SET ${readColumn} = ? WHERE id = ?`,
+      )
+      .bind(now, params.threadId),
+    db
+      .prepare(
+        `SELECT id, thread_id, sender, text, created_at
+           FROM chat_messages WHERE thread_id = ?
+           ORDER BY created_at ASC, rowid ASC
+           LIMIT 1000`,
+      )
+      .bind(params.threadId),
+  ]);
 
   return Response.json({
-    messages: (result.results ?? []).map((m) => ({
+    messages: ((msgs.results as MessageRow[] | undefined) ?? []).map((m) => ({
       id: m.id,
       threadId: m.thread_id,
       from: m.sender,
@@ -101,8 +114,13 @@ export async function POST(
 
   const id = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const now = new Date().toISOString();
-  // Two writes: insert message + update thread snapshot. Wrapped in
-  // a batch so they go in one round-trip.
+  // Two writes: insert message + update thread snapshot. The sender's
+  // own last-read column is bumped to `now` here so they don't see
+  // their own message as "unread" when the threads list is re-fetched.
+  // The other side's column is intentionally untouched — they get the
+  // red badge until they open the thread.
+  const readColumn =
+    auth.side === "user" ? "user_last_read_at" : "shop_last_read_at";
   await db.batch([
     db
       .prepare(
@@ -113,10 +131,10 @@ export async function POST(
     db
       .prepare(
         `UPDATE chat_threads
-            SET last_message_at = ?, last_message_preview = ?
+            SET last_message_at = ?, last_message_preview = ?, ${readColumn} = ?
           WHERE id = ?`,
       )
-      .bind(now, text.slice(0, 80), params.threadId),
+      .bind(now, text.slice(0, 80), now, params.threadId),
   ]);
 
   return Response.json({

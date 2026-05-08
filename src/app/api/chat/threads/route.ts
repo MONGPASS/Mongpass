@@ -19,6 +19,8 @@ interface ThreadRow {
   shop_id: string;
   last_message_at: string;
   last_message_preview: string | null;
+  user_last_read_at: string | null;
+  shop_last_read_at: string | null;
 }
 
 interface ThreadView {
@@ -29,11 +31,13 @@ interface ThreadView {
   userName: string;
   lastMessageAt: string;
   lastMessagePreview: string;
+  unread: boolean;
 }
 
 async function rowsToThreads(
   db: import("@cloudflare/workers-types").D1Database,
   rows: ThreadRow[],
+  side: "user" | "shop",
 ): Promise<ThreadView[]> {
   if (rows.length === 0) return [];
   const userIds = Array.from(new Set(rows.map((r) => r.user_id)));
@@ -52,15 +56,21 @@ async function rowsToThreads(
   ]);
   const userName = new Map((users.results ?? []).map((u) => [u.id, u.name]));
   const shopName = new Map((shops.results ?? []).map((s) => [s.id, s.name]));
-  return rows.map((r) => ({
-    id: r.id,
-    userId: r.user_id,
-    shopId: r.shop_id,
-    userName: userName.get(r.user_id) ?? "Хэрэглэгч",
-    shopName: shopName.get(r.shop_id) ?? "Дэлгүүр",
-    lastMessageAt: r.last_message_at,
-    lastMessagePreview: r.last_message_preview ?? "",
-  }));
+  return rows.map((r) => {
+    const myLastRead =
+      side === "user" ? r.user_last_read_at : r.shop_last_read_at;
+    const unread = !myLastRead || r.last_message_at > myLastRead;
+    return {
+      id: r.id,
+      userId: r.user_id,
+      shopId: r.shop_id,
+      userName: userName.get(r.user_id) ?? "Хэрэглэгч",
+      shopName: shopName.get(r.shop_id) ?? "Дэлгүүр",
+      lastMessageAt: r.last_message_at,
+      lastMessagePreview: r.last_message_preview ?? "",
+      unread,
+    };
+  });
 }
 
 export async function GET(request: Request): Promise<Response> {
@@ -75,7 +85,8 @@ export async function GET(request: Request): Promise<Response> {
     // Threads addressed to any shop the caller owns
     result = await db
       .prepare(
-        `SELECT t.id, t.user_id, t.shop_id, t.last_message_at, t.last_message_preview
+        `SELECT t.id, t.user_id, t.shop_id, t.last_message_at,
+                t.last_message_preview, t.user_last_read_at, t.shop_last_read_at
            FROM chat_threads t
            JOIN shops s ON s.id = t.shop_id
           WHERE s.owner_id = ?
@@ -87,7 +98,8 @@ export async function GET(request: Request): Promise<Response> {
   } else {
     result = await db
       .prepare(
-        `SELECT id, user_id, shop_id, last_message_at, last_message_preview
+        `SELECT id, user_id, shop_id, last_message_at, last_message_preview,
+                user_last_read_at, shop_last_read_at
            FROM chat_threads
           WHERE user_id = ?
           ORDER BY last_message_at DESC
@@ -97,7 +109,8 @@ export async function GET(request: Request): Promise<Response> {
       .all<ThreadRow>();
   }
 
-  const threads = await rowsToThreads(db, result.results ?? []);
+  const side: "user" | "shop" = role === "shop" ? "shop" : "user";
+  const threads = await rowsToThreads(db, result.results ?? [], side);
   return Response.json({ threads });
 }
 
@@ -119,7 +132,8 @@ export async function POST(request: Request): Promise<Response> {
   const id = `${user.id}:${shop.id}`;
   const existing = await db
     .prepare(
-      `SELECT id, user_id, shop_id, last_message_at, last_message_preview
+      `SELECT id, user_id, shop_id, last_message_at, last_message_preview,
+              user_last_read_at, shop_last_read_at
          FROM chat_threads WHERE id = ?`,
     )
     .bind(id)
@@ -137,13 +151,15 @@ export async function POST(request: Request): Promise<Response> {
 
   const row = await db
     .prepare(
-      `SELECT id, user_id, shop_id, last_message_at, last_message_preview
+      `SELECT id, user_id, shop_id, last_message_at, last_message_preview,
+              user_last_read_at, shop_last_read_at
          FROM chat_threads WHERE id = ?`,
     )
     .bind(id)
     .first<ThreadRow>();
   if (!row) return Response.json({ error: "Insert failed" }, { status: 500 });
 
-  const [thread] = await rowsToThreads(db, [row]);
+  // Caller of POST is the customer side (user owns the thread).
+  const [thread] = await rowsToThreads(db, [row], "user");
   return Response.json({ thread }, { status: 201 });
 }

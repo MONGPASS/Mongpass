@@ -59,30 +59,40 @@ export function BizChatThreadList({ shopId }: { shopId: string }) {
         </div>
       ) : (
         <div className="divide-y divide-gray-100">
-          {threads.map((t) => (
-            <Link
-              key={t.id}
-              href={`/chat/${encodeURIComponent(t.id)}`}
-              className="flex items-center gap-3 px-5 py-3.5 active:bg-gray-50 transition-colors"
-            >
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold shrink-0">
-                {t.userName.slice(0, 1).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-0.5">
-                  <p className="text-[14px] font-bold text-gray-900 truncate">{t.userName}</p>
-                  <span className="text-[11px] text-gray-400 shrink-0 ml-2">
-                    {fmtRelative(t.lastMessageAt)}
-                  </span>
+          {threads.map((t) => {
+            const hasUnread = Boolean(t.unread && t.lastMessagePreview);
+            return (
+              <Link
+                key={t.id}
+                href={`/chat/${encodeURIComponent(t.id)}`}
+                className="flex items-center gap-3 px-5 py-3.5 active:bg-gray-50 transition-colors"
+              >
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold shrink-0">
+                  {t.userName.slice(0, 1).toUpperCase()}
                 </div>
-                <p className="text-[12px] text-gray-500 truncate">
-                  {t.lastMessagePreview || (
-                    <span className="italic text-gray-400">Шинэ чат</span>
-                  )}
-                </p>
-              </div>
-            </Link>
-          ))}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <p className={`text-[14px] truncate ${hasUnread ? "font-extrabold text-gray-900" : "font-bold text-gray-900"}`}>
+                      {t.userName}
+                    </p>
+                    <span className={`text-[11px] shrink-0 ml-2 ${hasUnread ? "text-primary font-semibold" : "text-gray-400"}`}>
+                      {fmtRelative(t.lastMessageAt)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <p className={`text-[12px] truncate flex-1 ${hasUnread ? "text-gray-900 font-semibold" : "text-gray-500"}`}>
+                      {t.lastMessagePreview || (
+                        <span className="italic text-gray-400">Шинэ чат</span>
+                      )}
+                    </p>
+                    {hasUnread && (
+                      <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" aria-label="Шинэ мессеж" />
+                    )}
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

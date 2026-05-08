@@ -182,8 +182,8 @@ export default function ChatThreadPage({ params }: { params: { threadId: string 
                   <div
                     className={`px-3.5 py-2 rounded-2xl text-[13px] leading-relaxed whitespace-pre-wrap break-words ${
                       mine
-                        ? "bg-gray-900 text-white rounded-br-md"
-                        : "bg-white text-gray-900 border border-gray-100 rounded-bl-md"
+                        ? "bg-primary text-white rounded-br-md"
+                        : "bg-white text-gray-900 border border-gray-200 rounded-bl-md"
                     }`}
                   >
                     {m.text}

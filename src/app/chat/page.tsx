@@ -85,6 +85,10 @@ export default function ChatListPage() {
           {threads.map((t) => {
             const shop = shopsById.get(t.shopId) ?? null;
             const cover = r2Url(shop?.images?.[0]);
+            // Don't draw the unread dot until at least one message
+            // exists — a freshly-created empty thread looks "unread"
+            // server-side because last_read is null.
+            const hasUnread = Boolean(t.unread && t.lastMessagePreview);
             return (
               <Link
                 key={t.id}
@@ -103,14 +107,21 @@ export default function ChatListPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2 mb-0.5">
-                    <p className="font-bold text-[14px] text-gray-900 truncate">{t.shopName}</p>
-                    <span className="text-[11px] text-gray-400 shrink-0">
+                    <p className={`text-[14px] truncate ${hasUnread ? "font-extrabold text-gray-900" : "font-bold text-gray-900"}`}>
+                      {t.shopName}
+                    </p>
+                    <span className={`text-[11px] shrink-0 ${hasUnread ? "text-primary font-semibold" : "text-gray-400"}`}>
                       {fmtRelative(t.lastMessageAt)}
                     </span>
                   </div>
-                  <p className="text-[12px] text-gray-500 truncate">
-                    {t.lastMessagePreview || <span className="italic text-gray-400">Шинэ чат</span>}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className={`text-[12px] truncate flex-1 ${hasUnread ? "text-gray-900 font-semibold" : "text-gray-500"}`}>
+                      {t.lastMessagePreview || <span className="italic text-gray-400">Шинэ чат</span>}
+                    </p>
+                    {hasUnread && (
+                      <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" aria-label="Шинэ мессеж" />
+                    )}
+                  </div>
                 </div>
               </Link>
             );
