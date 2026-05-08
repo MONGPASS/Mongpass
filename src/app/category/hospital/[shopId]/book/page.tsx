@@ -28,10 +28,15 @@ export default function HospitalBookPage({ params }: { params: { shopId: string 
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    const d = loadDoctors();
-    setDoctors(d);
-    if (!selectedDoctorId && d.length > 0) setSelectedDoctorId(d[0].id);
-  }, [selectedDoctorId]);
+    let active = true;
+    loadDoctors(params.shopId).then((d) => {
+      if (!active) return;
+      setDoctors(d);
+      if (!selectedDoctorId && d.length > 0) setSelectedDoctorId(d[0].id);
+    });
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.shopId]);
 
   const selectedDoctor = useMemo(
     () => doctors.find((d) => d.id === selectedDoctorId) ?? null,

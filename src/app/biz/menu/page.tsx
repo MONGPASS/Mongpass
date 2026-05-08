@@ -2,35 +2,62 @@
 
 import { ArrowLeft, Plus, Edit2, Trash2, Save, X } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   MenuItem,
-  loadMenu,
-  saveMenu,
-  flattenItems,
+  loadMenuItems,
+  createMenuItem,
+  updateMenuItem,
+  deleteMenuItem,
   groupItems,
-  newId,
 } from "@/lib/menuStore";
+import { findShopByOwner } from "@/lib/shopStore";
+import { getCurrentUser } from "@/lib/userStore";
 
 export default function RestaurantMenuAdminPage() {
+  const router = useRouter();
+  const [shopId, setShopId] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [items, setItems] = useState<MenuItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
   const [form, setForm] = useState<Omit<MenuItem, "id">>({
     category: "Гол хоол",
     name: "",
     desc: "",
     price: "",
   });
-  const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
-    setItems(flattenItems(loadMenu()));
-  }, []);
+    let active = true;
+    (async () => {
+      const user = await getCurrentUser();
+      if (!active) return;
+      if (!user) {
+        router.replace("/login?redirect=/biz/menu");
+        return;
+      }
+      const shop = await findShopByOwner(user.id);
+      if (!active) return;
+      if (!shop) {
+        router.replace("/biz/register");
+        return;
+      }
+      if (shop.category !== "restaurant" && shop.category !== "food") {
+        router.replace("/biz");
+        return;
+      }
+      setShopId(shop.id);
+      setItems(await loadMenuItems(shop.id));
+      if (active) setAuthChecked(true);
+    })();
+    return () => { active = false; };
+  }, [router]);
 
-  function persist(next: MenuItem[]) {
-    setItems(next);
-    saveMenu(groupItems(next));
+  function flash() {
     setSavedFlash(true);
     setTimeout(() => setSavedFlash(false), 1500);
   }
@@ -52,20 +79,40 @@ export default function RestaurantMenuAdminPage() {
     setIsAdding(false);
   }
 
-  function submit() {
+  async function submit() {
+    if (!shopId || busy) return;
     if (!form.name.trim() || !form.price.trim()) return;
-    if (isAdding) {
-      persist([...items, { id: newId(), ...form }]);
-      setIsAdding(false);
-    } else if (editingId) {
-      persist(items.map((i) => (i.id === editingId ? { id: i.id, ...form } : i)));
-      setEditingId(null);
+    setBusy(true);
+    try {
+      if (isAdding) {
+        const created = await createMenuItem(shopId, form);
+        if (created) {
+          setItems((prev) => [...prev, created]);
+          setIsAdding(false);
+          flash();
+        }
+      } else if (editingId) {
+        const updated = await updateMenuItem(shopId, editingId, form);
+        if (updated) {
+          setItems((prev) => prev.map((i) => (i.id === editingId ? updated : i)));
+          setEditingId(null);
+          flash();
+        }
+      }
+    } finally {
+      setBusy(false);
     }
   }
 
-  function remove(id: string) {
+  async function remove(id: string) {
+    if (!shopId) return;
     if (!confirm("Энэ цэсийг устгах уу?")) return;
-    persist(items.filter((i) => i.id !== id));
+    const ok = await deleteMenuItem(shopId, id);
+    if (ok) setItems((prev) => prev.filter((i) => i.id !== id));
+  }
+
+  if (!authChecked) {
+    return <main className="w-full min-h-screen bg-gray-50" />;
   }
 
   const grouped = groupItems(items);
@@ -78,7 +125,7 @@ export default function RestaurantMenuAdminPage() {
           <Link href="/biz" className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <h1 className="font-bold text-base flex-1">Цэс удирдах (Restaurant)</h1>
+          <h1 className="font-bold text-base flex-1">Цэс удирдах</h1>
           {savedFlash && (
             <span className="text-xs text-green-600 font-semibold">Хадгалагдлаа</span>
           )}
@@ -88,11 +135,7 @@ export default function RestaurantMenuAdminPage() {
       <div className="px-4 pt-4">
         <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm">
           <p className="text-xs text-gray-500 leading-relaxed">
-            Энд нэмсэн цэс нь сүүлд хэрэглэгчийн талд{" "}
-            <Link href="/category/restaurant/1" className="text-blue-600 underline">
-              /category/restaurant/1
-            </Link>{" "}
-            хуудсан дээр харагдана.
+            Энд нэмсэн цэс нь зөвхөн таны дэлгүүрийн хуудсан дээр харагдана.
           </p>
         </div>
 
@@ -142,10 +185,10 @@ export default function RestaurantMenuAdminPage() {
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={submit}
-                  disabled={!form.name.trim() || !form.price.trim()}
+                  disabled={busy || !form.name.trim() || !form.price.trim()}
                   className="flex-1 bg-orange-500 text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  <Save className="w-4 h-4" /> Хадгалах
+                  <Save className="w-4 h-4" /> {busy ? "..." : "Хадгалах"}
                 </button>
                 <button
                   onClick={cancel}

@@ -1,23 +1,14 @@
-/**
- * Meat shop product catalogue. Mirrors `menuStore` but with categories
- * specific to meat shops (Үхрийн мах, Хонины мах, etc) and weight-based
- * pricing in mind.
- *
- * For the demo this is a single shared store (one meat shop). When we
- * move to multi-tenant, we'll key entries by shopId.
- */
+/** Per-shop meat shop products — backed by /api/shops/[id]/meat-products. */
 
 export interface MeatProduct {
   id: string;
-  category: string;          // e.g. "Үхрийн мах"
+  category: string;
   name: string;
   description: string;
-  price: string;             // e.g. "22,000₩"
-  unit: string;              // e.g. "1кг" — displayed alongside price
+  price: string;
+  unit: string;            // e.g. "1кг"
   imageDataUrl?: string;
 }
-
-const STORAGE_KEY = "mongpass:meat:products:v1";
 
 export const MEAT_PRODUCT_CATEGORIES = [
   "Үхрийн мах",
@@ -27,42 +18,71 @@ export const MEAT_PRODUCT_CATEGORIES = [
   "Бусад хүнс",
 ];
 
-export const defaultMeatProducts: MeatProduct[] = [
-  {
-    id: "meat-seed-1",
-    category: "Үхрийн мах",
-    name: "Үхрийн цул мах",
-    description: "Шинэ, ясгүй цул мах",
-    price: "22,000₩",
-    unit: "1кг",
-  },
-  {
-    id: "meat-seed-2",
-    category: "Үхрийн мах",
-    name: "Үхрийн ястай мах",
-    description: "Шөлний ястай",
-    price: "18,500₩",
-    unit: "1кг",
-  },
-];
-
-export function loadMeatProducts(): MeatProduct[] {
-  if (typeof window === "undefined") return defaultMeatProducts;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultMeatProducts;
-    const parsed = JSON.parse(raw) as MeatProduct[];
-    return Array.isArray(parsed) ? parsed : defaultMeatProducts;
-  } catch {
-    return defaultMeatProducts;
-  }
+async function getJson<T>(url: string): Promise<T | null> {
+  const res = await fetch(url, { credentials: "same-origin" });
+  if (!res.ok) return null;
+  return (await res.json()) as T;
 }
 
-export function saveMeatProducts(products: MeatProduct[]): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+async function postJson<T>(url: string, body: unknown): Promise<T | null> {
+  const res = await fetch(url, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as T;
 }
 
-export function newMeatProductId(): string {
-  return `meat-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+async function patchJson<T>(url: string, body: unknown): Promise<T | null> {
+  const res = await fetch(url, {
+    method: "PATCH",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as T;
+}
+
+async function del(url: string): Promise<boolean> {
+  const res = await fetch(url, { method: "DELETE", credentials: "same-origin" });
+  return res.ok;
+}
+
+export async function loadMeatProducts(shopId: string): Promise<MeatProduct[]> {
+  const data = await getJson<{ products: MeatProduct[] }>(
+    `/api/shops/${encodeURIComponent(shopId)}/meat-products`,
+  );
+  return data?.products ?? [];
+}
+
+export async function createMeatProduct(
+  shopId: string,
+  product: Omit<MeatProduct, "id">,
+): Promise<MeatProduct | null> {
+  const data = await postJson<{ product: MeatProduct }>(
+    `/api/shops/${encodeURIComponent(shopId)}/meat-products`,
+    product,
+  );
+  return data?.product ?? null;
+}
+
+export async function updateMeatProduct(
+  shopId: string,
+  productId: string,
+  patch: Partial<Omit<MeatProduct, "id">>,
+): Promise<MeatProduct | null> {
+  const data = await patchJson<{ product: MeatProduct }>(
+    `/api/shops/${encodeURIComponent(shopId)}/meat-products/${encodeURIComponent(productId)}`,
+    patch,
+  );
+  return data?.product ?? null;
+}
+
+export async function deleteMeatProduct(shopId: string, productId: string): Promise<boolean> {
+  return del(
+    `/api/shops/${encodeURIComponent(shopId)}/meat-products/${encodeURIComponent(productId)}`,
+  );
 }

@@ -2,18 +2,23 @@
 
 import { ArrowLeft, Plus, Edit2, Trash2, Save, X, Scissors, User } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   BeautyService,
   Stylist,
   BEAUTY_SERVICE_CATEGORIES,
   loadServices,
-  saveServices,
   loadStylists,
-  saveStylists,
-  newServiceId,
-  newStylistId,
+  createService,
+  updateService,
+  deleteService,
+  createStylist,
+  updateStylist,
+  deleteStylist,
 } from "@/lib/beautyStore";
+import { findShopByOwner } from "@/lib/shopStore";
+import { getCurrentUser } from "@/lib/userStore";
 
 type Tab = "services" | "stylists";
 
@@ -30,10 +35,14 @@ const emptyStylist: Omit<Stylist, "id"> = {
 };
 
 export default function BeautyAdminPage() {
+  const router = useRouter();
+  const [shopId, setShopId] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [tab, setTab] = useState<Tab>("services");
   const [services, setServices] = useState<BeautyService[]>([]);
   const [stylists, setStylists] = useState<Stylist[]>([]);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   // Service form state
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
@@ -46,9 +55,33 @@ export default function BeautyAdminPage() {
   const [stylistForm, setStylistForm] = useState<Omit<Stylist, "id">>(emptyStylist);
 
   useEffect(() => {
-    setServices(loadServices());
-    setStylists(loadStylists());
-  }, []);
+    let active = true;
+    (async () => {
+      const user = await getCurrentUser();
+      if (!active) return;
+      if (!user) {
+        router.replace("/login?redirect=/biz/beauty");
+        return;
+      }
+      const shop = await findShopByOwner(user.id);
+      if (!active) return;
+      if (!shop) {
+        router.replace("/biz/register");
+        return;
+      }
+      if (shop.category !== "beauty") {
+        router.replace("/biz");
+        return;
+      }
+      setShopId(shop.id);
+      const [svc, sty] = await Promise.all([loadServices(shop.id), loadStylists(shop.id)]);
+      if (!active) return;
+      setServices(svc);
+      setStylists(sty);
+      setAuthChecked(true);
+    })();
+    return () => { active = false; };
+  }, [router]);
 
   function flash() {
     setSavedFlash(true);
@@ -56,72 +89,94 @@ export default function BeautyAdminPage() {
   }
 
   // Services CRUD
-  function persistServices(next: BeautyService[]) {
-    setServices(next);
-    saveServices(next);
-    flash();
-  }
   function startAddService() {
     setServiceForm(emptyService);
     setIsAddingService(true);
     setEditingServiceId(null);
   }
   function startEditService(s: BeautyService) {
-    const { id, ...rest } = s;
-    void id;
-    setServiceForm(rest);
+    setServiceForm({ name: s.name, category: s.category, durationMin: s.durationMin, price: s.price });
     setEditingServiceId(s.id);
     setIsAddingService(false);
   }
-  function submitService() {
+  async function submitService() {
+    if (!shopId || busy) return;
     if (!serviceForm.name.trim() || !serviceForm.price.trim()) return;
-    if (isAddingService) {
-      persistServices([...services, { id: newServiceId(), ...serviceForm }]);
-      setIsAddingService(false);
-    } else if (editingServiceId) {
-      persistServices(services.map((s) => (s.id === editingServiceId ? { id: s.id, ...serviceForm } : s)));
-      setEditingServiceId(null);
+    setBusy(true);
+    try {
+      if (isAddingService) {
+        const created = await createService(shopId, serviceForm);
+        if (created) {
+          setServices((prev) => [...prev, created]);
+          setIsAddingService(false);
+          flash();
+        }
+      } else if (editingServiceId) {
+        const updated = await updateService(shopId, editingServiceId, serviceForm);
+        if (updated) {
+          setServices((prev) => prev.map((s) => (s.id === editingServiceId ? updated : s)));
+          setEditingServiceId(null);
+          flash();
+        }
+      }
+    } finally {
+      setBusy(false);
     }
   }
-  function removeService(id: string) {
+  async function removeService(id: string) {
+    if (!shopId) return;
     if (!confirm("Энэ үйлчилгээг устгах уу?")) return;
-    persistServices(services.filter((s) => s.id !== id));
+    const ok = await deleteService(shopId, id);
+    if (ok) setServices((prev) => prev.filter((s) => s.id !== id));
   }
   const showServiceForm = isAddingService || editingServiceId !== null;
 
   // Stylists CRUD
-  function persistStylists(next: Stylist[]) {
-    setStylists(next);
-    saveStylists(next);
-    flash();
-  }
   function startAddStylist() {
     setStylistForm(emptyStylist);
     setIsAddingStylist(true);
     setEditingStylistId(null);
   }
   function startEditStylist(s: Stylist) {
-    const { id, ...rest } = s;
-    void id;
-    setStylistForm(rest);
+    setStylistForm({ name: s.name, specialty: s.specialty ?? "" });
     setEditingStylistId(s.id);
     setIsAddingStylist(false);
   }
-  function submitStylist() {
+  async function submitStylist() {
+    if (!shopId || busy) return;
     if (!stylistForm.name.trim()) return;
-    if (isAddingStylist) {
-      persistStylists([...stylists, { id: newStylistId(), ...stylistForm }]);
-      setIsAddingStylist(false);
-    } else if (editingStylistId) {
-      persistStylists(stylists.map((s) => (s.id === editingStylistId ? { id: s.id, ...stylistForm } : s)));
-      setEditingStylistId(null);
+    setBusy(true);
+    try {
+      if (isAddingStylist) {
+        const created = await createStylist(shopId, stylistForm);
+        if (created) {
+          setStylists((prev) => [...prev, created]);
+          setIsAddingStylist(false);
+          flash();
+        }
+      } else if (editingStylistId) {
+        const updated = await updateStylist(shopId, editingStylistId, stylistForm);
+        if (updated) {
+          setStylists((prev) => prev.map((s) => (s.id === editingStylistId ? updated : s)));
+          setEditingStylistId(null);
+          flash();
+        }
+      }
+    } finally {
+      setBusy(false);
     }
   }
-  function removeStylist(id: string) {
+  async function removeStylist(id: string) {
+    if (!shopId) return;
     if (!confirm("Энэ стилистийг устгах уу?")) return;
-    persistStylists(stylists.filter((s) => s.id !== id));
+    const ok = await deleteStylist(shopId, id);
+    if (ok) setStylists((prev) => prev.filter((s) => s.id !== id));
   }
   const showStylistForm = isAddingStylist || editingStylistId !== null;
+
+  if (!authChecked) {
+    return <main className="w-full min-h-screen bg-gray-50" />;
+  }
 
   return (
     <main className="w-full min-h-screen bg-gray-50 pb-24">
@@ -213,10 +268,10 @@ export default function BeautyAdminPage() {
                 <div className="flex gap-2 pt-1">
                   <button
                     onClick={submitService}
-                    disabled={!serviceForm.name.trim() || !serviceForm.price.trim()}
+                    disabled={busy || !serviceForm.name.trim() || !serviceForm.price.trim()}
                     className="flex-1 bg-pink-500 text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    <Save className="w-4 h-4" /> Хадгалах
+                    <Save className="w-4 h-4" /> {busy ? "..." : "Хадгалах"}
                   </button>
                   <button
                     onClick={() => { setIsAddingService(false); setEditingServiceId(null); }}
@@ -297,7 +352,7 @@ export default function BeautyAdminPage() {
                   <input
                     type="text"
                     placeholder="Үс засалт, будах"
-                    value={stylistForm.specialty}
+                    value={stylistForm.specialty ?? ""}
                     onChange={(e) => setStylistForm({ ...stylistForm, specialty: e.target.value })}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
                   />
@@ -305,10 +360,10 @@ export default function BeautyAdminPage() {
                 <div className="flex gap-2 pt-1">
                   <button
                     onClick={submitStylist}
-                    disabled={!stylistForm.name.trim()}
+                    disabled={busy || !stylistForm.name.trim()}
                     className="flex-1 bg-pink-500 text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    <Save className="w-4 h-4" /> Хадгалах
+                    <Save className="w-4 h-4" /> {busy ? "..." : "Хадгалах"}
                   </button>
                   <button
                     onClick={() => { setIsAddingStylist(false); setEditingStylistId(null); }}

@@ -34,12 +34,16 @@ export default function BeautyBookPage({ params }: { params: { shopId: string } 
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    const s = loadServices();
-    const st = loadStylists();
-    setServices(s);
-    setStylists(st);
-    if (!selectedServiceId && s.length > 0) setSelectedServiceId(s[0].id);
-  }, [selectedServiceId]);
+    let active = true;
+    Promise.all([loadServices(params.shopId), loadStylists(params.shopId)]).then(([s, st]) => {
+      if (!active) return;
+      setServices(s);
+      setStylists(st);
+      if (!selectedServiceId && s.length > 0) setSelectedServiceId(s[0].id);
+    });
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.shopId]);
 
   const selectedService = useMemo(
     () => services.find((s) => s.id === selectedServiceId) ?? null,

@@ -1,9 +1,14 @@
+/**
+ * Per-shop beauty services + stylists — backed by
+ * /api/shops/[id]/beauty-services and /api/shops/[id]/beauty-stylists.
+ */
+
 export interface BeautyService {
   id: string;
   name: string;
-  category: string;        // e.g. "Үс засалт"
-  durationMin: string;     // e.g. "30"
-  price: string;           // e.g. "15,000₩"
+  category: string;
+  durationMin: string;   // free-form string (server stores as INT)
+  price: string;
 }
 
 export interface Stylist {
@@ -12,9 +17,6 @@ export interface Stylist {
   specialty?: string;
   imageDataUrl?: string;
 }
-
-const SERVICES_KEY = "mongpass:beauty:services:v1";
-const STYLISTS_KEY = "mongpass:beauty:stylists:v1";
 
 export const BEAUTY_SERVICE_CATEGORIES = [
   "Үс засалт",
@@ -25,43 +27,111 @@ export const BEAUTY_SERVICE_CATEGORIES = [
   "Бусад",
 ];
 
-export const defaultServices: BeautyService[] = [
-  { id: "svc-seed-1", name: "Эрэгтэй үс засах", category: "Үс засалт", durationMin: "30", price: "15,000₩" },
-  { id: "svc-seed-2", name: "Эмэгтэй үс засах", category: "Үс засалт", durationMin: "45", price: "20,000₩" },
-  { id: "svc-seed-3", name: "Үс будах", category: "Үс будах", durationMin: "120", price: "60,000₩" },
-];
-
-export const defaultStylists: Stylist[] = [
-  { id: "sty-seed-1", name: "Амараа", specialty: "Үс засалт, будах" },
-  { id: "sty-seed-2", name: "Сараа", specialty: "Маникюр, педикюр" },
-  { id: "sty-seed-3", name: "Болдоо", specialty: "Үс засалт" },
-];
-
-function load<T>(key: string, fallback: T[]): T[] {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw) as T[];
-    return Array.isArray(parsed) ? parsed : fallback;
-  } catch {
-    return fallback;
-  }
+async function getJson<T>(url: string): Promise<T | null> {
+  const res = await fetch(url, { credentials: "same-origin" });
+  if (!res.ok) return null;
+  return (await res.json()) as T;
 }
 
-function save<T>(key: string, items: T[]): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, JSON.stringify(items));
+async function postJson<T>(url: string, body: unknown): Promise<T | null> {
+  const res = await fetch(url, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as T;
 }
 
-export function loadServices(): BeautyService[] { return load(SERVICES_KEY, defaultServices); }
-export function saveServices(s: BeautyService[]): void { save(SERVICES_KEY, s); }
-export function loadStylists(): Stylist[] { return load(STYLISTS_KEY, defaultStylists); }
-export function saveStylists(s: Stylist[]): void { save(STYLISTS_KEY, s); }
-
-export function newServiceId(): string {
-  return `svc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+async function patchJson<T>(url: string, body: unknown): Promise<T | null> {
+  const res = await fetch(url, {
+    method: "PATCH",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as T;
 }
-export function newStylistId(): string {
-  return `sty-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+async function del(url: string): Promise<boolean> {
+  const res = await fetch(url, { method: "DELETE", credentials: "same-origin" });
+  return res.ok;
+}
+
+// ----- Services -----
+
+export async function loadServices(shopId: string): Promise<BeautyService[]> {
+  const data = await getJson<{ services: BeautyService[] }>(
+    `/api/shops/${encodeURIComponent(shopId)}/beauty-services`,
+  );
+  return data?.services ?? [];
+}
+
+export async function createService(
+  shopId: string,
+  service: Omit<BeautyService, "id">,
+): Promise<BeautyService | null> {
+  const data = await postJson<{ service: BeautyService }>(
+    `/api/shops/${encodeURIComponent(shopId)}/beauty-services`,
+    service,
+  );
+  return data?.service ?? null;
+}
+
+export async function updateService(
+  shopId: string,
+  serviceId: string,
+  patch: Partial<Omit<BeautyService, "id">>,
+): Promise<BeautyService | null> {
+  const data = await patchJson<{ service: BeautyService }>(
+    `/api/shops/${encodeURIComponent(shopId)}/beauty-services/${encodeURIComponent(serviceId)}`,
+    patch,
+  );
+  return data?.service ?? null;
+}
+
+export async function deleteService(shopId: string, serviceId: string): Promise<boolean> {
+  return del(
+    `/api/shops/${encodeURIComponent(shopId)}/beauty-services/${encodeURIComponent(serviceId)}`,
+  );
+}
+
+// ----- Stylists -----
+
+export async function loadStylists(shopId: string): Promise<Stylist[]> {
+  const data = await getJson<{ stylists: Stylist[] }>(
+    `/api/shops/${encodeURIComponent(shopId)}/beauty-stylists`,
+  );
+  return data?.stylists ?? [];
+}
+
+export async function createStylist(
+  shopId: string,
+  stylist: Omit<Stylist, "id">,
+): Promise<Stylist | null> {
+  const data = await postJson<{ stylist: Stylist }>(
+    `/api/shops/${encodeURIComponent(shopId)}/beauty-stylists`,
+    stylist,
+  );
+  return data?.stylist ?? null;
+}
+
+export async function updateStylist(
+  shopId: string,
+  stylistId: string,
+  patch: Partial<Omit<Stylist, "id">>,
+): Promise<Stylist | null> {
+  const data = await patchJson<{ stylist: Stylist }>(
+    `/api/shops/${encodeURIComponent(shopId)}/beauty-stylists/${encodeURIComponent(stylistId)}`,
+    patch,
+  );
+  return data?.stylist ?? null;
+}
+
+export async function deleteStylist(shopId: string, stylistId: string): Promise<boolean> {
+  return del(
+    `/api/shops/${encodeURIComponent(shopId)}/beauty-stylists/${encodeURIComponent(stylistId)}`,
+  );
 }
