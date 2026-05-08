@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Search, Map, SlidersHorizontal, ArrowDownUp, Star, MapPin, Store } from "lucide-react";
 import BottomNav from "@/components/layout/BottomNav";
 import { useEffect, useMemo, useState } from "react";
-import { Shop, isShopOpen, loadShops } from "@/lib/shopStore";
+import { Shop, isShopOpen, loadApprovedShops } from "@/lib/shopStore";
 import { summarizeReviews } from "@/lib/reviewStore";
 import { ShopCategory } from "@/components/shop/types";
 import { CATEGORY_REGISTRY } from "@/lib/categories";
@@ -38,16 +38,13 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
 
   useEffect(() => {
     let active = true;
-    setShops(
-      loadShops().filter(
-        (s) => s.status === "approved" && shopMatchesSlug(s, params.slug),
-      ),
-    );
-    getCurrentUser().then((u) => {
+    (async () => {
+      const [all, u] = await Promise.all([loadApprovedShops(), getCurrentUser()]);
       if (!active) return;
+      setShops(all.filter((s) => shopMatchesSlug(s, params.slug)));
       setHasUser(u !== null);
       setLoaded(true);
-    });
+    })();
     return () => { active = false; };
   }, [params.slug]);
 

@@ -33,33 +33,37 @@ export default function ShopRegisterPage() {
 
   useEffect(() => {
     let active = true;
-    getCurrentUser().then((user) => {
+    (async () => {
+      const user = await getCurrentUser();
       if (!active) return;
       if (!user) {
         router.replace("/login?redirect=/biz/register");
         return;
       }
       // If user already owns a shop, take them straight to /biz
-      if (findShopByOwner(user.id)) {
+      const existing = await findShopByOwner(user.id);
+      if (!active) return;
+      if (existing) {
         router.replace("/biz");
         return;
       }
       setAuthChecked(true);
-    });
+    })();
     return () => { active = false; };
   }, [router]);
 
   async function submit() {
-    const user = await getCurrentUser();
-    if (!user || !category || !name.trim()) return;
-    createShop({
-      ownerId: user.id,
+    if (!category || !name.trim()) return;
+    // ownerId/status/createdAt are derived from the session by the API
+    const created = await createShop({
+      ownerId: "",
       category,
       name: name.trim(),
       description: description.trim() || undefined,
       contactPhone: contactPhone.trim() || undefined,
       address: address.trim() || undefined,
     });
+    if (!created) return;
     setSubmitted(true);
     setTimeout(() => router.push("/biz"), 800);
   }

@@ -52,11 +52,12 @@ export function recordShopView(userId: string | null, shopId: string): void {
  * Resolve recently-viewed IDs to actual approved Shop records,
  * preserving the recency order.
  */
-export function loadRecentlyViewedShops(userId: string | null): Shop[] {
+export async function loadRecentlyViewedShops(userId: string | null): Promise<Shop[]> {
   const entries = load(userId);
-  const allShops = loadShops();
+  if (entries.length === 0) return [];
+  const allShops = await loadShops();
   const byId = new Map(allShops.map((s) => [s.id, s]));
   return entries
     .map((e) => byId.get(e.shopId))
-    .filter((s): s is Shop => Boolean(s) && s!.status === "approved");
+    .filter((s): s is Shop => Boolean(s));
 }

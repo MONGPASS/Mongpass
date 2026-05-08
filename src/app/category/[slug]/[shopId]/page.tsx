@@ -50,17 +50,22 @@ export default function CategoryItemPage({
   const [shop, setShop] = useState<Shop | null | undefined>(undefined);
 
   useEffect(() => {
-    const found = findShopById(params.shopId);
-    setShop(found ?? null);
-    // Record view only for shops that exist (and skip the owner viewing
-    // their own shop preview — they'd flood their own history).
-    if (found && found.status === "approved") {
-      getCurrentUser().then((user) => {
+    let active = true;
+    (async () => {
+      const found = await findShopById(params.shopId);
+      if (!active) return;
+      setShop(found ?? null);
+      // Record view only for shops that exist (and skip the owner viewing
+      // their own shop preview — they'd flood their own history).
+      if (found && found.status === "approved") {
+        const user = await getCurrentUser();
+        if (!active) return;
         if (!user || user.id !== found.ownerId) {
           recordShopView(user?.id ?? null, found.id);
         }
-      });
-    }
+      }
+    })();
+    return () => { active = false; };
   }, [params.shopId]);
 
   if (shop === undefined) {

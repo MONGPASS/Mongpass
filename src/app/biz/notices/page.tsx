@@ -9,7 +9,6 @@ import {
   ShopNotice,
   findShopByOwner,
   newNoticeId,
-  updateShop,
 } from "@/lib/shopStore";
 import { getCurrentUser } from "@/lib/userStore";
 
@@ -31,20 +30,22 @@ export default function ShopNoticesPage() {
 
   useEffect(() => {
     let active = true;
-    getCurrentUser().then((user) => {
+    (async () => {
+      const user = await getCurrentUser();
       if (!active) return;
       if (!user) {
         router.replace("/login?redirect=/biz/notices");
         return;
       }
-      const s = findShopByOwner(user.id);
+      const s = await findShopByOwner(user.id);
+      if (!active) return;
       if (!s) {
         router.replace("/biz/register");
         return;
       }
       setShop(s);
       setAuthChecked(true);
-    });
+    })();
     return () => { active = false; };
   }, [router]);
 
@@ -54,12 +55,12 @@ export default function ShopNoticesPage() {
   }
 
   function persist(notices: ShopNotice[]) {
+    // TODO(phase-7): persist via /api/shops/[id]/notices CRUD.
+    // For now we keep the edits in component state so the UI stays
+    // interactive, but they don't survive a page reload.
     if (!shop) return;
-    const next = updateShop(shop.id, { notices });
-    if (next) {
-      setShop(next);
-      flash();
-    }
+    setShop({ ...shop, notices });
+    flash();
   }
 
   function startAdd() {

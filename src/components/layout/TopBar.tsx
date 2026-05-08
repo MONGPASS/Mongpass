@@ -13,7 +13,8 @@ export default function TopBar() {
     let active = true;
     const refresh = async () => {
       const u = await getCurrentUser();
-      if (active) setUnread(countUnread(u));
+      const n = await countUnread(u);
+      if (active) setUnread(n);
     };
     refresh();
     const handler = () => { void refresh(); };

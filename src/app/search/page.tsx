@@ -12,8 +12,13 @@ export default function SearchPage() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    setAllShops(loadApprovedShops());
-    setLoaded(true);
+    let active = true;
+    loadApprovedShops().then((s) => {
+      if (!active) return;
+      setAllShops(s);
+      setLoaded(true);
+    });
+    return () => { active = false; };
   }, []);
 
   const results = useMemo(() => {

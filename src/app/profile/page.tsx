@@ -15,12 +15,15 @@ export default function ProfilePage() {
 
   useEffect(() => {
     let active = true;
-    getCurrentUser().then((u) => {
+    (async () => {
+      const u = await getCurrentUser();
       if (!active) return;
       setUser(u);
-      setShop(u ? findShopByOwner(u.id) : null);
+      const s = u ? await findShopByOwner(u.id) : null;
+      if (!active) return;
+      setShop(s);
       setLoaded(true);
-    });
+    })();
     return () => { active = false; };
   }, []);
 

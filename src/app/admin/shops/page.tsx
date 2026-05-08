@@ -3,7 +3,7 @@
 import { Check, X, Store, Phone, MapPin, Clock, Calendar, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Shop, ShopStatus, SHOP_STATUS_LABEL, approveShop, loadShops, rejectShop, toggleFeatured } from "@/lib/shopStore";
+import { Shop, ShopStatus, SHOP_STATUS_LABEL, approveShop, loadShopsByStatus, rejectShop, toggleFeatured } from "@/lib/shopStore";
 import { User, findUserById } from "@/lib/userStore";
 import { CATEGORY_REGISTRY } from "@/lib/categories";
 
@@ -27,22 +27,29 @@ export default function AdminShopsPage() {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
+  // Load all three buckets up-front so the tabs switch instantly + the
+  // counts shown in the tab labels stay accurate after any approve/reject.
+  async function refresh() {
+    const [pending, approved, rejected] = await Promise.all([
+      loadShopsByStatus("pending"),
+      loadShopsByStatus("approved"),
+      loadShopsByStatus("rejected"),
+    ]);
+    setShops([...pending, ...approved, ...rejected]);
+  }
+
   useEffect(() => {
-    setShops(loadShops());
+    refresh();
   }, []);
 
-  function refresh() {
-    setShops(loadShops());
+  async function handleApprove(id: string) {
+    await approveShop(id);
+    await refresh();
   }
 
-  function handleApprove(id: string) {
-    approveShop(id);
-    refresh();
-  }
-
-  function handleToggleFeatured(id: string) {
-    toggleFeatured(id);
-    refresh();
+  async function handleToggleFeatured(id: string) {
+    await toggleFeatured(id);
+    await refresh();
   }
 
   function startReject(id: string) {
@@ -50,12 +57,12 @@ export default function AdminShopsPage() {
     setRejectReason("");
   }
 
-  function confirmReject() {
+  async function confirmReject() {
     if (!rejectingId || !rejectReason.trim()) return;
-    rejectShop(rejectingId, rejectReason.trim());
+    await rejectShop(rejectingId, rejectReason.trim());
     setRejectingId(null);
     setRejectReason("");
-    refresh();
+    await refresh();
   }
 
   const filtered = shops.filter((s) => s.status === tab);

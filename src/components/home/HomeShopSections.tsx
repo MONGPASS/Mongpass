@@ -18,7 +18,11 @@ export function FeaturedShopsSection() {
   const [shops, setShops] = useState<Shop[]>([]);
 
   useEffect(() => {
-    setShops(loadFeaturedShops());
+    let active = true;
+    loadFeaturedShops().then((s) => {
+      if (active) setShops(s);
+    });
+    return () => { active = false; };
   }, []);
 
   return <HorizontalShopList title="Онцлох дэлгүүр" shops={shops} badge="featured" />;
@@ -28,7 +32,11 @@ export function NewShopsSection() {
   const [shops, setShops] = useState<Shop[]>([]);
 
   useEffect(() => {
-    setShops(loadNewestApprovedShops(8));
+    let active = true;
+    loadNewestApprovedShops(8).then((s) => {
+      if (active) setShops(s);
+    });
+    return () => { active = false; };
   }, []);
 
   return <HorizontalShopList title="Шинээр нэмэгдсэн" shops={shops} badge="new" />;
@@ -39,9 +47,12 @@ export function FavoritesSection() {
 
   useEffect(() => {
     let active = true;
-    getCurrentUser().then((user) => {
-      if (active) setShops(loadFavoriteShops(user?.id ?? null));
-    });
+    (async () => {
+      const user = await getCurrentUser();
+      if (!active) return;
+      const list = await loadFavoriteShops(user?.id ?? null);
+      if (active) setShops(list);
+    })();
     return () => { active = false; };
   }, []);
 
@@ -53,9 +64,12 @@ export function RecentlyViewedSection() {
 
   useEffect(() => {
     let active = true;
-    getCurrentUser().then((user) => {
-      if (active) setShops(loadRecentlyViewedShops(user?.id ?? null));
-    });
+    (async () => {
+      const user = await getCurrentUser();
+      if (!active) return;
+      const list = await loadRecentlyViewedShops(user?.id ?? null);
+      if (active) setShops(list);
+    })();
     return () => { active = false; };
   }, []);
 

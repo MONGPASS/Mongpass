@@ -39,13 +39,15 @@ function BizProfilePageInner() {
   // Auth/shop gate: redirect to /login or /biz/register if needed.
   useEffect(() => {
     let active = true;
-    getCurrentUser().then((user) => {
+    (async () => {
+      const user = await getCurrentUser();
       if (!active) return;
       if (!user) {
         router.replace("/login?redirect=/biz");
         return;
       }
-      const shop = findShopByOwner(user.id);
+      const shop = await findShopByOwner(user.id);
+      if (!active) return;
       if (!shop) {
         router.replace("/biz/register");
         return;
@@ -61,7 +63,7 @@ function BizProfilePageInner() {
         address: shop.address ?? "",
       });
       setAuthChecked(true);
-    });
+    })();
     return () => { active = false; };
   }, [router]);
 
@@ -106,21 +108,18 @@ function BizProfilePageInner() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  function handleShopSave() {
+  async function handleShopSave() {
     if (!currentShop) return;
-    // If the shop was rejected, edits implicitly re-submit it for review.
-    const resubmit = currentShop.status === "rejected"
-      ? { status: "pending" as const, rejectionReason: undefined }
-      : {};
-    const next = updateShop(currentShop.id, {
+    // PATCH only the editable text fields. Image uploads land in Phase 5
+    // (presigned R2 PUT URLs); editing a rejected shop implicitly
+    // re-enters review, handled server-side. Notice CRUD lives at /biz/notices.
+    const next = await updateShop(currentShop.id, {
       name: shopName.trim() || currentShop.name,
       openHours: formData.hours.trim() || undefined,
       contactPhone: formData.phone.trim() || undefined,
       facebook: formData.facebook.trim() || undefined,
       instagram: formData.instagram.trim() || undefined,
       address: formData.address.trim() || undefined,
-      images: shopImages.length > 0 ? shopImages : undefined,
-      ...resubmit,
     });
     if (next) {
       setCurrentShop(next);
@@ -159,8 +158,8 @@ function BizProfilePageInner() {
           </span>
         </div>
         <button
-          onClick={() => {
-            const next = toggleOpen(currentShop.id);
+          onClick={async () => {
+            const next = await toggleOpen(currentShop.id);
             if (next) setCurrentShop(next);
           }}
           className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full border transition-colors ${

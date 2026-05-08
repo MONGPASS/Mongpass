@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import BottomNav from "@/components/layout/BottomNav";
 import { ChatThread, loadThreadsForUser } from "@/lib/chatStore";
 import { User, getCurrentUser } from "@/lib/userStore";
-import { findShopById } from "@/lib/shopStore";
+import { Shop, findShopById } from "@/lib/shopStore";
 
 function fmtRelative(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -23,16 +23,29 @@ function fmtRelative(iso: string): string {
 export default function ChatListPage() {
   const [user, setUser] = useState<User | null>(null);
   const [threads, setThreads] = useState<ChatThread[]>([]);
+  // Preload the shops referenced by every thread so the row render
+  // below stays sync (it can't `await findShopById` per item).
+  const [shopsById, setShopsById] = useState<Map<string, Shop>>(new Map());
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let active = true;
-    getCurrentUser().then((u) => {
+    (async () => {
+      const u = await getCurrentUser();
       if (!active) return;
       setUser(u);
-      if (u) setThreads(loadThreadsForUser(u.id));
+      if (u) {
+        const ts = loadThreadsForUser(u.id);
+        setThreads(ts);
+        const uniqueShopIds = Array.from(new Set(ts.map((t) => t.shopId)));
+        const fetched = await Promise.all(uniqueShopIds.map((id) => findShopById(id)));
+        if (!active) return;
+        const map = new Map<string, Shop>();
+        for (const s of fetched) if (s) map.set(s.id, s);
+        setShopsById(map);
+      }
       setLoaded(true);
-    });
+    })();
     return () => { active = false; };
   }, []);
 
@@ -68,7 +81,7 @@ export default function ChatListPage() {
       ) : (
         <div className="bg-white divide-y divide-gray-100">
           {threads.map((t) => {
-            const shop = findShopById(t.shopId);
+            const shop = shopsById.get(t.shopId) ?? null;
             const cover = shop?.images?.[0];
             return (
               <Link

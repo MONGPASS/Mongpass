@@ -53,28 +53,22 @@ export function markAllNotificationsSeen(userId: string | null): void {
  *  - Shop owners see new orders to their shop
  *  - Admins see shops awaiting approval
  */
-export function buildNotifications(user: User | null): Notification[] {
+export async function buildNotifications(user: User | null): Promise<Notification[]> {
   if (!user) return [];
 
   const out: Notification[] = [];
 
-  // Customer side: orders the user submitted. We surface every state
-  // including pending so the customer gets a confirmation right after
-  // placing the order ("we received it"), then a fresh notification as
-  // the shop advances the status.
+  // Customer side: orders the user submitted. Orders themselves are
+  // still localStorage in Phase 2; Phase 3 will move them to D1.
   const myOrderIds = new Set(loadMyOrderIds());
   const allOrders = loadOrders();
   for (const order of allOrders) {
     if (!myOrderIds.has(order.id)) continue;
-    // For status-change notifications, use the time the status was last
-    // updated so the unread badge re-fires when the shop moves the order
-    // forward. Falls back to createdAt for the initial "order placed"
-    // notification (where status is still "pending").
     const eventAt = order.statusUpdatedAt ?? order.createdAt;
     out.push({
       id: `${order.id}:status:${order.status}`,
       kind: "order-status",
-      title: orderTitle(order),
+      title: await orderTitle(order),
       body: customerStatusBody(order.shopCategory, order.status),
       href: `/profile/orders/${order.id}`,
       createdAt: eventAt,
@@ -82,7 +76,8 @@ export function buildNotifications(user: User | null): Notification[] {
   }
 
   // Shop owner side: new (pending) orders to their shop
-  const ownedShops = loadShopsByStatus("approved").filter((s) => s.ownerId === user.id);
+  const approved = await loadShopsByStatus("approved");
+  const ownedShops = approved.filter((s) => s.ownerId === user.id);
   for (const shop of ownedShops) {
     const pendingOrders = allOrders.filter(
       (o) => o.shopId === shop.id && o.status === "pending",
@@ -92,7 +87,7 @@ export function buildNotifications(user: User | null): Notification[] {
         id: `${order.id}:new-order`,
         kind: "new-order",
         title: `Шинэ захиалга — ${shop.name}`,
-        body: orderTitle(order),
+        body: await orderTitle(order),
         href: "/biz",
         createdAt: order.createdAt,
       });
@@ -101,7 +96,7 @@ export function buildNotifications(user: User | null): Notification[] {
 
   // Admin side: pending shops awaiting review
   if (user.role === "admin") {
-    const pending = loadShopsByStatus("pending");
+    const pending = await loadShopsByStatus("pending");
     for (const shop of pending) {
       out.push({
         id: `${shop.id}:shop-pending`,
@@ -119,12 +114,11 @@ export function buildNotifications(user: User | null): Notification[] {
   );
 }
 
-export function countUnread(user: User | null): number {
+export async function countUnread(user: User | null): Promise<number> {
   const lastSeen = getLastSeenAt(user?.id ?? null);
   const lastSeenMs = lastSeen ? new Date(lastSeen).getTime() : 0;
-  return buildNotifications(user).filter(
-    (n) => new Date(n.createdAt).getTime() > lastSeenMs,
-  ).length;
+  const list = await buildNotifications(user);
+  return list.filter((n) => new Date(n.createdAt).getTime() > lastSeenMs).length;
 }
 
 /**
@@ -150,8 +144,8 @@ function customerStatusBody(category: ShopCategory, status: OrderStatus): string
 }
 
 /** Best-effort, human-readable title for a notification about an order. */
-function orderTitle(order: Order): string {
-  const shop = findShopById(order.shopId);
+async function orderTitle(order: Order): Promise<string> {
+  const shop = await findShopById(order.shopId);
   const shopName = shop?.name ?? "Дэлгүүр";
   switch (order.shopCategory) {
     case "cargo":

@@ -1,3 +1,12 @@
+/**
+ * Shop store — backed by `/api/shops/*` (D1). Most exported function
+ * names are kept stable from the localStorage version so consumers
+ * only need to swap to `await` at the call site.
+ *
+ * Notice CRUD is intentionally not in this file yet (Phase 7); the
+ * `notices` field on a Shop is read-only here, hydrated from the API.
+ */
+
 import { ShopCategory } from "@/components/shop/types";
 
 export type ShopStatus = "pending" | "approved" | "rejected";
@@ -10,37 +19,22 @@ export const SHOP_STATUS_LABEL: Record<ShopStatus, string> = {
 
 export interface Shop {
   id: string;
-  ownerId: string;     // User.id
+  ownerId: string;
   category: ShopCategory;
   name: string;
   description?: string;
   contactPhone?: string;
   address?: string;
-  /** "Даваа - Баасан: 09:00 - 18:00" — free-form for now */
   openHours?: string;
   facebook?: string;
   instagram?: string;
-  /** base64 data URLs of uploaded shop photos */
+  /** R2 object keys (Phase 5+); empty array until images are uploaded. */
   images?: string[];
-  /** Approval state. New shops are "pending" until super admin reviews. */
   status: ShopStatus;
-  /** Reason given when status === "rejected" */
   rejectionReason?: string;
-  /** ISO timestamp of last admin review */
   reviewedAt?: string;
-  /**
-   * Admin-curated "Онцлох" (featured) flag. Featured shops surface in a
-   * dedicated section on the home page. Future: this could be auto-set
-   * by a paid subscription tier.
-   */
   featured?: boolean;
-  /**
-   * Owner-controlled open/closed flag. Default true — undefined means
-   * open. Closed shops still appear in listings but with a red badge
-   * and a "currently closed" notice on the detail page.
-   */
   isOpen?: boolean;
-  /** Owner-authored announcements/news shown on the user-side InfoTab. */
   notices?: ShopNotice[];
   createdAt: string;
 }
@@ -56,128 +50,146 @@ export function newNoticeId(): string {
   return `notice-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-const SHOPS_KEY = "mongpass:shops:v1";
-
-export function loadShops(): Shop[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(SHOPS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as Shop[];
-    if (!Array.isArray(parsed)) return [];
-    // Migration: shops created before status existed are treated as approved.
-    // New shops are always created with status: "pending".
-    return parsed.map((s) => ({
-      ...s,
-      status: (s.status as ShopStatus | undefined) ?? "approved",
-    }));
-  } catch {
-    return [];
-  }
-}
-
-function saveShops(shops: Shop[]): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(SHOPS_KEY, JSON.stringify(shops));
-}
-
-export function newShopId(): string {
-  return `shop-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-}
-
-/** Returns the (first) shop owned by this user, or null. */
-export function findShopByOwner(ownerId: string): Shop | null {
-  return loadShops().find((s) => s.ownerId === ownerId) ?? null;
-}
-
-export function findShopById(id: string): Shop | null {
-  return loadShops().find((s) => s.id === id) ?? null;
-}
-
-export function createShop(
-  input: Omit<Shop, "id" | "createdAt" | "status">,
-): Shop {
-  const shop: Shop = {
-    ...input,
-    id: newShopId(),
-    status: "pending",   // new shops always start pending
-    createdAt: new Date().toISOString(),
-  };
-  saveShops([...loadShops(), shop]);
-  return shop;
-}
-
-/** Get shops filtered by approval status. */
-export function loadShopsByStatus(status: ShopStatus): Shop[] {
-  return loadShops().filter((s) => s.status === status);
-}
-
-/** Approved shops only — what the user-facing app should ever show. */
-export function loadApprovedShops(): Shop[] {
-  return loadShops().filter((s) => s.status === "approved");
-}
-
-/** Approved + featured shops, used by the home "Онцлох" carousel. */
-export function loadFeaturedShops(): Shop[] {
-  return loadApprovedShops().filter((s) => s.featured === true);
-}
-
-/** Most recently approved shops, newest first. */
-export function loadNewestApprovedShops(limit = 8): Shop[] {
-  return loadApprovedShops()
-    .slice()
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, limit);
-}
-
-/** Toggle featured flag — used by the admin dashboard. */
-export function toggleFeatured(id: string): Shop | null {
-  const shop = findShopById(id);
-  if (!shop) return null;
-  return updateShop(id, { featured: !shop.featured });
-}
-
-/** Toggle open/closed — used by the shop owner from /biz. */
-export function toggleOpen(id: string): Shop | null {
-  const shop = findShopById(id);
-  if (!shop) return null;
-  // undefined or true → close it; only false → open it
-  const currentlyOpen = shop.isOpen !== false;
-  return updateShop(id, { isOpen: !currentlyOpen });
-}
-
+/** Pure predicate — no API call needed. */
 export function isShopOpen(shop: Shop): boolean {
   return shop.isOpen !== false;
 }
 
-/** Approve a shop. Sets status="approved", clears rejectionReason. */
-export function approveShop(id: string): Shop | null {
-  return updateShop(id, {
-    status: "approved",
-    rejectionReason: undefined,
-    reviewedAt: new Date().toISOString(),
+// ===================== HTTP helpers =====================
+
+async function getJson<T>(url: string): Promise<T> {
+  const res = await fetch(url, { credentials: "same-origin" });
+  if (!res.ok) {
+    if (res.status === 404) return null as unknown as T;
+    throw new Error(`GET ${url} failed: ${res.status}`);
+  }
+  return (await res.json()) as T;
+}
+
+async function postJson<T>(url: string, body?: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
   });
+  if (!res.ok) throw new Error(`POST ${url} failed: ${res.status}`);
+  return (await res.json()) as T;
 }
 
-/** Reject a shop with a reason shown to its owner. */
-export function rejectShop(id: string, reason: string): Shop | null {
-  return updateShop(id, {
-    status: "rejected",
-    rejectionReason: reason,
-    reviewedAt: new Date().toISOString(),
+async function patchJson<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "PATCH",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
+  if (!res.ok) throw new Error(`PATCH ${url} failed: ${res.status}`);
+  return (await res.json()) as T;
 }
 
-export function updateShop(id: string, patch: Partial<Omit<Shop, "id" | "ownerId" | "createdAt">>): Shop | null {
-  const shops = loadShops();
-  const idx = shops.findIndex((s) => s.id === id);
-  if (idx < 0) return null;
-  const next = { ...shops[idx], ...patch };
-  shops[idx] = next;
-  saveShops(shops);
-  return next;
+// ===================== Reads =====================
+
+export async function loadShops(): Promise<Shop[]> {
+  // Returns *approved* shops by default — matches the public-list intent
+  // of the original localStorage helper. For other statuses, use the
+  // status-specific helpers below.
+  const data = await getJson<{ shops: Shop[] }>("/api/shops");
+  return data?.shops ?? [];
 }
 
-export function deleteShop(id: string): void {
-  saveShops(loadShops().filter((s) => s.id !== id));
+export async function loadApprovedShops(): Promise<Shop[]> {
+  return loadShops();
+}
+
+export async function loadShopsByStatus(status: ShopStatus): Promise<Shop[]> {
+  const data = await getJson<{ shops: Shop[] }>(
+    `/api/shops?status=${encodeURIComponent(status)}`,
+  );
+  return data?.shops ?? [];
+}
+
+export async function loadFeaturedShops(): Promise<Shop[]> {
+  const data = await getJson<{ shops: Shop[] }>("/api/shops?featured=true");
+  return data?.shops ?? [];
+}
+
+export async function loadNewestApprovedShops(limit = 8): Promise<Shop[]> {
+  const data = await getJson<{ shops: Shop[] }>(
+    `/api/shops?limit=${encodeURIComponent(limit)}`,
+  );
+  return data?.shops ?? [];
+}
+
+export async function findShopByOwner(ownerId: string): Promise<Shop | null> {
+  void ownerId; // intentionally unused: the API derives ownership from the session
+  const data = await getJson<{ shops: Shop[] }>("/api/shops?owner=mine");
+  return data?.shops?.[0] ?? null;
+}
+
+export async function findShopById(id: string): Promise<Shop | null> {
+  const data = await getJson<{ shop: Shop | null }>(
+    `/api/shops/${encodeURIComponent(id)}`,
+  );
+  return data?.shop ?? null;
+}
+
+// ===================== Writes =====================
+
+export async function createShop(
+  input: Omit<Shop, "id" | "createdAt" | "status">,
+): Promise<Shop | null> {
+  // The server derives ownerId from the session, ignoring whatever the
+  // client passes for ownerId/status/createdAt.
+  const data = await postJson<{ shop: Shop }>("/api/shops", {
+    category: input.category,
+    name: input.name,
+    description: input.description,
+    contactPhone: input.contactPhone,
+    address: input.address,
+    openHours: input.openHours,
+    facebook: input.facebook,
+    instagram: input.instagram,
+  });
+  return data?.shop ?? null;
+}
+
+export async function updateShop(
+  id: string,
+  patch: Partial<Pick<Shop, "name" | "description" | "contactPhone" | "address" | "openHours" | "facebook" | "instagram">>,
+): Promise<Shop | null> {
+  const data = await patchJson<{ shop: Shop }>(
+    `/api/shops/${encodeURIComponent(id)}`,
+    patch,
+  );
+  return data?.shop ?? null;
+}
+
+export async function approveShop(id: string): Promise<Shop | null> {
+  const data = await postJson<{ shop: Shop }>(
+    `/api/shops/${encodeURIComponent(id)}/approve`,
+  );
+  return data?.shop ?? null;
+}
+
+export async function rejectShop(id: string, reason: string): Promise<Shop | null> {
+  const data = await postJson<{ shop: Shop }>(
+    `/api/shops/${encodeURIComponent(id)}/reject`,
+    { reason },
+  );
+  return data?.shop ?? null;
+}
+
+export async function toggleFeatured(id: string): Promise<Shop | null> {
+  const data = await postJson<{ shop: Shop }>(
+    `/api/shops/${encodeURIComponent(id)}/toggle-featured`,
+  );
+  return data?.shop ?? null;
+}
+
+export async function toggleOpen(id: string): Promise<Shop | null> {
+  const data = await postJson<{ shop: Shop }>(
+    `/api/shops/${encodeURIComponent(id)}/toggle-open`,
+  );
+  return data?.shop ?? null;
 }

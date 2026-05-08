@@ -13,7 +13,7 @@ import {
   sendMessage,
 } from "@/lib/chatStore";
 import { User, getCurrentUser } from "@/lib/userStore";
-import { findShopById } from "@/lib/shopStore";
+import { Shop, findShopById } from "@/lib/shopStore";
 
 function fmtTime(iso: string): string {
   const d = new Date(iso);
@@ -37,22 +37,29 @@ export default function ChatThreadPage({ params }: { params: { threadId: string 
   // user is the customer side. If user owns the shop, they're the shop side.
   const [side, setSide] = useState<"user" | "shop" | null>(null);
 
+  // The shop record is fetched once on mount and stashed in state so
+  // the render below (cover image, etc.) doesn't have to await again.
+  const [shop, setShop] = useState<Shop | null>(null);
+
   useEffect(() => {
     let active = true;
-    getCurrentUser().then((u) => {
+    (async () => {
+      const u = await getCurrentUser();
       if (!active) return;
       setUser(u);
       const t = findThread(threadId);
       setThread(t);
       if (!t || !u) return;
       setMessages(loadMessagesForThread(threadId));
+      const s = await findShopById(t.shopId);
+      if (!active) return;
+      setShop(s);
       if (t.userId === u.id) {
         setSide("user");
-      } else {
-        const shop = findShopById(t.shopId);
-        if (shop?.ownerId === u.id) setSide("shop");
+      } else if (s?.ownerId === u.id) {
+        setSide("shop");
       }
-    });
+    })();
     return () => { active = false; };
   }, [threadId]);
 
@@ -100,7 +107,6 @@ export default function ChatThreadPage({ params }: { params: { threadId: string 
 
   // What name to show in header — opposite side from "me"
   const otherName = side === "shop" ? thread.userName : thread.shopName;
-  const shop = findShopById(thread.shopId);
   const cover = shop?.images?.[0];
 
   // Group consecutive messages by date for date dividers

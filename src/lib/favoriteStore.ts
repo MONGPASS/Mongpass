@@ -59,7 +59,9 @@ export function toggleFavorite(userId: string | null, shopId: string): boolean {
 }
 
 /** Resolve favorite IDs to actual Shop records (approved only). */
-export function loadFavoriteShops(userId: string | null): Shop[] {
+export async function loadFavoriteShops(userId: string | null): Promise<Shop[]> {
   const ids = new Set(loadFavoriteIds(userId));
-  return loadShops().filter((s) => ids.has(s.id) && s.status === "approved");
+  if (ids.size === 0) return [];
+  const all = await loadShops();
+  return all.filter((s) => ids.has(s.id));
 }

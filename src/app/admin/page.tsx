@@ -3,7 +3,7 @@
 import { ChevronRight, ImageIcon, Sparkles, Store } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { loadShops } from "@/lib/shopStore";
+import { loadShopsByStatus } from "@/lib/shopStore";
 import { loadBanners } from "@/lib/bannerStore";
 
 interface Stats {
@@ -15,17 +15,25 @@ export default function AdminOverviewPage() {
   const [stats, setStats] = useState<Stats | null>(null);
 
   useEffect(() => {
-    const shops = loadShops();
-    setStats({
-      shops: {
-        total: shops.length,
-        pending: shops.filter((s) => s.status === "pending").length,
-        approved: shops.filter((s) => s.status === "approved").length,
-        rejected: shops.filter((s) => s.status === "rejected").length,
-        featured: shops.filter((s) => s.featured === true).length,
-      },
-      banners: loadBanners().length,
+    let active = true;
+    Promise.all([
+      loadShopsByStatus("pending"),
+      loadShopsByStatus("approved"),
+      loadShopsByStatus("rejected"),
+    ]).then(([pending, approved, rejected]) => {
+      if (!active) return;
+      setStats({
+        shops: {
+          total: pending.length + approved.length + rejected.length,
+          pending: pending.length,
+          approved: approved.length,
+          rejected: rejected.length,
+          featured: approved.filter((s) => s.featured === true).length,
+        },
+        banners: loadBanners().length,
+      });
     });
+    return () => { active = false; };
   }, []);
 
   if (!stats) return <div className="px-4 pt-6" />;
