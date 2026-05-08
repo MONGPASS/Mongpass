@@ -42,9 +42,9 @@ export default function CommunityNewPostPage() {
     if (uploaded) setImageDataUrl(uploaded.url);
   }
 
-  function submit() {
+  async function submit() {
     if (!user || !title.trim() || !content.trim()) return;
-    const post = createPost({
+    const post = await createPost({
       authorId: user.id,
       authorName: user.name,
       category,
@@ -52,7 +52,7 @@ export default function CommunityNewPostPage() {
       content: content.trim(),
       imageDataUrl: imageDataUrl ?? undefined,
     });
-    router.push(`/community/${post.id}`);
+    if (post) router.push(`/community/${post.id}`);
   }
 
   if (!authChecked) {

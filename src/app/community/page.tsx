@@ -7,7 +7,6 @@ import BottomNav from "@/components/layout/BottomNav";
 import {
   COMMUNITY_CATEGORIES,
   CommunityPost,
-  countCommentsForPost,
   loadPosts,
 } from "@/lib/communityStore";
 import { getCurrentUser } from "@/lib/userStore";
@@ -41,9 +40,10 @@ export default function CommunityListPage() {
 
   useEffect(() => {
     let active = true;
-    setPosts(loadPosts());
-    getCurrentUser().then((u) => {
-      if (active) setHasUser(u !== null);
+    Promise.all([loadPosts(), getCurrentUser()]).then(([list, u]) => {
+      if (!active) return;
+      setPosts(list);
+      setHasUser(u !== null);
     });
     return () => { active = false; };
   }, []);
@@ -126,7 +126,9 @@ export default function CommunityListPage() {
 }
 
 function PostListItem({ post }: { post: CommunityPost }) {
-  const commentCount = countCommentsForPost(post.id);
+  // Server-derived totals come back on the post payload; the legacy
+  // counter helper is gone now that the API does the SQL.
+  const commentCount = post.commentCount ?? 0;
   const badgeClass = CATEGORY_BADGE[post.category] ?? CATEGORY_BADGE.Бусад;
   return (
     <Link
@@ -152,7 +154,7 @@ function PostListItem({ post }: { post: CommunityPost }) {
       <div className="flex items-center gap-3 text-[11px] text-gray-500">
         <span className="font-semibold text-gray-700">{post.authorName}</span>
         <span className="flex items-center gap-1">
-          <Heart className="w-3 h-3" /> {post.likes.length}
+          <Heart className="w-3 h-3" /> {post.likeCount ?? post.likes.length}
         </span>
         <span className="flex items-center gap-1">
           <MessageCircle className="w-3 h-3" /> {commentCount}

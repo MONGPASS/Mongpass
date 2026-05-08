@@ -27,13 +27,19 @@ export function BizChatThreadList({ shopId }: { shopId: string }) {
   const [threads, setThreads] = useState<ChatThread[]>([]);
 
   useEffect(() => {
-    setThreads(loadThreadsForShop(shopId));
+    let active = true;
+    const refresh = async () => {
+      const list = await loadThreadsForShop(shopId);
+      if (active) setThreads(list);
+    };
+    refresh();
     // Light polling so a customer's new message shows up while the shop
     // owner is on this screen.
-    const interval = setInterval(() => {
-      setThreads(loadThreadsForShop(shopId));
-    }, 3000);
-    return () => clearInterval(interval);
+    const interval = setInterval(refresh, 3000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
   }, [shopId]);
 
   return (

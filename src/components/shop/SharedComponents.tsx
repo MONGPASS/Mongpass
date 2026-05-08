@@ -214,7 +214,7 @@ export function BottomCTA({
     }
     // Ensure a thread exists, then jump to it. If the user is also the
     // shop owner we still allow it (they'd see their own thread shell).
-    ensureThread({
+    await ensureThread({
       userId: user.id,
       userName: user.name,
       shopId,

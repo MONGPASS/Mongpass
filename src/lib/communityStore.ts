@@ -1,32 +1,29 @@
 /**
- * Community board ("Чөлөөт булан") — Mongolian community in Korea
- * sharing tips, asking questions, posting events, etc.
- *
- * Mirrors the structure a real backend table would have, so when we
- * move to Cloudflare D1 the only thing that changes is the load/save
- * implementation.
+ * Community board (Чөлөөт булан) — backed by /api/community/* (D1).
  */
 
 export const COMMUNITY_CATEGORIES = [
-  "Зөвлөгөө",      // advice / Q&A
-  "Худалдаа",      // buy/sell
-  "Ажил",          // jobs
-  "Үйл явдал",     // events
-  "Мэдээ",         // news
-  "Алдсан/Олсон",  // lost & found
-  "Бусад",         // other
+  "Зөвлөгөө",
+  "Худалдаа",
+  "Ажил",
+  "Үйл явдал",
+  "Мэдээ",
+  "Алдсан/Олсон",
+  "Бусад",
 ];
 
 export interface CommunityPost {
   id: string;
   authorId: string;
-  authorName: string;     // snapshot — survives author renames
+  authorName: string;
   category: string;
   title: string;
   content: string;
+  /** R2 key or /api/r2/<key> URL — r2Url() handles either form. */
   imageDataUrl?: string;
-  /** User IDs of people who liked this post. */
   likes: string[];
+  likeCount?: number;
+  commentCount?: number;
   createdAt: string;
 }
 
@@ -39,106 +36,95 @@ export interface CommunityComment {
   createdAt: string;
 }
 
-const POSTS_KEY = "mongpass:community:posts:v1";
-const COMMENTS_KEY = "mongpass:community:comments:v1";
-
-function load<T>(key: string): T[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as T[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+async function getJson<T>(url: string): Promise<T | null> {
+  const res = await fetch(url, { credentials: "same-origin" });
+  if (!res.ok) return null;
+  return (await res.json()) as T;
 }
 
-function save<T>(key: string, items: T[]): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, JSON.stringify(items));
+async function postJson<T>(url: string, body?: unknown): Promise<T | null> {
+  const res = await fetch(url, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as T;
 }
 
-export function loadPosts(): CommunityPost[] {
-  return load<CommunityPost>(POSTS_KEY);
+async function del(url: string): Promise<boolean> {
+  const res = await fetch(url, { method: "DELETE", credentials: "same-origin" });
+  return res.ok;
 }
 
-export function findPost(id: string): CommunityPost | null {
-  return loadPosts().find((p) => p.id === id) ?? null;
+// ===================== Posts =====================
+
+export async function loadPosts(category?: string): Promise<CommunityPost[]> {
+  const qs = category ? `?category=${encodeURIComponent(category)}` : "";
+  const data = await getJson<{ posts: CommunityPost[] }>(`/api/community/posts${qs}`);
+  return data?.posts ?? [];
 }
 
-export function newPostId(): string {
-  return `post-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+export async function findPost(id: string): Promise<CommunityPost | null> {
+  const data = await getJson<{ post: CommunityPost }>(
+    `/api/community/posts/${encodeURIComponent(id)}`,
+  );
+  return data?.post ?? null;
 }
 
-export function newCommentId(): string {
-  return `c-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-}
-
-export function createPost(
+export async function createPost(
   input: Omit<CommunityPost, "id" | "createdAt" | "likes">,
-): CommunityPost {
-  const post: CommunityPost = {
-    ...input,
-    id: newPostId(),
-    likes: [],
-    createdAt: new Date().toISOString(),
-  };
-  save<CommunityPost>(POSTS_KEY, [post, ...loadPosts()]);
-  return post;
+): Promise<CommunityPost | null> {
+  void input.authorId;
+  void input.authorName; // server derives from session
+  const data = await postJson<{ post: CommunityPost }>("/api/community/posts", {
+    category: input.category,
+    title: input.title,
+    content: input.content,
+    imageDataUrl: input.imageDataUrl,
+  });
+  return data?.post ?? null;
 }
 
-export function deletePost(id: string): void {
-  save<CommunityPost>(POSTS_KEY, loadPosts().filter((p) => p.id !== id));
-  // Cascade: delete comments
-  save<CommunityComment>(COMMENTS_KEY, loadComments().filter((c) => c.postId !== id));
+export async function deletePost(id: string): Promise<boolean> {
+  return del(`/api/community/posts/${encodeURIComponent(id)}`);
 }
 
-/**
- * Toggle like for a user. Returns the updated post (or null if not
- * found). Idempotent — clicking twice removes the like.
- */
-export function toggleLike(postId: string, userId: string): CommunityPost | null {
-  const all = loadPosts();
-  const idx = all.findIndex((p) => p.id === postId);
-  if (idx < 0) return null;
-  const post = all[idx];
-  const liked = post.likes.includes(userId);
-  const next: CommunityPost = {
-    ...post,
-    likes: liked ? post.likes.filter((id) => id !== userId) : [...post.likes, userId],
-  };
-  all[idx] = next;
-  save<CommunityPost>(POSTS_KEY, all);
-  return next;
+export async function toggleLike(
+  postId: string,
+  userId: string,
+): Promise<{ liked: boolean; likeCount: number } | null> {
+  void userId;
+  const data = await postJson<{ liked: boolean; likeCount: number }>(
+    `/api/community/posts/${encodeURIComponent(postId)}/like`,
+  );
+  return data ?? null;
 }
 
-export function loadComments(): CommunityComment[] {
-  return load<CommunityComment>(COMMENTS_KEY);
+// ===================== Comments =====================
+
+export async function loadCommentsForPost(postId: string): Promise<CommunityComment[]> {
+  const data = await getJson<{ comments: CommunityComment[] }>(
+    `/api/community/posts/${encodeURIComponent(postId)}/comments`,
+  );
+  return data?.comments ?? [];
 }
 
-export function loadCommentsForPost(postId: string): CommunityComment[] {
-  return loadComments()
-    .filter((c) => c.postId === postId)
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-}
-
-export function countCommentsForPost(postId: string): number {
-  return loadComments().filter((c) => c.postId === postId).length;
-}
-
-export function addComment(
+export async function addComment(
   input: Omit<CommunityComment, "id" | "createdAt">,
-): CommunityComment {
-  const comment: CommunityComment = {
-    ...input,
-    id: newCommentId(),
-    createdAt: new Date().toISOString(),
-  };
-  save<CommunityComment>(COMMENTS_KEY, [...loadComments(), comment]);
-  return comment;
+): Promise<CommunityComment | null> {
+  void input.authorId;
+  void input.authorName;
+  const data = await postJson<{ comment: CommunityComment }>(
+    `/api/community/posts/${encodeURIComponent(input.postId)}/comments`,
+    { content: input.content },
+  );
+  return data?.comment ?? null;
 }
 
-export function deleteComment(id: string): void {
-  save<CommunityComment>(COMMENTS_KEY, loadComments().filter((c) => c.id !== id));
+export async function deleteComment(postId: string, id: string): Promise<boolean> {
+  return del(
+    `/api/community/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(id)}`,
+  );
 }

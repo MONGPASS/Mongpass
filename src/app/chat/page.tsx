@@ -36,7 +36,8 @@ export default function ChatListPage() {
       if (!active) return;
       setUser(u);
       if (u) {
-        const ts = loadThreadsForUser(u.id);
+        const ts = await loadThreadsForUser(u.id);
+        if (!active) return;
         setThreads(ts);
         const uniqueShopIds = Array.from(new Set(ts.map((t) => t.shopId)));
         const fetched = await Promise.all(uniqueShopIds.map((id) => findShopById(id)));

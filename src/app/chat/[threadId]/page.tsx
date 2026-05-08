@@ -48,12 +48,16 @@ export default function ChatThreadPage({ params }: { params: { threadId: string 
       const u = await getCurrentUser();
       if (!active) return;
       setUser(u);
-      const t = findThread(threadId);
+      const t = await findThread(threadId);
+      if (!active) return;
       setThread(t);
       if (!t || !u) return;
-      setMessages(loadMessagesForThread(threadId));
-      const s = await findShopById(t.shopId);
+      const [msgs, s] = await Promise.all([
+        loadMessagesForThread(threadId),
+        findShopById(t.shopId),
+      ]);
       if (!active) return;
+      setMessages(msgs);
       setShop(s);
       if (t.userId === u.id) {
         setSide("user");
@@ -69,7 +73,7 @@ export default function ChatThreadPage({ params }: { params: { threadId: string 
   useEffect(() => {
     if (!thread) return;
     const interval = setInterval(() => {
-      setMessages(loadMessagesForThread(threadId));
+      loadMessagesForThread(threadId).then((msgs) => setMessages(msgs));
     }, 2000);
     return () => clearInterval(interval);
   }, [thread, threadId]);
@@ -82,11 +86,13 @@ export default function ChatThreadPage({ params }: { params: { threadId: string 
     });
   }, [messages.length]);
 
-  function send() {
+  async function send() {
     if (!draft.trim() || !side) return;
-    sendMessage({ threadId, from: side, text: draft.trim() });
+    const text = draft.trim();
     setDraft("");
-    setMessages(loadMessagesForThread(threadId));
+    await sendMessage({ threadId, from: side, text });
+    const msgs = await loadMessagesForThread(threadId);
+    setMessages(msgs);
   }
 
   if (thread === undefined) {

@@ -1,21 +1,18 @@
 /**
- * Direct chat between a customer (User) and a shop. Threads are
- * uniquely identified by `${userId}:${shopId}`, so each user-shop pair
- * has exactly one conversation that both sides see.
+ * Chat store — backed by /api/chat/threads/* (D1).
  *
- * For the demo this is localStorage; swapping to a real backend means
- * replacing load/save with fetch and wiring polling/SSE for live
- * updates. The UI components don't need to change.
+ * Threads are uniquely identified by `${userId}:${shopId}`, which the
+ * server reconstructs from the session for POST/messages endpoints —
+ * clients can't fake the identity.
  */
 
 export interface ChatThread {
-  id: string;                  // `${userId}:${shopId}`
-  userId: string;              // customer
+  id: string;
+  userId: string;
   shopId: string;
-  /** Snapshot for fast list rendering. Both sides keep them in sync. */
   shopName: string;
   userName: string;
-  lastMessageAt: string;       // ISO
+  lastMessageAt: string;
   lastMessagePreview: string;
 }
 
@@ -27,134 +24,91 @@ export interface ChatMessage {
   createdAt: string;
 }
 
-const THREADS_KEY = "mongpass:chat:threads:v1";
-const MESSAGES_KEY = "mongpass:chat:messages:v1";
-
-function loadAllThreads(): ChatThread[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(THREADS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as ChatThread[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+async function getJson<T>(url: string): Promise<T | null> {
+  const res = await fetch(url, { credentials: "same-origin" });
+  if (!res.ok) return null;
+  return (await res.json()) as T;
 }
 
-function saveAllThreads(threads: ChatThread[]): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(THREADS_KEY, JSON.stringify(threads));
-}
-
-function loadAllMessages(): ChatMessage[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(MESSAGES_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as ChatMessage[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveAllMessages(messages: ChatMessage[]): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(MESSAGES_KEY, JSON.stringify(messages));
+async function postJson<T>(url: string, body: unknown): Promise<T | null> {
+  const res = await fetch(url, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as T;
 }
 
 export function threadIdFor(userId: string, shopId: string): string {
   return `${userId}:${shopId}`;
 }
 
-export function findThread(threadId: string): ChatThread | null {
-  return loadAllThreads().find((t) => t.id === threadId) ?? null;
-}
-
-/**
- * Get-or-create a thread for this user-shop pair. Snapshots the
- * up-to-date shop/user names so the chat list shows the current names.
- */
-export function ensureThread(input: {
+/** Get-or-create a thread for the current user + given shop. */
+export async function ensureThread(input: {
   userId: string;
   userName: string;
   shopId: string;
   shopName: string;
-}): ChatThread {
-  const id = threadIdFor(input.userId, input.shopId);
-  const all = loadAllThreads();
-  const existing = all.find((t) => t.id === id);
-  if (existing) {
-    // Refresh snapshots in case names changed
-    const updated: ChatThread = {
-      ...existing,
-      userName: input.userName,
-      shopName: input.shopName,
-    };
-    saveAllThreads(all.map((t) => (t.id === id ? updated : t)));
-    return updated;
-  }
-  const thread: ChatThread = {
-    id,
-    userId: input.userId,
-    userName: input.userName,
+}): Promise<ChatThread | null> {
+  // userId/userName/shopName params are kept for backwards source-compat;
+  // the server derives the user from the session and the shop name from DB.
+  void input.userId;
+  void input.userName;
+  void input.shopName;
+  const data = await postJson<{ thread: ChatThread }>("/api/chat/threads", {
     shopId: input.shopId,
-    shopName: input.shopName,
-    lastMessageAt: new Date().toISOString(),
-    lastMessagePreview: "",
-  };
-  saveAllThreads([thread, ...all]);
-  return thread;
+  });
+  return data?.thread ?? null;
 }
 
-export function loadMessagesForThread(threadId: string): ChatMessage[] {
-  return loadAllMessages()
-    .filter((m) => m.threadId === threadId)
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+export async function findThread(threadId: string): Promise<ChatThread | null> {
+  const data = await getJson<{ thread: ChatThread }>(
+    `/api/chat/threads/${encodeURIComponent(threadId)}`,
+  );
+  return data?.thread ?? null;
 }
 
-export function newMessageId(): string {
-  return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+export async function loadMessagesForThread(
+  threadId: string,
+): Promise<ChatMessage[]> {
+  const data = await getJson<{ messages: ChatMessage[] }>(
+    `/api/chat/threads/${encodeURIComponent(threadId)}/messages`,
+  );
+  return data?.messages ?? [];
 }
 
-export function sendMessage(input: {
+export async function sendMessage(input: {
   threadId: string;
   from: "user" | "shop";
   text: string;
-}): ChatMessage {
-  const message: ChatMessage = {
-    id: newMessageId(),
-    threadId: input.threadId,
-    from: input.from,
-    text: input.text,
-    createdAt: new Date().toISOString(),
-  };
-  saveAllMessages([...loadAllMessages(), message]);
-  // Update thread snapshot so the list page shows the latest preview
-  const threads = loadAllThreads();
-  const idx = threads.findIndex((t) => t.id === input.threadId);
-  if (idx >= 0) {
-    threads[idx] = {
-      ...threads[idx],
-      lastMessageAt: message.createdAt,
-      lastMessagePreview: input.text.slice(0, 80),
-    };
-    saveAllThreads(threads);
-  }
-  return message;
+}): Promise<ChatMessage | null> {
+  // `from` is determined server-side from the caller's relationship to
+  // the thread; the param is ignored but kept for source compat.
+  void input.from;
+  const data = await postJson<{ message: ChatMessage }>(
+    `/api/chat/threads/${encodeURIComponent(input.threadId)}/messages`,
+    { text: input.text },
+  );
+  return data?.message ?? null;
 }
 
-/** Threads where this user is the customer. Newest first. */
-export function loadThreadsForUser(userId: string): ChatThread[] {
-  return loadAllThreads()
-    .filter((t) => t.userId === userId)
-    .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+export async function loadThreadsForUser(userId: string): Promise<ChatThread[]> {
+  // The server uses the session to scope; userId is unused here.
+  void userId;
+  const data = await getJson<{ threads: ChatThread[] }>(
+    "/api/chat/threads?role=user",
+  );
+  return data?.threads ?? [];
 }
 
-/** Threads for shops the user owns. Used by /biz Чат tab. */
-export function loadThreadsForShop(shopId: string): ChatThread[] {
-  return loadAllThreads()
-    .filter((t) => t.shopId === shopId)
-    .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+export async function loadThreadsForShop(shopId: string): Promise<ChatThread[]> {
+  // The server returns all threads for shops the caller owns, scoped
+  // by session. Filter to a single shop client-side if needed.
+  void shopId;
+  const data = await getJson<{ threads: ChatThread[] }>(
+    "/api/chat/threads?role=shop",
+  );
+  return data?.threads ?? [];
 }

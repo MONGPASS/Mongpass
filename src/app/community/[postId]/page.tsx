@@ -40,55 +40,70 @@ export default function CommunityPostDetailPage({ params }: { params: { postId: 
   const [user, setUser] = useState<User | null>(null);
   const [draft, setDraft] = useState("");
 
-  function refresh() {
-    setPost(findPost(params.postId));
-    setComments(loadCommentsForPost(params.postId));
+  async function refresh() {
+    const [p, cs] = await Promise.all([
+      findPost(params.postId),
+      loadCommentsForPost(params.postId),
+    ]);
+    setPost(p);
+    setComments(cs);
   }
 
   useEffect(() => {
     let active = true;
-    getCurrentUser().then((u) => {
-      if (active) setUser(u);
-    });
-    refresh();
+    (async () => {
+      const u = await getCurrentUser();
+      if (!active) return;
+      setUser(u);
+      await refresh();
+    })();
     return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.postId]);
 
-  function handleLike() {
+  async function handleLike() {
     if (!user) {
       router.push(`/login?redirect=/community/${params.postId}`);
       return;
     }
-    const updated = toggleLike(params.postId, user.id);
-    if (updated) setPost(updated);
+    const result = await toggleLike(params.postId, user.id);
+    if (!result || !post) return;
+    // Update the local post with the new like count + this user's flag.
+    setPost({
+      ...post,
+      likeCount: result.likeCount,
+      likes: result.liked ? [user.id] : [],
+    });
   }
 
-  function handleSubmitComment() {
+  async function handleSubmitComment() {
     if (!user) {
       router.push(`/login?redirect=/community/${params.postId}`);
       return;
     }
     if (!draft.trim()) return;
-    addComment({
+    await addComment({
       postId: params.postId,
       authorId: user.id,
       authorName: user.name,
       content: draft.trim(),
     });
     setDraft("");
-    setComments(loadCommentsForPost(params.postId));
+    const cs = await loadCommentsForPost(params.postId);
+    setComments(cs);
   }
 
-  function handleDeletePost() {
+  async function handleDeletePost() {
     if (!confirm("Энэ нийтлэлийг устгах уу?")) return;
-    deletePost(params.postId);
+    await deletePost(params.postId);
     router.push("/community");
   }
 
-  function handleDeleteComment(id: string) {
+  async function handleDeleteComment(id: string) {
     if (!confirm("Энэ сэтгэгдлийг устгах уу?")) return;
-    deleteComment(id);
-    setComments(loadCommentsForPost(params.postId));
+    await deleteComment(params.postId, id);
+    const cs = await loadCommentsForPost(params.postId);
+    setComments(cs);
   }
 
   if (post === undefined) {
@@ -169,7 +184,7 @@ export default function CommunityPostDetailPage({ params }: { params: { postId: 
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold border ${liked ? "bg-pink-50 text-pink-600 border-pink-200" : "bg-white text-gray-600 border-gray-200"}`}
           >
             <Heart className={`w-4 h-4 ${liked ? "fill-pink-500 text-pink-500" : ""}`} />
-            {post.likes.length}
+            {post.likeCount ?? post.likes.length}
           </button>
           <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold bg-white text-gray-600 border border-gray-200">
             <MessageCircle className="w-4 h-4" />
