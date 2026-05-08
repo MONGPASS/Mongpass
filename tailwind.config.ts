@@ -9,7 +9,11 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Gilroy', 'sans-serif'],
+        // The CSS variable is set by next/font in src/app/layout.tsx and
+        // currently resolves to Manrope (the free Gilroy alternative).
+        // Listing 'Gilroy' first means a licensed Gilroy install on the
+        // user's system would take precedence automatically.
+        sans: ['Gilroy', 'var(--font-sans)', 'sans-serif'],
       },
       colors: {
         background: "var(--background)",
