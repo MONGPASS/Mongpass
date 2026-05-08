@@ -21,7 +21,10 @@ function rowToProduct(r: ProductRow) {
     description: r.description ?? "",
     price: r.price,
     unit: r.unit,
-    imageDataUrl: undefined, // Phase 5 will resolve to R2 public URL
+    // R2 key — the client wraps it with r2Url() to render. We send the
+    // raw key (not /api/r2/<key>) so consumers can also use it in
+    // non-render contexts (e.g. order snapshots).
+    imageR2Key: r.image_r2_key ?? undefined,
   };
 }
 
@@ -50,16 +53,21 @@ export async function POST(
 
   const body = (await request.json()) as Partial<{
     category: string; name: string; description: string; price: string; unit: string;
+    imageR2Key: string | null;
   }>;
   if (!body.category?.trim() || !body.name?.trim() || !body.price?.trim() || !body.unit?.trim()) {
     return Response.json({ error: "category, name, price, unit are required" }, { status: 400 });
   }
 
   const id = `mp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const imageKey =
+    typeof body.imageR2Key === "string" && body.imageR2Key.trim()
+      ? body.imageR2Key.trim()
+      : null;
   await ctx.db
     .prepare(
-      `INSERT INTO meat_products (id, shop_id, category, name, description, price, unit)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO meat_products (id, shop_id, category, name, description, price, unit, image_r2_key)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
@@ -69,6 +77,7 @@ export async function POST(
       body.description?.trim() || null,
       body.price.trim(),
       body.unit.trim(),
+      imageKey,
     )
     .run();
   const row = await ctx.db

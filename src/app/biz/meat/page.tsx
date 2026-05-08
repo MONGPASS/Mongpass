@@ -1,9 +1,9 @@
 'use client';
 
-import { ArrowLeft, Edit2, Plus, Save, Trash2, X } from "lucide-react";
+import { ArrowLeft, Camera, Edit2, Plus, Save, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   MeatProduct,
   MEAT_PRODUCT_CATEGORIES,
@@ -14,6 +14,7 @@ import {
 } from "@/lib/meatProductStore";
 import { Shop, findShopByOwner, updateShop } from "@/lib/shopStore";
 import { getCurrentUser } from "@/lib/userStore";
+import { r2Url, uploadImage } from "@/lib/images/upload";
 
 const empty: Omit<MeatProduct, "id"> = {
   category: MEAT_PRODUCT_CATEGORIES[0],
@@ -21,6 +22,7 @@ const empty: Omit<MeatProduct, "id"> = {
   description: "",
   price: "",
   unit: "1кг",
+  imageR2Key: undefined,
 };
 
 export default function MeatAdminPage() {
@@ -34,6 +36,8 @@ export default function MeatAdminPage() {
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState<Omit<MeatProduct, "id">>(empty);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Payment settings — saved on the Shop itself (one row per shop) so
   // we don't need a separate table just for two scalars.
@@ -126,6 +130,7 @@ export default function MeatAdminPage() {
       description: p.description,
       price: p.price,
       unit: p.unit,
+      imageR2Key: p.imageR2Key,
     });
     setEditingId(p.id);
     setIsAdding(false);
@@ -134,6 +139,33 @@ export default function MeatAdminPage() {
   function cancel() {
     setEditingId(null);
     setIsAdding(false);
+  }
+
+  // Image upload — same WebP pipeline as the cargo / community forms.
+  // Done client-side so we can drop the result key into the form
+  // BEFORE the user clicks "Хадгалах". The R2 object is uploaded
+  // immediately though, so an aborted form leaves an orphan blob —
+  // not great, but acceptable for an MVP and consistent with the rest
+  // of the app.
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      alert("Зургийн хэмжээ 8MB-аас бага байх ёстой.");
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      const uploaded = await uploadImage(file, "meat");
+      if (!uploaded) {
+        alert("Зураг ачаалж чадсангүй. Дахин оролдоно уу.");
+        return;
+      }
+      setForm((f) => ({ ...f, imageR2Key: uploaded.key }));
+    } finally {
+      setUploadingImage(false);
+    }
   }
 
   async function submit() {
@@ -149,7 +181,11 @@ export default function MeatAdminPage() {
           flash();
         }
       } else if (editingId) {
-        const updated = await updateMeatProduct(shopId, editingId, form);
+        // PATCH expects null (not undefined) to actively clear the image.
+        const updated = await updateMeatProduct(shopId, editingId, {
+          ...form,
+          imageR2Key: form.imageR2Key ?? null,
+        });
         if (updated) {
           setProducts((prev) => prev.map((p) => (p.id === editingId ? updated : p)));
           setEditingId(null);
@@ -268,9 +304,54 @@ export default function MeatAdminPage() {
             <h2 className="font-bold mb-3 text-sm">
               {isAdding ? "Шинэ бүтээгдэхүүн" : "Бүтээгдэхүүн засах"}
             </h2>
-            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
-              📷 Бүтээгдэхүүний зураг удахгүй идэвхжинэ.
-            </p>
+
+            {/* Image picker — same WebP-on-upload pipeline as the rest of
+                the app. Empty slot opens the file picker; filled slot
+                shows preview + remove (X) overlay. */}
+            <div className="mb-3">
+              <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
+                Бүтээгдэхүүний зураг{" "}
+                <span className="font-medium text-gray-400">(заавал биш)</span>
+              </label>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageUpload}
+              />
+              {form.imageR2Key ? (
+                <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={r2Url(form.imageR2Key)}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, imageR2Key: undefined }))}
+                    className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center"
+                    aria-label="Зураг хасах"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={uploadingImage}
+                  className="w-full aspect-[4/3] rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400 active:bg-gray-50 disabled:opacity-50"
+                >
+                  <Camera className="w-6 h-6" />
+                  <span className="text-xs font-medium">
+                    {uploadingImage ? "Ачаалж байна..." : "Зураг хавсаргах"}
+                  </span>
+                </button>
+              )}
+            </div>
+
             <div className="space-y-3">
               <div>
                 <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">Ангилал</label>
@@ -354,6 +435,14 @@ export default function MeatAdminPage() {
         ) : (
           visible.map((p) => (
             <div key={p.id} className="bg-white rounded-2xl p-3 mb-3 shadow-sm flex gap-3">
+              <div className="w-16 h-16 rounded-lg bg-red-50 shrink-0 overflow-hidden flex items-center justify-center text-red-300">
+                {p.imageR2Key ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={r2Url(p.imageR2Key)} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <Camera className="w-5 h-5" />
+                )}
+              </div>
               <div className="flex-1 min-w-0 flex flex-col justify-center">
                 <h4 className="font-bold text-sm text-gray-900 truncate mb-0.5">{p.name}</h4>
                 <p className="text-[12px] text-gray-500 truncate mb-1">{p.description}</p>

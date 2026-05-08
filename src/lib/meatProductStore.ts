@@ -7,7 +7,13 @@ export interface MeatProduct {
   description: string;
   price: string;
   unit: string;            // e.g. "1кг"
-  imageDataUrl?: string;
+  /**
+   * R2 object key (e.g. "meat/<shop>/<rand>.webp"). Render through
+   * `r2Url()` to get a same-origin <img> src. `null` is allowed in
+   * PATCH bodies to mean "clear the image"; reads always normalise
+   * to undefined.
+   */
+  imageR2Key?: string;
 }
 
 export const MEAT_PRODUCT_CATEGORIES = [
@@ -72,7 +78,10 @@ export async function createMeatProduct(
 export async function updateMeatProduct(
   shopId: string,
   productId: string,
-  patch: Partial<Omit<MeatProduct, "id">>,
+  patch: Partial<Omit<MeatProduct, "id" | "imageR2Key">> & {
+    /** null = clear the image, undefined = leave unchanged. */
+    imageR2Key?: string | null;
+  },
 ): Promise<MeatProduct | null> {
   const data = await patchJson<{ product: MeatProduct }>(
     `/api/shops/${encodeURIComponent(shopId)}/meat-products/${encodeURIComponent(productId)}`,

@@ -22,7 +22,7 @@ function rowToProduct(r: ProductRow) {
     description: r.description ?? "",
     price: r.price,
     unit: r.unit,
-    imageDataUrl: undefined,
+    imageR2Key: r.image_r2_key ?? undefined,
   };
 }
 
@@ -41,6 +41,8 @@ export async function PATCH(
 
   const body = (await request.json()) as Partial<{
     category: string; name: string; description: string; price: string; unit: string;
+    /** Pass `null` to clear the image, a key string to set it. Omit to leave unchanged. */
+    imageR2Key: string | null;
   }>;
   const updates: string[] = [];
   const values: unknown[] = [];
@@ -58,6 +60,14 @@ export async function PATCH(
   if (body.description !== undefined) {
     updates.push("description = ?");
     values.push(body.description.trim() || null);
+  }
+  if (body.imageR2Key !== undefined) {
+    updates.push("image_r2_key = ?");
+    values.push(
+      typeof body.imageR2Key === "string" && body.imageR2Key.trim()
+        ? body.imageR2Key.trim()
+        : null,
+    );
   }
   if (updates.length > 0) {
     values.push(params.productId);

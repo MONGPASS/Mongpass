@@ -2,7 +2,7 @@
 
 export const runtime = "edge";
 
-import { ArrowLeft, Check, Copy, Minus, Plus, Send } from "lucide-react";
+import { ArrowLeft, Beef, Check, Copy, Minus, Plus, Send } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -21,14 +21,19 @@ import {
 import { Shop, findShopById } from "@/lib/shopStore";
 import { getCurrentUser } from "@/lib/userStore";
 import { useRouter } from "next/navigation";
+import { CartItem, clearCart, loadCart, saveCart } from "@/lib/cartStore";
+import { r2Url } from "@/lib/images/upload";
 
 export default function MeatOrderPage({ params }: { params: { shopId: string } }) {
   const router = useRouter();
   const [shop, setShop] = useState<Shop | null | undefined>(undefined);
   const [products, setProducts] = useState<MeatProduct[]>([]);
   const [filter, setFilter] = useState<string>(MEAT_PRODUCT_CATEGORIES[0]);
-  // Map of productId → quantity. 0 (or absent) means not in cart.
-  const [qtyById, setQtyById] = useState<Record<string, number>>({});
+  // Cart is the source of truth for quantities; we mirror it into a
+  // simple { itemId → qty } map for fast lookups in the render below.
+  // Persisted via cartStore (localStorage) so that what the user
+  // chose on the shop detail page carries over.
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -56,39 +61,66 @@ export default function MeatOrderPage({ params }: { params: { shopId: string } }
       if (!active) return;
       setShop(s);
       setProducts(ps);
+      setCart(loadCart(params.shopId));
     })();
     return () => { active = false; };
   }, [params.shopId, router]);
 
-  function setQty(id: string, qty: number) {
-    setQtyById((prev) => {
-      const next = { ...prev };
-      if (qty <= 0) delete next[id];
-      else next[id] = Math.min(qty, 99);
+  // Quantity setter — writes through cartStore so changes persist
+  // and stay in sync with the shop detail page on the next visit.
+  function setQty(p: MeatProduct, qty: number) {
+    const clamped = Math.max(0, Math.min(qty, 99));
+    setCart((prev) => {
+      let next: CartItem[];
+      if (clamped === 0) {
+        next = prev.filter((c) => c.itemId !== p.id);
+      } else {
+        const existing = prev.find((c) => c.itemId === p.id);
+        if (existing) {
+          next = prev.map((c) => (c.itemId === p.id ? { ...c, qty: clamped } : c));
+        } else {
+          next = [
+            ...prev,
+            {
+              itemId: p.id,
+              category: p.category,
+              name: p.name,
+              price: p.price,
+              qty: clamped,
+            },
+          ];
+        }
+      }
+      saveCart(params.shopId, next);
       return next;
     });
   }
 
-  // Derived totals — computed every render off the qty map + product list.
+  const qtyOf = (id: string) => cart.find((c) => c.itemId === id)?.qty ?? 0;
+
+  // Derived totals — computed every render from the cart joined to
+  // the latest product list (for unit / fresh price strings).
   const { subtotal, items } = useMemo(() => {
     const items: MeatOrderItem[] = [];
     let subtotal = 0;
-    for (const p of products) {
-      const qty = qtyById[p.id] ?? 0;
-      if (qty <= 0) continue;
+    for (const c of cart) {
+      const p = products.find((x) => x.id === c.itemId);
+      // Skip cart entries whose product was deleted by the owner — we
+      // could prune the cart, but that would clobber user state mid-render.
+      if (!p) continue;
       const lineUnit = parsePrice(p.price);
-      subtotal += lineUnit * qty;
+      subtotal += lineUnit * c.qty;
       items.push({
         productId: p.id,
         category: p.category,
         name: p.name,
         price: p.price,
         unit: p.unit,
-        qty,
+        qty: c.qty,
       });
     }
     return { subtotal, items };
-  }, [products, qtyById]);
+  }, [products, cart]);
 
   const deliveryFee = shop?.deliveryFee ?? 0;
   const total = subtotal + deliveryFee;
@@ -138,7 +170,11 @@ export default function MeatOrderPage({ params }: { params: { shopId: string } }
         notes: notes.trim() || undefined,
       };
       const created = await addOrder(order);
-      if (created) setSubmitted(true);
+      if (created) {
+        clearCart(params.shopId);
+        setCart([]);
+        setSubmitted(true);
+      }
     } finally {
       setBusy(false);
     }
@@ -242,12 +278,24 @@ export default function MeatOrderPage({ params }: { params: { shopId: string } }
         ) : (
           <div className="space-y-2">
             {visibleProducts.map((p) => {
-              const qty = qtyById[p.id] ?? 0;
+              const qty = qtyOf(p.id);
               return (
                 <div
                   key={p.id}
                   className="bg-white rounded-2xl p-3 shadow-sm flex gap-3 items-center"
                 >
+                  <div className="w-16 h-16 rounded-lg bg-red-50 shrink-0 overflow-hidden flex items-center justify-center text-red-400">
+                    {p.imageR2Key ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={r2Url(p.imageR2Key)}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Beef className="w-6 h-6" />
+                    )}
+                  </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="font-bold text-sm text-gray-900 truncate">{p.name}</h4>
                     <p className="text-[12px] text-gray-500 truncate mb-1">{p.description}</p>
@@ -258,7 +306,7 @@ export default function MeatOrderPage({ params }: { params: { shopId: string } }
                   </div>
                   {qty === 0 ? (
                     <button
-                      onClick={() => setQty(p.id, 1)}
+                      onClick={() => setQty(p, 1)}
                       className="shrink-0 bg-orange-500 text-white rounded-full w-9 h-9 flex items-center justify-center"
                       aria-label="Сагсанд нэмэх"
                     >
@@ -267,7 +315,7 @@ export default function MeatOrderPage({ params }: { params: { shopId: string } }
                   ) : (
                     <div className="shrink-0 flex items-center gap-2 bg-gray-50 rounded-full px-1 py-1 border border-gray-100">
                       <button
-                        onClick={() => setQty(p.id, qty - 1)}
+                        onClick={() => setQty(p, qty - 1)}
                         className="w-7 h-7 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-700"
                         aria-label="Хасах"
                       >
@@ -275,7 +323,7 @@ export default function MeatOrderPage({ params }: { params: { shopId: string } }
                       </button>
                       <span className="text-sm font-bold w-6 text-center">{qty}</span>
                       <button
-                        onClick={() => setQty(p.id, qty + 1)}
+                        onClick={() => setQty(p, qty + 1)}
                         className="w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center"
                         aria-label="Нэмэх"
                       >
