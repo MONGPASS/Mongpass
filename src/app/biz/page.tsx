@@ -595,7 +595,12 @@ function CargoOrdersList({ shopId }: { shopId: string }) {
   }, [shopId]);
 
   async function changeStatus(orderId: string, status: OrderStatus) {
-    await updateOrderStatus(orderId, status);
+    try {
+      await updateOrderStatus(orderId, status);
+    } catch (err) {
+      console.error(err);
+      alert("Төлвийг солих үед алдаа гарлаа. Дахин оролдоно уу.");
+    }
     await refresh();
   }
 
@@ -770,7 +775,12 @@ function RestaurantOrdersList({ shopId, category }: { shopId: string; category: 
   }, [shopId, category]);
 
   async function changeStatus(id: string, status: OrderStatus) {
-    await updateOrderStatus(id, status);
+    try {
+      await updateOrderStatus(id, status);
+    } catch (err) {
+      console.error(err);
+      alert("Төлвийг солих үед алдаа гарлаа. Дахин оролдоно уу.");
+    }
     await refresh();
   }
 
@@ -845,7 +855,12 @@ function MeatOrdersList({ shopId }: { shopId: string }) {
   }, [shopId]);
 
   async function changeStatus(id: string, status: OrderStatus) {
-    await updateOrderStatus(id, status);
+    try {
+      await updateOrderStatus(id, status);
+    } catch (err) {
+      console.error(err);
+      alert("Төлвийг солих үед алдаа гарлаа. Дахин оролдоно уу.");
+    }
     await refresh();
   }
 
@@ -925,7 +940,12 @@ function HospitalAppointmentsList({ shopId }: { shopId: string }) {
   }, [shopId]);
 
   async function changeStatus(id: string, status: OrderStatus) {
-    await updateOrderStatus(id, status);
+    try {
+      await updateOrderStatus(id, status);
+    } catch (err) {
+      console.error(err);
+      alert("Төлвийг солих үед алдаа гарлаа. Дахин оролдоно уу.");
+    }
     await refresh();
   }
 
@@ -985,7 +1005,12 @@ function BeautyAppointmentsList({ shopId }: { shopId: string }) {
   }, [shopId]);
 
   async function changeStatus(id: string, status: OrderStatus) {
-    await updateOrderStatus(id, status);
+    try {
+      await updateOrderStatus(id, status);
+    } catch (err) {
+      console.error(err);
+      alert("Төлвийг солих үед алдаа гарлаа. Дахин оролдоно уу.");
+    }
     await refresh();
   }
 

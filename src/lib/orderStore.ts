@@ -55,9 +55,12 @@ const STATUS_LABEL_BY_CATEGORY: Partial<
     delivered: "Дууссан",
   },
   meat: {
-    pending: "Шилжүүлэг хүлээж буй",
-    received: "Төлбөр баталгаажсан",
-    in_transit: "Бэлдэж/Хүргэж буй",
+    // Kept short so the 4-step timeline on the order detail page
+    // doesn't overflow on mobile widths. Full phrase ("Шилжүүлэг
+    // хүлээж буй") fits the badge but cramps the timeline.
+    pending: "Төлбөр хүлээж",
+    received: "Баталгаажсан",
+    in_transit: "Бэлдэж буй",
     delivered: "Хүргэгдсэн",
   },
 };
@@ -259,10 +262,23 @@ export async function updateOrderStatus(
   id: string,
   status: OrderStatus,
 ): Promise<Order | null> {
-  const data = await postJson<OrderResponse>(
+  // Use a direct fetch (instead of postJson) so we can throw on non-OK
+  // responses; otherwise a 403 silently returns null and the dropdown
+  // appears to revert with no explanation.
+  const res = await fetch(
     `/api/orders/${encodeURIComponent(id)}/status`,
-    { status },
+    {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    },
   );
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Status update failed: ${res.status} ${detail}`);
+  }
+  const data = (await res.json()) as OrderResponse;
   return data?.order ?? null;
 }
 

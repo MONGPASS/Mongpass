@@ -48,25 +48,25 @@ export async function POST(
     .first<OrderRow>();
   if (!row) return notFound("Order not found");
 
+  // Always evaluate ownership — a user who placed an order on their own
+  // shop is *both* customer and owner, and we want owner privileges to
+  // win (so they can advance status while testing). Skipping this lookup
+  // when isCustomer is true would forbid that legitimate path.
   const isCustomer = row.customer_user_id === user.id;
   const isAdmin = user.role === "admin";
-  let isOwner = false;
-  if (!isCustomer && !isAdmin) {
-    const shop = await db
-      .prepare("SELECT owner_id FROM shops WHERE id = ?")
-      .bind(row.shop_id)
-      .first<{ owner_id: string }>();
-    isOwner = shop?.owner_id === user.id;
-  }
+  const shopRow = await db
+    .prepare("SELECT owner_id FROM shops WHERE id = ?")
+    .bind(row.shop_id)
+    .first<{ owner_id: string }>();
+  const isOwner = shopRow?.owner_id === user.id;
 
-  // Customer can only cancel a still-pending order; everything else is
-  // shop-owner-or-admin territory.
-  if (isCustomer && !isOwner && !isAdmin) {
+  // Owner / admin: any status. Customer-only: cancel from pending.
+  // Anyone else: forbidden.
+  if (!isOwner && !isAdmin) {
+    if (!isCustomer) return forbidden();
     if (!(next === "cancelled" && row.status === "pending")) {
       return forbidden();
     }
-  } else if (!isOwner && !isAdmin) {
-    return forbidden();
   }
 
   await db

@@ -52,28 +52,42 @@ function StatusTimeline({ category, status }: { category: ShopCategory; status: 
   const currentIdx = flow.indexOf(status);
   return (
     <div className="bg-gray-50 rounded-xl p-4">
-      <div className="flex items-center justify-between">
+      {/* Dots + connectors row — fixed height, no labels in here so the
+          dots stay perfectly aligned regardless of label length. */}
+      <div className="flex items-center">
         {flow.map((s, i) => {
           const reached = i <= currentIdx;
           return (
-            <div key={s} className="flex-1 flex flex-col items-center min-w-0">
-              <div className="flex items-center w-full">
-                {i > 0 && (
-                  <div className={`flex-1 h-0.5 ${reached ? "bg-green-500" : "bg-gray-200"}`} />
-                )}
-                <div
-                  className={`w-3 h-3 rounded-full shrink-0 ${reached ? "bg-green-500" : "bg-gray-300"}`}
-                />
-                {i < flow.length - 1 && (
-                  <div className={`flex-1 h-0.5 ${i < currentIdx ? "bg-green-500" : "bg-gray-200"}`} />
-                )}
-              </div>
-              <span
-                className={`text-[10px] font-medium mt-1.5 text-center px-1 truncate ${reached ? "text-gray-900 font-bold" : "text-gray-400"}`}
-              >
-                {getStatusLabel(category, s)}
-              </span>
+            <div key={`dot-${s}`} className="flex-1 flex items-center">
+              {i > 0 && (
+                <div className={`flex-1 h-0.5 ${reached ? "bg-green-500" : "bg-gray-200"}`} />
+              )}
+              <div
+                className={`w-3 h-3 rounded-full shrink-0 ${reached ? "bg-green-500" : "bg-gray-300"}`}
+              />
+              {i < flow.length - 1 && (
+                <div className={`flex-1 h-0.5 ${i < currentIdx ? "bg-green-500" : "bg-gray-200"}`} />
+              )}
             </div>
+          );
+        })}
+      </div>
+      {/* Labels row — each label gets equal width, allowed to wrap to
+          two lines so long Mongolian / multi-word statuses don't
+          overflow into each other (was the bug with meat's
+          "Шилжүүлэг хүлээж буй"). */}
+      <div className="flex items-start mt-2">
+        {flow.map((s, i) => {
+          const reached = i <= currentIdx;
+          return (
+            <span
+              key={`label-${s}`}
+              className={`flex-1 text-[10px] font-medium text-center leading-tight px-0.5 ${
+                reached ? "text-gray-900 font-bold" : "text-gray-400"
+              }`}
+            >
+              {getStatusLabel(category, s)}
+            </span>
           );
         })}
       </div>
