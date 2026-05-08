@@ -79,22 +79,25 @@ function BizProfilePageInner() {
   const [uploading, setUploading] = useState(false);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+    // Snapshot the FileList into a real array BEFORE clearing the input.
+    // The FileList is a live reference to e.target.files; setting
+    // e.target.value = "" empties it, which would silently leave us
+    // looping over zero files.
+    const fileList = Array.from(e.target.files ?? []);
     console.log("[upload] handler START", {
-      hasFiles: !!files,
-      fileCount: files?.length,
+      fileCount: fileList.length,
       hasShop: !!currentShop,
       shopId: currentShop?.id,
     });
     e.target.value = "";
-    if (!files || !currentShop) {
+    if (fileList.length === 0 || !currentShop) {
       console.warn("[upload] aborted — no files or no shop");
       return;
     }
     setUploading(true);
     let failCount = 0;
     try {
-      for (const file of Array.from(files)) {
+      for (const file of fileList) {
         console.log("[upload] processing", file.name, file.type, file.size);
         const uploaded = await uploadImage(file, "shop");
         console.log("[upload] uploadImage returned", uploaded);
