@@ -278,8 +278,8 @@ function CategoryHeader({ order }: { order: Order }) {
   // entries for meat/car/travel/other would be unreachable code.
   const meta: Record<Order["shopCategory"], { label: string; bg: string; text: string }> = {
     cargo: { label: "Карго", bg: "bg-blue-50", text: "text-blue-600" },
-    restaurant: { label: "Хоол", bg: "bg-orange-50", text: "text-orange-600" },
-    food: { label: "Хоол", bg: "bg-orange-50", text: "text-orange-600" },
+    restaurant: { label: "Хоол", bg: "bg-primary/10", text: "text-primary" },
+    food: { label: "Хоол", bg: "bg-primary/10", text: "text-primary" },
     hospital: { label: "Эмнэлэг", bg: "bg-purple-50", text: "text-purple-600" },
     beauty: { label: "Гоо сайхан", bg: "bg-pink-50", text: "text-pink-600" },
     meat: { label: "Мах", bg: "bg-primary/10", text: "text-primary" },

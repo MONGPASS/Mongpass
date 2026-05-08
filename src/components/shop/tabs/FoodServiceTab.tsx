@@ -52,7 +52,7 @@ export function FoodServiceTab() {
   if (menuCategories.length === 0) {
     return (
       <div className="p-5 bg-gray-50 min-h-[50vh] flex flex-col items-center justify-center text-center">
-        <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center mb-3 text-orange-500">
+        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-3 text-primary">
           <Utensils className="w-5 h-5" />
         </div>
         <p className="text-sm font-bold text-gray-700 mb-1">Цэс нэмэгдээгүй байна</p>
@@ -99,7 +99,7 @@ export function FoodServiceTab() {
                         <span className="w-6 text-center font-bold text-sm">{q}</span>
                         <button
                           onClick={() => handleQty(item.id, q + 1)}
-                          className="w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center"
+                          className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center"
                           aria-label="Нэмэх"
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -108,7 +108,7 @@ export function FoodServiceTab() {
                     ) : (
                       <button
                         onClick={() => handleAdd({ ...item })}
-                        className="shrink-0 px-3 py-1.5 bg-orange-500 text-white text-[12px] font-bold rounded-lg flex items-center gap-1"
+                        className="shrink-0 px-3 py-1.5 bg-primary text-white text-[12px] font-bold rounded-lg flex items-center gap-1"
                       >
                         <Plus className="w-3.5 h-3.5" /> Сагсанд
                       </button>
@@ -125,7 +125,7 @@ export function FoodServiceTab() {
         <div className="fixed bottom-20 left-0 right-0 px-4 z-30">
           <button
             onClick={() => router.push(`/category/restaurant/${shopId}/checkout`)}
-            className="w-full bg-orange-500 text-white font-bold py-3.5 rounded-xl flex items-center justify-between px-5 shadow-lg active:scale-[0.98] transition-transform max-w-[480px] mx-auto"
+            className="w-full bg-primary text-white font-bold py-3.5 rounded-xl flex items-center justify-between px-5 shadow-lg active:scale-[0.98] transition-transform max-w-[480px] mx-auto"
           >
             <span className="flex items-center gap-2">
               <ShoppingCart className="w-4 h-4" /> Сагс ({cartCount})

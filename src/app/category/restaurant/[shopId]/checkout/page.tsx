@@ -79,7 +79,7 @@ export default function RestaurantCheckoutPage({ params }: { params: { shopId: s
           </p>
           <Link
             href={`/category/restaurant/${params.shopId}`}
-            className="block w-full bg-orange-500 text-white font-semibold py-3 rounded-xl text-sm"
+            className="block w-full bg-primary text-white font-semibold py-3 rounded-xl text-sm"
           >
             Дэлгүүр рүү буцах
           </Link>
@@ -215,7 +215,7 @@ export default function RestaurantCheckoutPage({ params }: { params: { shopId: s
           <button
             onClick={submit}
             disabled={!canSubmit}
-            className="w-full bg-orange-500 text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+            className="w-full bg-primary text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
           >
             <Send className="w-4 h-4" /> Захиалга илгээх
           </button>

@@ -142,7 +142,7 @@ export default function RestaurantMenuAdminPage() {
         {!showForm && (
           <button
             onClick={startAdd}
-            className="w-full bg-orange-500 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-sm"
+            className="w-full bg-primary text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-sm"
           >
             <Plus className="w-5 h-5" /> Шинэ цэс нэмэх
           </button>
@@ -186,7 +186,7 @@ export default function RestaurantMenuAdminPage() {
                 <button
                   onClick={submit}
                   disabled={busy || !form.name.trim() || !form.price.trim()}
-                  className="flex-1 bg-orange-500 text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="flex-1 bg-primary text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   <Save className="w-4 h-4" /> {busy ? "..." : "Хадгалах"}
                 </button>
