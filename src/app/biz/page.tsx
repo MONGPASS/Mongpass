@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Share2, Menu, AlertCircle, ChevronDown, Edit3, ShoppingBag, Camera, Home, PlusSquare, MessageCircle, Settings, X } from "lucide-react";
+import { ArrowLeft, Share2, Menu, AlertCircle, Edit3, ShoppingBag, Camera, Home, PlusSquare, MessageCircle, Settings, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState, useRef, useEffect } from "react";
 import { getCategoryInfo } from "@/lib/categories";
