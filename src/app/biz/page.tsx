@@ -83,7 +83,6 @@ function BizProfilePageInner() {
     e.target.value = "";
     if (!files || !currentShop) return;
     setUploading(true);
-    let okCount = 0;
     let failCount = 0;
     try {
       for (const file of Array.from(files)) {
@@ -104,7 +103,6 @@ function BizProfilePageInner() {
         );
         if (res.ok) {
           setShopImages((prev) => [...prev, uploaded.key]);
-          okCount++;
         } else {
           const body = await res.text().catch(() => "");
           console.error("shop_images POST failed:", res.status, body);
