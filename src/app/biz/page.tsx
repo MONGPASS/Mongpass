@@ -892,7 +892,7 @@ function MeatOrdersList({ shopId }: { shopId: string }) {
               )}
               <div className="flex justify-between text-[13px]">
                 <span className="font-bold text-gray-900">Нийт төлөх</span>
-                <span className="font-bold text-orange-600">{formatPrice(order.totalAmount)}</span>
+                <span className="font-bold text-primary">{formatPrice(order.totalAmount)}</span>
               </div>
             </div>
             <div className="text-[11px] text-gray-500 space-y-0.5">
@@ -900,7 +900,7 @@ function MeatOrdersList({ shopId }: { shopId: string }) {
               <p className="truncate" title={order.customer.address}>
                 📍 {order.customer.address}
               </p>
-              {order.notes && <p className="text-orange-600 mt-1">💬 {order.notes}</p>}
+              {order.notes && <p className="text-primary mt-1">💬 {order.notes}</p>}
             </div>
             <StatusSelect category="meat" status={order.status} onChange={(s) => changeStatus(order.id, s)} />
           </div>

@@ -261,7 +261,7 @@ export default function MeatOrderPage({ params }: { params: { shopId: string } }
               onClick={() => setFilter(c)}
               className={`shrink-0 px-4 py-2 rounded-full text-[13px] font-bold border transition-colors ${
                 filter === c
-                  ? "bg-orange-500 border-orange-500 text-white"
+                  ? "bg-primary border-primary text-white"
                   : "border-gray-200 bg-white text-gray-600"
               }`}
             >
@@ -284,7 +284,7 @@ export default function MeatOrderPage({ params }: { params: { shopId: string } }
                   key={p.id}
                   className="bg-white rounded-2xl p-3 shadow-sm flex gap-3 items-center"
                 >
-                  <div className="w-16 h-16 rounded-lg bg-red-50 shrink-0 overflow-hidden flex items-center justify-center text-red-400">
+                  <div className="w-16 h-16 rounded-lg bg-primary/10 shrink-0 overflow-hidden flex items-center justify-center text-primary/60">
                     {p.imageR2Key ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -299,7 +299,7 @@ export default function MeatOrderPage({ params }: { params: { shopId: string } }
                   <div className="flex-1 min-w-0">
                     <h4 className="font-bold text-sm text-gray-900 truncate">{p.name}</h4>
                     <p className="text-[12px] text-gray-500 truncate mb-1">{p.description}</p>
-                    <p className="text-[14px] font-bold text-orange-600">
+                    <p className="text-[14px] font-bold text-primary">
                       {p.price}{" "}
                       <span className="text-[11px] text-gray-500 font-normal">/ {p.unit}</span>
                     </p>
@@ -307,7 +307,7 @@ export default function MeatOrderPage({ params }: { params: { shopId: string } }
                   {qty === 0 ? (
                     <button
                       onClick={() => setQty(p, 1)}
-                      className="shrink-0 bg-orange-500 text-white rounded-full w-9 h-9 flex items-center justify-center"
+                      className="shrink-0 bg-primary text-white rounded-full w-9 h-9 flex items-center justify-center"
                       aria-label="Сагсанд нэмэх"
                     >
                       <Plus className="w-4 h-4" />
@@ -324,7 +324,7 @@ export default function MeatOrderPage({ params }: { params: { shopId: string } }
                       <span className="text-sm font-bold w-6 text-center">{qty}</span>
                       <button
                         onClick={() => setQty(p, qty + 1)}
-                        className="w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center"
+                        className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center"
                         aria-label="Нэмэх"
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -407,7 +407,7 @@ export default function MeatOrderPage({ params }: { params: { shopId: string } }
           )}
           <div className="border-t border-gray-100 pt-2 flex items-center justify-between">
             <span className="font-bold text-gray-900">Нийт төлөх дүн</span>
-            <span className="text-lg font-bold text-orange-600">{formatPrice(total)}</span>
+            <span className="text-lg font-bold text-primary">{formatPrice(total)}</span>
           </div>
         </div>
 
@@ -449,7 +449,7 @@ export default function MeatOrderPage({ params }: { params: { shopId: string } }
           <button
             onClick={submit}
             disabled={!canSubmit}
-            className="w-full bg-orange-500 text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-40 flex items-center justify-center gap-2"
+            className="w-full bg-primary text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-40 flex items-center justify-center gap-2"
           >
             <Send className="w-4 h-4" />
             {busy

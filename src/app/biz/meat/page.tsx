@@ -281,7 +281,7 @@ export default function MeatAdminPage() {
               onClick={() => setFilter(c)}
               className={`shrink-0 px-4 py-2 rounded-full text-[13px] font-bold border transition-colors ${
                 filter === c
-                  ? "bg-orange-500 border-orange-500 text-white"
+                  ? "bg-primary border-primary text-white"
                   : "border-gray-200 bg-white text-gray-600"
               }`}
             >
@@ -293,7 +293,7 @@ export default function MeatAdminPage() {
         {!showForm && (
           <button
             onClick={startAdd}
-            className="w-full bg-orange-500 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-sm"
+            className="w-full bg-primary text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-sm"
           >
             <Plus className="w-5 h-5" /> Шинэ бүтээгдэхүүн нэмэх
           </button>
@@ -411,7 +411,7 @@ export default function MeatAdminPage() {
                 <button
                   onClick={submit}
                   disabled={busy || !form.name.trim() || !form.price.trim()}
-                  className="flex-1 bg-orange-500 text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="flex-1 bg-primary text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   <Save className="w-4 h-4" /> {busy ? "..." : "Хадгалах"}
                 </button>
@@ -435,7 +435,7 @@ export default function MeatAdminPage() {
         ) : (
           visible.map((p) => (
             <div key={p.id} className="bg-white rounded-2xl p-3 mb-3 shadow-sm flex gap-3">
-              <div className="w-16 h-16 rounded-lg bg-red-50 shrink-0 overflow-hidden flex items-center justify-center text-red-300">
+              <div className="w-16 h-16 rounded-lg bg-primary/10 shrink-0 overflow-hidden flex items-center justify-center text-primary/40">
                 {p.imageR2Key ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={r2Url(p.imageR2Key)} alt="" className="w-full h-full object-cover" />
@@ -446,7 +446,7 @@ export default function MeatAdminPage() {
               <div className="flex-1 min-w-0 flex flex-col justify-center">
                 <h4 className="font-bold text-sm text-gray-900 truncate mb-0.5">{p.name}</h4>
                 <p className="text-[12px] text-gray-500 truncate mb-1">{p.description}</p>
-                <p className="text-[14px] font-bold text-orange-600">
+                <p className="text-[14px] font-bold text-primary">
                   {p.price} <span className="text-[11px] text-gray-500 font-normal">/ {p.unit}</span>
                 </p>
               </div>

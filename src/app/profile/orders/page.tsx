@@ -157,7 +157,7 @@ function MeatCard({ order }: { order: MeatOrder }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm p-4">
       <div className="flex items-start gap-3 mb-3">
-        <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center text-red-500 shrink-0">
+        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shrink-0">
           <Beef className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">
@@ -169,7 +169,7 @@ function MeatCard({ order }: { order: MeatOrder }) {
           </div>
           <p className="font-bold text-sm text-gray-900 mb-1">
             {order.items.length} зүйл ·{" "}
-            <span className="text-orange-600">{formatPrice(order.totalAmount)}</span>
+            <span className="text-primary">{formatPrice(order.totalAmount)}</span>
           </p>
           <p className="text-[11px] text-gray-500 truncate">
             {order.items.map((i) => `${i.name}×${i.qty}`).join(", ")}

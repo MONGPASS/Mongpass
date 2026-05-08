@@ -268,7 +268,7 @@ function CategoryHeader({ order }: { order: Order }) {
     food: { label: "Хоол", bg: "bg-orange-50", text: "text-orange-600" },
     hospital: { label: "Эмнэлэг", bg: "bg-purple-50", text: "text-purple-600" },
     beauty: { label: "Гоо сайхан", bg: "bg-pink-50", text: "text-pink-600" },
-    meat: { label: "Мах", bg: "bg-red-50", text: "text-red-600" },
+    meat: { label: "Мах", bg: "bg-primary/10", text: "text-primary" },
   };
   const m = meta[order.shopCategory];
   return (
@@ -324,7 +324,7 @@ function MeatDetail({ order }: { order: MeatOrder }) {
             )}
             <div className="flex justify-between items-baseline pt-1">
               <span className="text-sm font-bold text-gray-700">Нийт төлөх</span>
-              <span className="font-bold text-base text-orange-600">
+              <span className="font-bold text-base text-primary">
                 {formatPrice(order.totalAmount)}
               </span>
             </div>
