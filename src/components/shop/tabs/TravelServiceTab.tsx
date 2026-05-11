@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Plane, Clock, Users } from "lucide-react";
+import { ChevronRight, Plane, Clock, Users } from "lucide-react";
 import { TravelPackage, loadTravelPackages } from "@/lib/travelPackageStore";
 import { r2Url } from "@/lib/images/upload";
 
@@ -71,7 +71,7 @@ export function TravelServiceTab() {
                 {p.price}
               </p>
             )}
-            <div className="flex items-center gap-3 text-[11px] text-gray-500">
+            <div className="flex items-center gap-3 text-[11px] text-gray-500 mb-3">
               {p.duration && (
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3" /> {p.duration}
@@ -82,6 +82,12 @@ export function TravelServiceTab() {
                   <Users className="w-3 h-3" /> {p.groupSize}
                 </span>
               )}
+            </div>
+            {/* "Дэлгэрэнгүй үзэх" affordance — makes the whole card
+                read as a navigable item rather than passive content. */}
+            <div className="flex items-center justify-end gap-1 text-[12px] font-bold text-primary">
+              Дэлгэрэнгүй үзэх
+              <ChevronRight className="w-3.5 h-3.5" />
             </div>
           </div>
         </Link>

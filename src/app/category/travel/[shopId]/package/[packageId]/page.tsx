@@ -300,17 +300,34 @@ export default function TravelPackageDetailPage({
         </section>
       )}
 
-      {/* Sticky contact CTA */}
+      {/* Sticky CTA — chat for quick questions, primary book button
+          for the actual conversion. Sold-out packages drop the book
+          CTA and gray out the row. */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-40">
-        <div className="max-w-[480px] mx-auto">
+        <div className="max-w-[480px] mx-auto flex gap-2">
           <button
             onClick={openChat}
             disabled={busy}
-            className="w-full bg-primary text-white font-bold py-3.5 rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+            aria-label="Чатлах"
+            className="shrink-0 w-14 h-14 bg-gray-100 text-gray-900 rounded-xl flex items-center justify-center active:scale-[0.98] transition-transform disabled:opacity-50"
           >
-            <MessageCircle className="w-4 h-4" />
-            Захиалга / Лавлагаа
+            <MessageCircle className="w-5 h-5" />
           </button>
+          {pkg.status === "sold_out" ? (
+            <button
+              disabled
+              className="flex-1 bg-gray-200 text-gray-400 font-bold py-3.5 rounded-xl text-sm cursor-not-allowed"
+            >
+              Дууссан
+            </button>
+          ) : (
+            <Link
+              href={`/category/travel/${encodeURIComponent(params.shopId)}/package/${encodeURIComponent(params.packageId)}/book`}
+              className="flex-1 bg-primary text-white font-bold py-3.5 rounded-xl text-sm flex items-center justify-center active:scale-[0.98] transition-transform"
+            >
+              Захиалах
+            </Link>
+          )}
         </div>
       </div>
     </main>

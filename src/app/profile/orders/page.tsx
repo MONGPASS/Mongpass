@@ -11,6 +11,7 @@ import {
   Order,
   OrderStatus,
   RestaurantOrder,
+  TravelBooking,
   formatPrice,
   getStatusLabel,
 } from "@/lib/orderStore";
@@ -180,6 +181,36 @@ function MeatCard({ order }: { order: MeatOrder }) {
   );
 }
 
+function TravelCard({ order }: { order: TravelBooking }) {
+  const total = order.travelers.adults + order.travelers.children;
+  return (
+    <div className="bg-white rounded-2xl shadow-sm p-4">
+      <div className="flex items-start gap-3 mb-3">
+        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shrink-0">
+          <Plane className="w-5 h-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              Аялал · {fmtDateTime(order.createdAt)}
+            </span>
+            <StatusBadge category={order.shopCategory} status={order.status} />
+          </div>
+          <p className="font-bold text-sm text-gray-900 mb-0.5">
+            {order.packageSnapshot.title}
+          </p>
+          <p className="text-[11px] text-gray-500 mb-1">
+            👥 {total} хүн ({order.travelers.adults} том, {order.travelers.children} хүүхэд)
+          </p>
+          <p className="text-[12px] text-gray-700 font-semibold">
+            📅 {order.preferredDate}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function OrderCard({ order }: { order: Order }) {
   switch (order.shopCategory) {
     case "cargo":
@@ -193,6 +224,8 @@ function OrderCard({ order }: { order: Order }) {
       return <BeautyCard order={order} />;
     case "meat":
       return <MeatCard order={order} />;
+    case "travel":
+      return <TravelCard order={order} />;
     default:
       return null;
   }

@@ -63,6 +63,12 @@ const STATUS_LABEL_BY_CATEGORY: Partial<
     in_transit: "Бэлдэж буй",
     delivered: "Хүргэгдсэн",
   },
+  travel: {
+    pending: "Хүсэлт илгээгдсэн",
+    received: "Баталгаажсан",
+    in_transit: "Бэлтгэгдэж буй",
+    delivered: "Дууссан",
+  },
 };
 
 const APPOINTMENT_FLOW: OrderStatus[] = ["pending", "received", "delivered"];
@@ -171,12 +177,36 @@ export interface MeatOrder extends BaseOrder {
   notes?: string;
 }
 
+/**
+ * Travel package booking — captured when the customer hits the
+ * "Захиалах" CTA on a travel package detail page. The agency owner
+ * sees these in /biz Захиалга tab and acts on them by chat/phone.
+ */
+export interface TravelBooking extends BaseOrder {
+  shopCategory: "travel";
+  packageId: string;
+  packageSnapshot: {
+    title: string;
+    price?: string;
+    duration?: string;
+  };
+  /** Lead traveler. */
+  customer: { name: string; phone: string; email?: string };
+  /** Headcount split — drives planning + per-person pricing on the agency side. */
+  travelers: { adults: number; children: number };
+  /** ISO date string for the customer's desired start date. */
+  preferredDate: string;
+  /** Dietary / mobility / room-type preferences — free text. */
+  notes?: string;
+}
+
 export type Order =
   | CargoOrder
   | RestaurantOrder
   | HospitalAppointment
   | BeautyAppointment
-  | MeatOrder;
+  | MeatOrder
+  | TravelBooking;
 
 // ===================== HTTP helpers =====================
 

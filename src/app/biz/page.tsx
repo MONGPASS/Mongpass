@@ -6,14 +6,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState, useRef, useEffect } from "react";
 import { getCategoryInfo } from "@/lib/categories";
 import { ShopCategory } from "@/components/shop/types";
-import { BeautyAppointment, CargoOrder, HospitalAppointment, MeatOrder, ORDER_STATUS_LABEL, OrderStatus, RestaurantOrder, formatPrice, getStatusFlow, getStatusLabel, loadBizPendingOrderCount, loadOrdersByShop, updateOrderStatus } from "@/lib/orderStore";
+import { BeautyAppointment, CargoOrder, HospitalAppointment, MeatOrder, ORDER_STATUS_LABEL, OrderStatus, RestaurantOrder, TravelBooking, formatPrice, getStatusFlow, getStatusLabel, loadBizPendingOrderCount, loadOrdersByShop, updateOrderStatus } from "@/lib/orderStore";
 import { Shop, findShopByOwner, isShopOpen, toggleOpen, updateShop } from "@/lib/shopStore";
 import { HOSPITAL_SPECIALTIES } from "@/lib/hospitalSpecialties";
 import { getCurrentUser } from "@/lib/userStore";
 import { BizChatThreadList } from "@/components/biz/BizChatThreadList";
 import { r2Url, uploadImage } from "@/lib/images/upload";
 
-const CATEGORY_HAS_DEDICATED_ORDERS_UI: ShopCategory[] = ["cargo", "restaurant", "food", "hospital", "beauty", "meat"];
+const CATEGORY_HAS_DEDICATED_ORDERS_UI: ShopCategory[] = ["cargo", "restaurant", "food", "hospital", "beauty", "meat", "travel"];
 
 // Top-level wrapper provides the Suspense boundary required when
 // useSearchParams() is used during render — without it Next.js fails
@@ -609,6 +609,9 @@ function BizProfilePageInner() {
         )}
         {!isEditingProfile && activeTab === "Захиалга" && currentShop.category === "meat" && (
           <MeatOrdersList shopId={currentShop.id} />
+        )}
+        {!isEditingProfile && activeTab === "Захиалга" && currentShop.category === "travel" && (
+          <TravelBookingsList shopId={currentShop.id} />
         )}
 
         {/* Categories without a dedicated orders renderer (currently meat) — show empty state */}
@@ -1210,6 +1213,90 @@ function MeatOrdersList({ shopId }: { shopId: string }) {
             <StatusSelect category="meat" status={order.status} onChange={(s) => changeStatus(order.id, s)} />
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Travel agency bookings — package title + headcount + preferred
+ * date are what the owner needs to act on. The full package detail
+ * is one click away on the customer side; here we keep the row
+ * compact.
+ */
+function TravelBookingsList({ shopId }: { shopId: string }) {
+  const [bookings, setBookings] = useState<TravelBooking[]>([]);
+  const [filter, setFilter] = useState<OrderStatus | "all">("all");
+
+  async function refresh() {
+    const list = await loadOrdersByShop("travel", shopId);
+    setBookings(list as TravelBooking[]);
+  }
+
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shopId]);
+
+  async function changeStatus(id: string, status: OrderStatus) {
+    try {
+      await updateOrderStatus(id, status);
+    } catch (err) {
+      console.error(err);
+      alert("Төлвийг солих үед алдаа гарлаа. Дахин оролдоно уу.");
+    }
+    await refresh();
+  }
+
+  const visible = filter === "all" ? bookings : bookings.filter((o) => o.status === filter);
+
+  return (
+    <div className="bg-gray-50 mt-2 min-h-screen">
+      <div className="bg-white p-5 border-y border-gray-100">
+        <h3 className="font-bold text-gray-900 text-[16px] mb-3">Аяллын захиалгууд</h3>
+        <StatusFilter category="travel" filter={filter} setFilter={setFilter} />
+      </div>
+
+      <div className="px-4 py-4 space-y-3 pb-24">
+        {visible.length === 0 && (
+          <p className="text-center text-gray-400 text-sm py-12">Захиалга байхгүй байна</p>
+        )}
+        {visible.map((order) => {
+          const total = order.travelers.adults + order.travelers.children;
+          return (
+            <div key={order.id} className="bg-white rounded-2xl shadow-sm p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  {order.id.slice(0, 14)}
+                </span>
+                <span className="text-[11px] text-gray-500">{fmtDateTime(order.createdAt)}</span>
+              </div>
+              <p className="font-bold text-sm text-gray-900 mb-0.5">{order.packageSnapshot.title}</p>
+              {order.packageSnapshot.price && (
+                <p className="text-[12px] text-primary font-bold mb-2">{order.packageSnapshot.price}</p>
+              )}
+              <div className="space-y-1 text-[12px] text-gray-700 mb-2">
+                <p>
+                  <span className="text-gray-400">Хүн:</span>{" "}
+                  <span className="font-semibold">
+                    {total} ({order.travelers.adults} том, {order.travelers.children} хүүхэд)
+                  </span>
+                </p>
+                <p>
+                  <span className="text-gray-400">Хүссэн огноо:</span>{" "}
+                  <span className="font-semibold">{order.preferredDate}</span>
+                </p>
+              </div>
+              <div className="text-[11px] text-gray-500 space-y-0.5">
+                <p>👤 {order.customer.name}</p>
+                <p>📞 {order.customer.phone}</p>
+                {order.customer.email && <p>✉️ {order.customer.email}</p>}
+                {order.notes && <p className="text-primary mt-1">💬 {order.notes}</p>}
+              </div>
+              <StatusSelect category="travel" status={order.status} onChange={(s) => changeStatus(order.id, s)} />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

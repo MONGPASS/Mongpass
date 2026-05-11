@@ -13,6 +13,7 @@ import {
   Order,
   OrderStatus,
   RestaurantOrder,
+  TravelBooking,
   formatPrice,
   getStatusFlow,
   getStatusLabel,
@@ -283,6 +284,7 @@ function CategoryHeader({ order }: { order: Order }) {
     hospital: { label: "Эмнэлэг", bg: "bg-purple-50", text: "text-purple-600" },
     beauty: { label: "Гоо сайхан", bg: "bg-pink-50", text: "text-pink-600" },
     meat: { label: "Мах", bg: "bg-primary/10", text: "text-primary" },
+    travel: { label: "Аялал", bg: "bg-primary/10", text: "text-primary" },
   };
   const m = meta[order.shopCategory];
   return (
@@ -387,6 +389,42 @@ function MeatDetail({ order }: { order: MeatOrder }) {
   );
 }
 
+function TravelDetail({ order }: { order: TravelBooking }) {
+  const total = order.travelers.adults + order.travelers.children;
+  return (
+    <>
+      <Section title="Багц">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shrink-0">
+            <Plane className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-base text-gray-900">{order.packageSnapshot.title}</p>
+            {order.packageSnapshot.price && (
+              <p className="text-[13px] font-bold text-primary mt-0.5">{order.packageSnapshot.price}</p>
+            )}
+            {order.packageSnapshot.duration && (
+              <p className="text-[11px] text-gray-500 mt-0.5">{order.packageSnapshot.duration}</p>
+            )}
+          </div>
+        </div>
+      </Section>
+
+      <Section title="Аяллын мэдээлэл">
+        <Row label="Хүний тоо" value={`${total} (${order.travelers.adults} том, ${order.travelers.children} хүүхэд)`} />
+        <Row label="Хүссэн огноо" value={order.preferredDate} />
+      </Section>
+
+      <Section title="Холбоо барих">
+        <Row label="Нэр" value={order.customer.name} />
+        <Row label="Утас" value={order.customer.phone} />
+        {order.customer.email && <Row label="Имэйл" value={order.customer.email} />}
+        {order.notes && <Row label="Нэмэлт хүсэлт" value={order.notes} />}
+      </Section>
+    </>
+  );
+}
+
 function OrderBody({ order }: { order: Order }) {
   switch (order.shopCategory) {
     case "cargo":
@@ -400,6 +438,8 @@ function OrderBody({ order }: { order: Order }) {
       return <BeautyDetail order={order} />;
     case "meat":
       return <MeatDetail order={order} />;
+    case "travel":
+      return <TravelDetail order={order} />;
     default:
       return null;
   }

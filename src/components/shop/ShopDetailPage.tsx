@@ -40,7 +40,7 @@ export default function ShopDetailPage({ category, shopData }: ShopDetailPagePro
     case "restaurant":
       serviceTabName = "Цэс"; ctaText = "Захиалах"; ServiceTabComponent = FoodServiceTab; break;
     case "travel":
-      serviceTabName = "Багц"; ctaText = "Судлах"; ServiceTabComponent = TravelServiceTab; break;
+      serviceTabName = "Аялал"; ctaText = "Захиалах"; ServiceTabComponent = TravelServiceTab; break;
     case "other":
       serviceTabName = "Бусад"; ctaText = "Дэлгэрэнгүй"; break;
   }
