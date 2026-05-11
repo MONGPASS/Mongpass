@@ -1,9 +1,9 @@
 'use client';
 
-import { Check, X, Store, Phone, MapPin, Clock, Calendar, Sparkles } from "lucide-react";
+import { Check, X, Store, Phone, MapPin, Clock, Calendar, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Shop, ShopStatus, SHOP_STATUS_LABEL, approveShop, loadShopsByStatus, rejectShop, toggleFeatured } from "@/lib/shopStore";
+import { Shop, ShopStatus, SHOP_STATUS_LABEL, approveShop, deleteShop, loadShopsByStatus, rejectShop, toggleFeatured } from "@/lib/shopStore";
 import { User, findUserById } from "@/lib/userStore";
 import { CATEGORY_REGISTRY } from "@/lib/categories";
 import { r2Url } from "@/lib/images/upload";
@@ -51,6 +51,21 @@ export default function AdminShopsPage() {
   async function handleToggleFeatured(id: string) {
     await toggleFeatured(id);
     await refresh();
+  }
+
+  async function handleDelete(shop: Shop) {
+    // Two-step confirm — once for "are you sure", once with the shop
+    // name typed back so a misclick on the wrong card can't wipe a
+    // legitimate listing.
+    if (!confirm(`"${shop.name}" дэлгүүрийг бүрмөсөн устгах уу?\n\nБүх захиалга, чат, зураг устах болно. Энэ үйлдэл буцаагдахгүй.`)) {
+      return;
+    }
+    const ok = await deleteShop(shop.id);
+    if (ok) {
+      await refresh();
+    } else {
+      alert("Устгаж чадсангүй. Дахин оролдоно уу.");
+    }
   }
 
   function startReject(id: string) {
@@ -124,6 +139,7 @@ export default function AdminShopsPage() {
               onApprove={() => handleApprove(shop.id)}
               onStartReject={() => startReject(shop.id)}
               onToggleFeatured={() => handleToggleFeatured(shop.id)}
+              onDelete={() => handleDelete(shop)}
             />
           ))}
         </div>
@@ -146,11 +162,13 @@ function ShopReviewCard({
   onApprove,
   onStartReject,
   onToggleFeatured,
+  onDelete,
 }: {
   shop: Shop;
   onApprove: () => void;
   onStartReject: () => void;
   onToggleFeatured: () => void;
+  onDelete: () => void;
 }) {
   const [owner, setOwner] = useState<User | null>(null);
 
@@ -289,6 +307,16 @@ function ShopReviewCard({
           </button>
         )}
       </div>
+      {/* Hard delete — separated from the row above so the destructive
+          action doesn't sit visually next to the soft "татгалзах" one
+          (different intent, very different consequences). Confirms
+          twice in the click handler before actually deleting. */}
+      <button
+        onClick={onDelete}
+        className="mt-2 w-full bg-white border border-red-200 text-red-600 font-semibold py-2 rounded-lg text-[11px] flex items-center justify-center gap-1.5 hover:bg-red-50 transition-colors"
+      >
+        <Trash2 className="w-3.5 h-3.5" /> Дэлгүүрийг бүрмөсөн устгах
+      </button>
     </div>
   );
 }

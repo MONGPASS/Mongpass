@@ -215,3 +215,17 @@ export async function toggleOpen(id: string): Promise<Shop | null> {
   );
   return data?.shop ?? null;
 }
+
+/**
+ * Hard-delete a shop. Admin-only on the server (the route returns 403
+ * for everyone else); the client wrapper just surfaces the failure as
+ * a thrown error so consumers can show a toast instead of silently
+ * thinking the delete succeeded.
+ */
+export async function deleteShop(id: string): Promise<boolean> {
+  const res = await fetch(`/api/shops/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    credentials: "same-origin",
+  });
+  return res.ok;
+}

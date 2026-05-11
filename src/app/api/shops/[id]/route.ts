@@ -150,3 +150,29 @@ export async function PATCH(
   const [shop] = await hydrateShops(db, [updated]);
   return Response.json({ shop });
 }
+
+/**
+ * DELETE — hard delete a shop. Admin-only. ON DELETE CASCADE on the
+ * child tables (shop_images, shop_notices, doctors, beauty_*, menu_items,
+ * meat_products, orders, reviews, favorites, recently_viewed,
+ * chat_threads, etc.) cleans up everything in one statement.
+ *
+ * The owner gets to keep their user account, just loses the shop —
+ * matching the marketplace expectation that admin can remove
+ * problematic listings without disabling the user behind them.
+ */
+export async function DELETE(
+  _request: Request,
+  { params }: { params: { id: string } },
+): Promise<Response> {
+  const { db, user } = await getServerContext();
+  if (!user) return unauthorized();
+  if (user.role !== "admin") return forbidden();
+
+  const result = await db
+    .prepare("DELETE FROM shops WHERE id = ?")
+    .bind(params.id)
+    .run();
+  if (!result.meta.changes) return notFound("Shop not found");
+  return Response.json({ ok: true });
+}

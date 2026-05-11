@@ -66,7 +66,11 @@ export default function AdminBannerPage() {
   }
 
   function submit() {
-    if (!form.title.trim() || !form.badge.trim()) return;
+    // A banner is valid as long as it has *something* to show — either
+    // an image or text. This lets admins post designed banners with
+    // the copy already baked into the artwork.
+    const hasText = form.title.trim().length > 0 || form.badge.trim().length > 0;
+    if (!form.imageR2Key && !hasText) return;
     if (isAdding) {
       persist([...banners, { id: newBannerId(), ...form }]);
       setIsAdding(false);
@@ -161,8 +165,15 @@ export default function AdminBannerPage() {
             </div>
 
             <div className="space-y-3">
+              {/* Hint that clarifies the new image-only flow without
+                  cluttering every label. */}
+              <p className="text-[11px] text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 leading-relaxed">
+                💡 Зураг оруулсан бол бэйдж, гарчиг хоосон үлдээж болно. Зураггүй бол ядаж нэг талбарыг бөглөнө үү.
+              </p>
               <div>
-                <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">Бэйдж</label>
+                <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
+                  Бэйдж <span className="font-medium text-gray-400">(заавал биш)</span>
+                </label>
                 <input
                   type="text"
                   placeholder="20% Хямдрал"
@@ -173,7 +184,9 @@ export default function AdminBannerPage() {
                 />
               </div>
               <div>
-                <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">Гарчиг</label>
+                <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
+                  Гарчиг <span className="font-medium text-gray-400">(заавал биш)</span>
+                </label>
                 <input
                   type="text"
                   placeholder="Улаанбаатар руу ачаа тээвэр"
@@ -277,7 +290,7 @@ export default function AdminBannerPage() {
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={submit}
-                  disabled={!form.title.trim() || !form.badge.trim()}
+                  disabled={!form.imageR2Key && !form.title.trim() && !form.badge.trim()}
                   className="flex-1 bg-gray-900 text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   <Save className="w-4 h-4" /> Хадгалах
@@ -327,13 +340,21 @@ export default function AdminBannerPage() {
                         <div className="absolute inset-0 bg-black/35" />
                       </>
                     )}
-                    <div className="absolute inset-0 p-4 flex flex-col justify-center text-white">
-                      <span className="inline-block px-2 py-0.5 bg-white/20 text-[10px] font-bold rounded-md w-max mb-1 backdrop-blur-sm">
-                        {b.badge}
-                      </span>
-                      <p className="text-sm font-bold leading-tight drop-shadow-sm">{b.title}</p>
-                      <p className="text-[11px] text-white/90 drop-shadow-sm">{b.desc}</p>
-                    </div>
+                    {(b.badge || b.title || b.desc) && (
+                      <div className="absolute inset-0 p-4 flex flex-col justify-center text-white">
+                        {b.badge && (
+                          <span className="inline-block px-2 py-0.5 bg-white/20 text-[10px] font-bold rounded-md w-max mb-1 backdrop-blur-sm">
+                            {b.badge}
+                          </span>
+                        )}
+                        {b.title && (
+                          <p className="text-sm font-bold leading-tight drop-shadow-sm">{b.title}</p>
+                        )}
+                        {b.desc && (
+                          <p className="text-[11px] text-white/90 drop-shadow-sm">{b.desc}</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="p-3 flex items-center gap-2">
                     <div className="flex flex-col">

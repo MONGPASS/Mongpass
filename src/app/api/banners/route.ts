@@ -78,10 +78,17 @@ export async function PUT(request: Request): Promise<Response> {
   const incoming = body.banners ?? [];
 
   // Validate up front so we don't half-write on a bad payload.
+  // A banner needs *something* to display — either an image or text.
+  // Image-only is allowed (admin uploads a designed banner with the
+  // text already baked in); text-only also works (falls back to the
+  // gradient background). Empty banners with neither would render as
+  // a blank gradient strip, which is never useful.
   for (const b of incoming) {
-    if (!b.badge?.trim() || !b.title?.trim()) {
+    const hasImage = !!b.imageR2Key?.trim();
+    const hasText = !!b.title?.trim() || !!b.badge?.trim();
+    if (!hasImage && !hasText) {
       return Response.json(
-        { error: "badge and title are required for every banner" },
+        { error: "Each banner needs at least an image or a title" },
         { status: 400 },
       );
     }
@@ -98,6 +105,10 @@ export async function PUT(request: Request): Promise<Response> {
   const stmts = [db.prepare("DELETE FROM banners")];
   incoming.forEach((b, idx) => {
     const id = b.id ?? `banner-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`;
+    // Empty badge / title default to "" (not null) because the DB
+    // columns are NOT NULL — but the read render only shows the
+    // chip / heading when they're truthy strings, so "" renders as
+    // an image-only banner.
     stmts.push(
       db
         .prepare(
@@ -107,8 +118,8 @@ export async function PUT(request: Request): Promise<Response> {
         )
         .bind(
           id,
-          b.badge!.trim(),
-          b.title!.trim(),
+          b.badge?.trim() ?? "",
+          b.title?.trim() ?? "",
           b.desc?.trim() || null,
           b.gradient ?? "blue",
           idx,

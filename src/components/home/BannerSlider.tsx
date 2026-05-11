@@ -31,6 +31,7 @@ export default function BannerSlider() {
       <div className="flex overflow-x-auto snap-x snap-mandatory hide-scroll px-5 gap-4 pb-4">
         {banners.map((banner) => {
           const grad = BANNER_GRADIENTS[banner.gradient];
+          const hasText = !!(banner.badge || banner.title || banner.desc);
           return (
             <div
               key={banner.id}
@@ -44,21 +45,37 @@ export default function BannerSlider() {
                     alt=""
                     className="absolute inset-0 w-full h-full object-cover"
                   />
-                  {/* Dark overlay so text stays legible on bright photos */}
-                  <div className="absolute inset-0 bg-black/35" />
+                  {/* Dark overlay only when there's text to keep
+                      legible — image-only banners stay clean. */}
+                  {hasText && <div className="absolute inset-0 bg-black/35" />}
                 </>
               ) : (
                 <div className="absolute inset-0 opacity-20">
                   <div className="w-full h-full bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,rgba(255,255,255,0.1)_10px,rgba(255,255,255,0.1)_20px)]"></div>
                 </div>
               )}
-              <div className="relative h-full flex flex-col justify-center p-6 text-white text-left">
-                <span className="inline-block px-2.5 py-1 bg-white/20 text-white text-[11px] font-bold rounded-md backdrop-blur-sm w-max mb-3">
-                  {banner.badge}
-                </span>
-                <h2 className="text-lg font-bold leading-tight mb-1 drop-shadow-sm">{banner.title}</h2>
-                <p className="text-white/90 text-xs font-medium drop-shadow-sm">{banner.desc}</p>
-              </div>
+              {/* Text overlay — entire block disappears for image-only
+                  banners so the artwork shows uncropped. Each field
+                  hides individually too (no empty chip / heading). */}
+              {(banner.badge || banner.title || banner.desc) && (
+                <div className="relative h-full flex flex-col justify-center p-6 text-white text-left">
+                  {banner.badge && (
+                    <span className="inline-block px-2.5 py-1 bg-white/20 text-white text-[11px] font-bold rounded-md backdrop-blur-sm w-max mb-3">
+                      {banner.badge}
+                    </span>
+                  )}
+                  {banner.title && (
+                    <h2 className="text-lg font-bold leading-tight mb-1 drop-shadow-sm">
+                      {banner.title}
+                    </h2>
+                  )}
+                  {banner.desc && (
+                    <p className="text-white/90 text-xs font-medium drop-shadow-sm">
+                      {banner.desc}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
