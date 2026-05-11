@@ -33,7 +33,8 @@ export type UploadKind =
   | "stylist"
   | "menu"
   | "car"
-  | "travel";
+  | "travel"
+  | "news";
 
 interface CompressOptions {
   /** Largest edge in px. Photos taller/wider than this are scaled down proportionally. */

@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, ImageIcon, LayoutDashboard, ShieldCheck, Store } from "lucide-react";
+import { ArrowLeft, ImageIcon, LayoutDashboard, Newspaper, ShieldCheck, Store } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -10,6 +10,7 @@ const SECTIONS = [
   { href: "/admin",        label: "Тойм",    icon: LayoutDashboard },
   { href: "/admin/shops",  label: "Дэлгүүр", icon: Store },
   { href: "/admin/banner", label: "Баннер",  icon: ImageIcon },
+  { href: "/admin/news",   label: "Мэдээ",   icon: Newspaper },
 ];
 
 function isCurrent(href: string, pathname: string): boolean {

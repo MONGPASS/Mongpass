@@ -2,6 +2,7 @@ import Link from "next/link";
 import TopBar from "@/components/layout/TopBar";
 import BannerSlider from "@/components/home/BannerSlider";
 import CategoryGrid from "@/components/home/CategoryGrid";
+import NewsSection from "@/components/home/NewsSection";
 import {
   FavoritesSection,
   FeaturedShopsSection,
@@ -21,6 +22,11 @@ export default function Home() {
         <div className="bg-white pt-4">
           <CategoryGrid />
         </div>
+
+        {/* Editorial news feed — admin-managed at /admin/news.
+            Hides itself when no articles exist, so this block is
+            invisible on a fresh install. */}
+        <NewsSection />
 
         {/* Curated/featured shops — visible only when admin has flagged any */}
         <FeaturedShopsSection />

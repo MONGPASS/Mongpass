@@ -31,6 +31,7 @@ const ALLOWED_KINDS = new Set([
   "menu",        // menu item photos
   "car",         // used-car listing gallery photos
   "travel",      // travel package gallery photos
+  "news",        // editorial news article cover photos
 ]);
 const ALLOWED_TYPES = new Set([
   "image/webp",
