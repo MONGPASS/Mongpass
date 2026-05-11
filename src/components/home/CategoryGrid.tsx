@@ -24,13 +24,11 @@ const categories = [
 export default function CategoryGrid() {
   return (
     <section className="px-5 pb-10">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-foreground">Ангиллаар хайх</h2>
-        <button className="text-sm font-medium text-primary hover:text-primaryHover transition-colors">
-          Бүгд
-        </button>
-      </div>
-      
+      {/* The "Бүгд" right-side button used to live here but had no
+          handler — pure UI noise. Re-add as a Link when the category
+          count outgrows the 8-tile grid. */}
+      <h2 className="text-lg font-bold text-foreground mb-4">Ангиллаар хайх</h2>
+
       <div className="grid grid-cols-4 gap-y-6 gap-x-2">
         {categories.map((cat) => {
           const Icon = cat.icon;
