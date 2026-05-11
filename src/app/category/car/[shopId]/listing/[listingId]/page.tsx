@@ -22,19 +22,16 @@ import { r2Url } from "@/lib/images/upload";
  */
 
 const SPECS: Array<{ key: keyof CarListing; label: string }> = [
+  { key: "yearManufactured",  label: "Үйлдвэрлэсэн он" },
   { key: "engineCapacity",    label: "Мотор багтаамж" },
   { key: "transmission",      label: "Хурдны хайрцаг" },
   { key: "steering",          label: "Хүрд" },
   { key: "bodyType",          label: "Төрөл" },
-  { key: "exteriorColor",     label: "Өнгө" },
-  { key: "yearManufactured",  label: "Үйлдвэрлэсэн он" },
-  { key: "yearImported",      label: "Орж ирсэн он" },
   { key: "engineType",        label: "Хөдөлгүүр" },
-  { key: "interiorColor",     label: "Дотор өнгө" },
-  { key: "leasing",           label: "Лизинг" },
   { key: "drive",             label: "Хөтлөгч" },
+  { key: "exteriorColor",     label: "Өнгө" },
+  { key: "interiorColor",     label: "Дотор өнгө" },
   { key: "mileage",           label: "Явсан" },
-  { key: "condition",         label: "Нөхцөл" },
   { key: "doors",             label: "Хаалга" },
 ];
 

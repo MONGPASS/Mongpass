@@ -16,6 +16,8 @@ interface ListingRow {
   id: string;
   shop_id: string;
   title: string;
+  brand: string | null;
+  model: string | null;
   price: string | null;
   description: string | null;
   location: string | null;
@@ -25,13 +27,10 @@ interface ListingRow {
   body_type: string | null;
   exterior_color: string | null;
   year_manufactured: string | null;
-  year_imported: string | null;
   engine_type: string | null;
   interior_color: string | null;
-  leasing: string | null;
   drive: string | null;
   mileage: string | null;
-  condition: string | null;
   doors: string | null;
   status: "available" | "sold";
   created_at: string;
@@ -42,6 +41,8 @@ function rowToListing(r: ListingRow, images: string[]) {
     id: r.id,
     shopId: r.shop_id,
     title: r.title,
+    brand: r.brand ?? undefined,
+    model: r.model ?? undefined,
     price: r.price ?? undefined,
     description: r.description ?? undefined,
     location: r.location ?? undefined,
@@ -51,13 +52,10 @@ function rowToListing(r: ListingRow, images: string[]) {
     bodyType: r.body_type ?? undefined,
     exteriorColor: r.exterior_color ?? undefined,
     yearManufactured: r.year_manufactured ?? undefined,
-    yearImported: r.year_imported ?? undefined,
     engineType: r.engine_type ?? undefined,
     interiorColor: r.interior_color ?? undefined,
-    leasing: r.leasing ?? undefined,
     drive: r.drive ?? undefined,
     mileage: r.mileage ?? undefined,
-    condition: r.condition ?? undefined,
     doors: r.doors ?? undefined,
     status: r.status,
     images,
@@ -66,7 +64,8 @@ function rowToListing(r: ListingRow, images: string[]) {
 }
 
 interface IncomingListing {
-  title?: string;
+  brand?: string;
+  model?: string;
   price?: string;
   description?: string;
   location?: string;
@@ -76,13 +75,10 @@ interface IncomingListing {
   bodyType?: string;
   exteriorColor?: string;
   yearManufactured?: string;
-  yearImported?: string;
   engineType?: string;
   interiorColor?: string;
-  leasing?: string;
   drive?: string;
   mileage?: string;
-  condition?: string;
   doors?: string;
   status?: "available" | "sold";
   /** R2 keys, in display order. */
@@ -90,7 +86,8 @@ interface IncomingListing {
 }
 
 const COLUMN_MAP: Array<[keyof IncomingListing, string]> = [
-  ["title", "title"],
+  ["brand", "brand"],
+  ["model", "model"],
   ["price", "price"],
   ["description", "description"],
   ["location", "location"],
@@ -100,21 +97,18 @@ const COLUMN_MAP: Array<[keyof IncomingListing, string]> = [
   ["bodyType", "body_type"],
   ["exteriorColor", "exterior_color"],
   ["yearManufactured", "year_manufactured"],
-  ["yearImported", "year_imported"],
   ["engineType", "engine_type"],
   ["interiorColor", "interior_color"],
-  ["leasing", "leasing"],
   ["drive", "drive"],
   ["mileage", "mileage"],
-  ["condition", "condition"],
   ["doors", "doors"],
 ];
 
 const LISTING_SELECT = `
-  SELECT id, shop_id, title, price, description, location,
+  SELECT id, shop_id, title, brand, model, price, description, location,
          engine_capacity, transmission, steering, body_type,
-         exterior_color, year_manufactured, year_imported, engine_type,
-         interior_color, leasing, drive, mileage, condition, doors,
+         exterior_color, year_manufactured, engine_type,
+         interior_color, drive, mileage, doors,
          status, created_at
     FROM car_listings`;
 
@@ -165,24 +159,29 @@ export async function POST(
   if (isResponse(ctx)) return ctx;
 
   const body = (await request.json()) as IncomingListing;
-  if (!body.title?.trim()) {
-    return Response.json({ error: "title is required" }, { status: 400 });
+  const brand = body.brand?.trim() ?? "";
+  const model = body.model?.trim() ?? "";
+  if (!brand || !model) {
+    return Response.json(
+      { error: "brand and model are required" },
+      { status: 400 },
+    );
   }
+  // Compose the display title from brand + model so the existing
+  // NOT NULL `title` column stays populated and older read sites
+  // keep working without knowing about the split.
+  const title = `${brand} ${model}`.trim();
 
   const id = `car-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   // Build INSERT — every spec field is optional and stored as TEXT.
-  const cols = ["id", "shop_id"];
-  const placeholders: string[] = ["?", "?"];
-  const values: unknown[] = [id, ctx.shopId];
+  const cols = ["id", "shop_id", "title"];
+  const placeholders: string[] = ["?", "?", "?"];
+  const values: unknown[] = [id, ctx.shopId, title];
   for (const [field, column] of COLUMN_MAP) {
     cols.push(column);
     placeholders.push("?");
     const v = body[field];
-    if (field === "title") {
-      values.push((v as string).trim());
-    } else {
-      values.push(typeof v === "string" && v.trim() ? v.trim() : null);
-    }
+    values.push(typeof v === "string" && v.trim() ? v.trim() : null);
   }
   const stmts = [
     ctx.db

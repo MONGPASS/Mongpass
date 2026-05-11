@@ -17,6 +17,8 @@ interface ListingRow {
   id: string;
   shop_id: string;
   title: string;
+  brand: string | null;
+  model: string | null;
   price: string | null;
   description: string | null;
   location: string | null;
@@ -26,13 +28,10 @@ interface ListingRow {
   body_type: string | null;
   exterior_color: string | null;
   year_manufactured: string | null;
-  year_imported: string | null;
   engine_type: string | null;
   interior_color: string | null;
-  leasing: string | null;
   drive: string | null;
   mileage: string | null;
-  condition: string | null;
   doors: string | null;
   status: "available" | "sold";
   created_at: string;
@@ -43,6 +42,8 @@ function rowToListing(r: ListingRow, images: string[]) {
     id: r.id,
     shopId: r.shop_id,
     title: r.title,
+    brand: r.brand ?? undefined,
+    model: r.model ?? undefined,
     price: r.price ?? undefined,
     description: r.description ?? undefined,
     location: r.location ?? undefined,
@@ -52,13 +53,10 @@ function rowToListing(r: ListingRow, images: string[]) {
     bodyType: r.body_type ?? undefined,
     exteriorColor: r.exterior_color ?? undefined,
     yearManufactured: r.year_manufactured ?? undefined,
-    yearImported: r.year_imported ?? undefined,
     engineType: r.engine_type ?? undefined,
     interiorColor: r.interior_color ?? undefined,
-    leasing: r.leasing ?? undefined,
     drive: r.drive ?? undefined,
     mileage: r.mileage ?? undefined,
-    condition: r.condition ?? undefined,
     doors: r.doors ?? undefined,
     status: r.status,
     images,
@@ -67,10 +65,10 @@ function rowToListing(r: ListingRow, images: string[]) {
 }
 
 const LISTING_SELECT = `
-  SELECT id, shop_id, title, price, description, location,
+  SELECT id, shop_id, title, brand, model, price, description, location,
          engine_capacity, transmission, steering, body_type,
-         exterior_color, year_manufactured, year_imported, engine_type,
-         interior_color, leasing, drive, mileage, condition, doors,
+         exterior_color, year_manufactured, engine_type,
+         interior_color, drive, mileage, doors,
          status, created_at
     FROM car_listings`;
 
@@ -106,7 +104,8 @@ export async function GET(
 }
 
 type IncomingPatch = Partial<{
-  title: string;
+  brand: string;
+  model: string;
   price: string;
   description: string;
   location: string;
@@ -116,13 +115,10 @@ type IncomingPatch = Partial<{
   bodyType: string;
   exteriorColor: string;
   yearManufactured: string;
-  yearImported: string;
   engineType: string;
   interiorColor: string;
-  leasing: string;
   drive: string;
   mileage: string;
-  condition: string;
   doors: string;
   status: "available" | "sold";
   /** Pass to replace the gallery atomically. Omit to leave photos alone. */
@@ -130,7 +126,8 @@ type IncomingPatch = Partial<{
 }>;
 
 const PATCH_MAP: Array<[keyof IncomingPatch, string, boolean]> = [
-  ["title", "title", false],
+  ["brand", "brand", true],
+  ["model", "model", true],
   ["price", "price", true],
   ["description", "description", true],
   ["location", "location", true],
@@ -140,13 +137,10 @@ const PATCH_MAP: Array<[keyof IncomingPatch, string, boolean]> = [
   ["bodyType", "body_type", true],
   ["exteriorColor", "exterior_color", true],
   ["yearManufactured", "year_manufactured", true],
-  ["yearImported", "year_imported", true],
   ["engineType", "engine_type", true],
   ["interiorColor", "interior_color", true],
-  ["leasing", "leasing", true],
   ["drive", "drive", true],
   ["mileage", "mileage", true],
-  ["condition", "condition", true],
   ["doors", "doors", true],
 ];
 
@@ -177,6 +171,23 @@ export async function PATCH(
           ? null
           : "",
       );
+    }
+  }
+  // Re-derive `title` when either half of the split changed, so any
+  // legacy code that reads `title` directly sees the new value.
+  if (body.brand !== undefined || body.model !== undefined) {
+    const existing = await ctx.db
+      .prepare("SELECT brand, model FROM car_listings WHERE id = ?")
+      .bind(params.listingId)
+      .first<{ brand: string | null; model: string | null }>();
+    const nextBrand =
+      (body.brand !== undefined ? body.brand : existing?.brand ?? "")?.trim() ?? "";
+    const nextModel =
+      (body.model !== undefined ? body.model : existing?.model ?? "")?.trim() ?? "";
+    const composed = `${nextBrand} ${nextModel}`.trim();
+    if (composed) {
+      updates.push("title = ?");
+      values.push(composed);
     }
   }
   if (body.status !== undefined) {

@@ -12,49 +12,46 @@ import {
   loadCarListings,
   updateCarListing,
 } from "@/lib/carListingStore";
+import {
+  BODY_TYPE_OPTIONS,
+  CAR_BRANDS,
+  DOOR_OPTIONS,
+  DRIVE_OPTIONS,
+  ENGINE_TYPE_OPTIONS,
+  STEERING_OPTIONS,
+  TRANSMISSION_OPTIONS,
+} from "@/lib/carOptions";
 import { findShopByOwner } from "@/lib/shopStore";
 import { getCurrentUser } from "@/lib/userStore";
 import { r2Url, uploadImage } from "@/lib/images/upload";
 
+type FormState = Omit<CarListing, "id" | "shopId" | "createdAt" | "status" | "title">;
+
 /**
- * Spec field definitions — keeping the order + labels in one array
- * lets the form render them with a single map() instead of 14
- * near-identical JSX blocks.
+ * Mixed field renderer driven by a small spec — dropdown options when
+ * the key has them, free-text input otherwise. Keeps the JSX flat and
+ * makes adding / reordering fields a one-line change.
  */
-type SpecKey =
-  | "engineCapacity"
-  | "transmission"
-  | "steering"
-  | "bodyType"
-  | "exteriorColor"
-  | "yearManufactured"
-  | "yearImported"
-  | "engineType"
-  | "interiorColor"
-  | "leasing"
-  | "drive"
-  | "mileage"
-  | "condition"
-  | "doors";
+type FieldSpec = {
+  key: keyof FormState;
+  label: string;
+  placeholder: string;
+  options?: readonly string[];
+};
 
-const SPEC_FIELDS: Array<{ key: SpecKey; label: string; placeholder: string }> = [
-  { key: "engineCapacity",    label: "Мотор багтаамж",     placeholder: "1.5 л" },
-  { key: "transmission",      label: "Хурдны хайрцаг",     placeholder: "Автомат" },
-  { key: "steering",          label: "Хүрд",                placeholder: "Зөв / Буруу" },
-  { key: "bodyType",          label: "Төрөл",               placeholder: "Суудлын тэрэг" },
-  { key: "exteriorColor",     label: "Өнгө",                placeholder: "Цагаан" },
-  { key: "yearManufactured",  label: "Үйлдвэрлэсэн он",     placeholder: "2015" },
-  { key: "yearImported",      label: "Орж ирсэн он",        placeholder: "2021" },
-  { key: "engineType",        label: "Хөдөлгүүр",           placeholder: "Бензин / Гибрид" },
-  { key: "interiorColor",     label: "Дотор өнгө",          placeholder: "Хар" },
-  { key: "leasing",           label: "Лизинг",              placeholder: "Тийм / Үгүй" },
-  { key: "drive",             label: "Хөтлөгч",             placeholder: "Урд / Бүх дугуй" },
-  { key: "mileage",           label: "Явсан",               placeholder: "120,000 км" },
-  { key: "condition",         label: "Нөхцөл",              placeholder: "Гадаадаас орж ирсэн" },
-  { key: "doors",             label: "Хаалга",              placeholder: "4" },
+const SPEC_FIELDS: FieldSpec[] = [
+  { key: "yearManufactured", label: "Үйлдвэрлэсэн он", placeholder: "2015" },
+  { key: "engineCapacity",   label: "Мотор багтаамж",  placeholder: "1.5 л" },
+  { key: "transmission",     label: "Хурдны хайрцаг",  placeholder: "Сонгоно уу", options: TRANSMISSION_OPTIONS },
+  { key: "steering",         label: "Хүрд",             placeholder: "Сонгоно уу", options: STEERING_OPTIONS },
+  { key: "bodyType",         label: "Төрөл",            placeholder: "Сонгоно уу", options: BODY_TYPE_OPTIONS },
+  { key: "engineType",       label: "Хөдөлгүүр",        placeholder: "Сонгоно уу", options: ENGINE_TYPE_OPTIONS },
+  { key: "drive",            label: "Хөтлөгч",          placeholder: "Сонгоно уу", options: DRIVE_OPTIONS },
+  { key: "exteriorColor",    label: "Өнгө",             placeholder: "Цагаан" },
+  { key: "interiorColor",    label: "Дотор өнгө",       placeholder: "Хар" },
+  { key: "mileage",          label: "Явсан",            placeholder: "120,000 км" },
+  { key: "doors",            label: "Хаалга",           placeholder: "Сонгоно уу", options: DOOR_OPTIONS },
 ];
-
-type FormState = Omit<CarListing, "id" | "shopId" | "createdAt" | "status">;
 
 export default function CarAdminPage() {
   const router = useRouter();
@@ -108,7 +105,8 @@ export default function CarAdminPage() {
 
   function startEdit(l: CarListing) {
     setForm({
-      title: l.title,
+      brand: l.brand ?? "",
+      model: l.model ?? "",
       price: l.price ?? "",
       description: l.description ?? "",
       location: l.location ?? "",
@@ -118,13 +116,10 @@ export default function CarAdminPage() {
       bodyType: l.bodyType ?? "",
       exteriorColor: l.exteriorColor ?? "",
       yearManufactured: l.yearManufactured ?? "",
-      yearImported: l.yearImported ?? "",
       engineType: l.engineType ?? "",
       interiorColor: l.interiorColor ?? "",
-      leasing: l.leasing ?? "",
       drive: l.drive ?? "",
       mileage: l.mileage ?? "",
-      condition: l.condition ?? "",
       doors: l.doors ?? "",
       images: [...l.images],
     });
@@ -137,9 +132,6 @@ export default function CarAdminPage() {
     setIsAdding(false);
   }
 
-  // Image upload — appends to the gallery in order. Multiple photos
-  // can be selected at once; we upload them sequentially so the
-  // resulting order matches the user's selection.
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const fileList = Array.from(e.target.files ?? []);
     e.target.value = "";
@@ -167,8 +159,13 @@ export default function CarAdminPage() {
     setForm((f) => ({ ...f, images: f.images.filter((_, i) => i !== idx) }));
   }
 
+  function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
   async function submit() {
-    if (!shopId || busy || !form.title.trim()) return;
+    if (!shopId || busy) return;
+    if (!form.brand?.trim() || !form.model?.trim()) return;
     setBusy(true);
     try {
       if (isAdding) {
@@ -211,6 +208,7 @@ export default function CarAdminPage() {
   }
 
   const showForm = isAdding || editingId !== null;
+  const canSubmit = !!form.brand?.trim() && !!form.model?.trim() && !busy;
 
   return (
     <main className="w-full min-h-screen bg-gray-50 pb-24">
@@ -240,7 +238,7 @@ export default function CarAdminPage() {
               {isAdding ? "Шинэ машин" : "Машин засах"}
             </h2>
 
-            {/* Photo gallery — multi-select; reorder by remove + re-add for now. */}
+            {/* Photos */}
             <div className="mb-4">
               <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
                 Зургууд <span className="font-medium text-gray-400">(олон сонгож болно)</span>
@@ -282,26 +280,59 @@ export default function CarAdminPage() {
               </div>
             </div>
 
+            {/* Brand + Model — replaces the old free-text title.
+                Brand is a dropdown of common makes; model stays free
+                text since the long-tail of model names is unwieldy
+                to maintain in a list. */}
             <div className="space-y-3">
-              <div>
-                <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
-                  Гарчиг <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="Toyota Corolla Fielder, 2015/2021"
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
+                    Брэнд <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={form.brand ?? ""}
+                    onChange={(e) => setField("brand", e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white"
+                  >
+                    <option value="">— Сонгоно уу —</option>
+                    {CAR_BRANDS.map((b) => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
+                    Загвар <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Corolla Fielder"
+                    value={form.model ?? ""}
+                    onChange={(e) => setField("model", e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
+                  />
+                </div>
               </div>
+
+              {/* Live preview of the composed display title so the owner
+                  can see exactly what the customer-facing card will say. */}
+              {(form.brand || form.model) && (
+                <p className="text-[11px] text-gray-500">
+                  Харагдах нэр:{" "}
+                  <span className="font-bold text-gray-900">
+                    {`${form.brand ?? ""} ${form.model ?? ""}`.trim()}
+                  </span>
+                </p>
+              )}
+
               <div>
                 <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">Үнэ</label>
                 <input
                   type="text"
                   placeholder="18 сая ₮  эсвэл  ₩18,000,000"
-                  value={form.price}
-                  onChange={(e) => setForm({ ...form, price: e.target.value })}
+                  value={form.price ?? ""}
+                  onChange={(e) => setField("price", e.target.value)}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
                 />
               </div>
@@ -310,27 +341,40 @@ export default function CarAdminPage() {
                 <input
                   type="text"
                   placeholder="Улаанбаатар — Чингэлтэй"
-                  value={form.location}
-                  onChange={(e) => setForm({ ...form, location: e.target.value })}
+                  value={form.location ?? ""}
+                  onChange={(e) => setField("location", e.target.value)}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
                 />
               </div>
 
-              {/* Spec table — rendered from SPEC_FIELDS so adding a new
-                  field is a one-line change. */}
+              {/* Spec table — mix of dropdowns and text inputs based
+                  on whether the field has a canonical option list. */}
               <div className="pt-2 border-t border-gray-100">
                 <p className="text-[11px] font-bold text-gray-500 mb-2">Үзүүлэлт</p>
                 <div className="grid grid-cols-2 gap-2">
                   {SPEC_FIELDS.map((f) => (
                     <div key={f.key}>
                       <label className="text-[10px] font-bold text-gray-500 mb-1 block">{f.label}</label>
-                      <input
-                        type="text"
-                        placeholder={f.placeholder}
-                        value={form[f.key] ?? ""}
-                        onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-                        className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-[13px]"
-                      />
+                      {f.options ? (
+                        <select
+                          value={(form[f.key] as string) ?? ""}
+                          onChange={(e) => setField(f.key, e.target.value)}
+                          className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-[13px] bg-white"
+                        >
+                          <option value="">{f.placeholder}</option>
+                          {f.options.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          placeholder={f.placeholder}
+                          value={(form[f.key] as string) ?? ""}
+                          onChange={(e) => setField(f.key, e.target.value)}
+                          className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-[13px]"
+                        />
+                      )}
                     </div>
                   ))}
                 </div>
@@ -340,9 +384,9 @@ export default function CarAdminPage() {
                 <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">Тайлбар</label>
                 <textarea
                   rows={3}
-                  placeholder="2015. 2021 hiih zuilgui mash sain feilder zarna."
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="Машины онцлог, нэмэлт мэдээлэл..."
+                  value={form.description ?? ""}
+                  onChange={(e) => setField("description", e.target.value)}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm resize-none"
                 />
               </div>
@@ -350,7 +394,7 @@ export default function CarAdminPage() {
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={submit}
-                  disabled={busy || !form.title.trim()}
+                  disabled={!canSubmit}
                   className="flex-1 bg-primary text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   <Save className="w-4 h-4" /> {busy ? "..." : "Хадгалах"}

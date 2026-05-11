@@ -8,24 +8,29 @@
 export interface CarListing {
   id: string;
   shopId: string;
+  /**
+   * Composed display title (e.g. "Toyota Corolla Fielder"). Derived
+   * from brand + model on the write path so older code referencing
+   * `title` keeps working; new code should prefer `brand` + `model`.
+   */
   title: string;
+  brand?: string;
+  model?: string;
   price?: string;
   description?: string;
   location?: string;
-  // Spec table — all free text
+  // Spec table — all free text; the form constrains values via
+  // dropdowns but storage stays open-ended.
   engineCapacity?: string;
   transmission?: string;
   steering?: string;
   bodyType?: string;
   exteriorColor?: string;
   yearManufactured?: string;
-  yearImported?: string;
   engineType?: string;
   interiorColor?: string;
-  leasing?: string;
   drive?: string;
   mileage?: string;
-  condition?: string;
   doors?: string;
   status: "available" | "sold";
   /** R2 keys for every photo, in display order. */
@@ -37,8 +42,9 @@ export interface CarListing {
  * Empty defaults for the create form. Keeping this out of the
  * component makes it trivial to clear after submit.
  */
-export const emptyCarListing: Omit<CarListing, "id" | "shopId" | "createdAt" | "status"> = {
-  title: "",
+export const emptyCarListing: Omit<CarListing, "id" | "shopId" | "createdAt" | "status" | "title"> = {
+  brand: "",
+  model: "",
   price: "",
   description: "",
   location: "",
@@ -48,13 +54,10 @@ export const emptyCarListing: Omit<CarListing, "id" | "shopId" | "createdAt" | "
   bodyType: "",
   exteriorColor: "",
   yearManufactured: "",
-  yearImported: "",
   engineType: "",
   interiorColor: "",
-  leasing: "",
   drive: "",
   mileage: "",
-  condition: "",
   doors: "",
   images: [],
 };
@@ -111,7 +114,9 @@ export async function findCarListing(
 
 export async function createCarListing(
   shopId: string,
-  input: Omit<CarListing, "id" | "shopId" | "createdAt" | "status">,
+  // Title is composed server-side from brand + model, so callers
+  // never need to send it.
+  input: Omit<CarListing, "id" | "shopId" | "createdAt" | "status" | "title">,
 ): Promise<CarListing | null> {
   const data = await postJson<{ listing: CarListing }>(
     `/api/shops/${encodeURIComponent(shopId)}/car-listings`,
