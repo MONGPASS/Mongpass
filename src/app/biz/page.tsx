@@ -227,19 +227,30 @@ function BizProfilePageInner() {
         </button>
       </div>
 
-      {/* Approval status banner */}
-      {currentShop.status === "pending" && (
+      {/* Approval status banner.
+          Each variant ends with a primary action button so a freshly-
+          registered owner doesn't have to hunt for the Засах tab in
+          the bottom nav. Clicking the button enters edit mode in
+          place — same as tapping "Засах" at the bottom. */}
+      {currentShop.status === "pending" && !isEditingProfile && (
         <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-3">
           <p className="text-[13px] font-bold text-yellow-800 mb-0.5">
             ⏳ Хүлээгдэж буй — Удахгүй баталгаажна
           </p>
-          <p className="text-[11px] text-yellow-700 leading-relaxed">
+          <p className="text-[11px] text-yellow-700 leading-relaxed mb-2.5">
             Таны дэлгүүр одоогоор хэрэглэгчдэд харагдахгүй байна. Дэлгүүрийн мэдээллээ бүрэн
             оруулсан байх тусам баталгаажуулалт хурдан болно.
           </p>
+          <button
+            onClick={() => { setIsEditingProfile(true); setActiveTab("Нүүр"); }}
+            className="inline-flex items-center gap-1.5 bg-yellow-800 text-white text-[12px] font-bold px-3.5 py-2 rounded-lg active:scale-[0.98] transition-transform"
+          >
+            <Edit3 className="w-3.5 h-3.5" />
+            Профайл бөглөх →
+          </button>
         </div>
       )}
-      {currentShop.status === "rejected" && (
+      {currentShop.status === "rejected" && !isEditingProfile && (
         <div className="bg-red-50 border-b border-red-200 px-4 py-3">
           <p className="text-[13px] font-bold text-red-800 mb-0.5">
             ❌ Татгалзсан
@@ -249,10 +260,17 @@ function BizProfilePageInner() {
               <span className="font-bold">Шалтгаан:</span> {currentShop.rejectionReason}
             </p>
           )}
-          <p className="text-[11px] text-red-700 leading-relaxed">
+          <p className="text-[11px] text-red-700 leading-relaxed mb-2.5">
             Засах хэсгээс мэдээллээ засаад дахин хадгална уу — автоматаар шинэ баталгаажуулалтын
             хүсэлт үүсэх болно.
           </p>
+          <button
+            onClick={() => { setIsEditingProfile(true); setActiveTab("Нүүр"); }}
+            className="inline-flex items-center gap-1.5 bg-red-600 text-white text-[12px] font-bold px-3.5 py-2 rounded-lg active:scale-[0.98] transition-transform"
+          >
+            <Edit3 className="w-3.5 h-3.5" />
+            Профайл засах →
+          </button>
         </div>
       )}
 
