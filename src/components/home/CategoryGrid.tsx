@@ -7,11 +7,10 @@ import { LayoutGrid } from "lucide-react";
  *
  * imgSrc → custom illustration in /public/icons/<slug>.png. Drop a
  * new file at /public/icons/<slug>.png to replace any tile without
- * touching this component.
- *
- * If a category has no imgSrc we fall back to a lucide icon so a
- * missing file degrades gracefully instead of showing a broken-image
- * sprite. Today only "other" uses the fallback.
+ * touching this component. The lucide fallback below covers the
+ * "no image yet" case so a missing file degrades gracefully instead
+ * of showing a broken-image sprite — currently every category has
+ * artwork, but the safety net stays.
  */
 const categories: Array<{
   slug: string;
@@ -25,7 +24,7 @@ const categories: Array<{
   { slug: "phone",      name: "Утас дугаар",    imgSrc: "/icons/phone.png" },
   { slug: "restaurant", name: "Хоолны газар",   imgSrc: "/icons/restaurant.png" },
   { slug: "travel",     name: "Аялал",          imgSrc: "/icons/travel.png" },
-  { slug: "other",      name: "Бусад" /* lucide fallback */ },
+  { slug: "other",      name: "Бусад",          imgSrc: "/icons/other.png" },
 ];
 
 export default function CategoryGrid() {
