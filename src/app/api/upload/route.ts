@@ -29,6 +29,7 @@ const ALLOWED_KINDS = new Set([
   "doctor",      // hospital doctor photos
   "stylist",     // beauty stylist photos
   "menu",        // menu item photos
+  "car",         // used-car listing gallery photos
 ]);
 const ALLOWED_TYPES = new Set([
   "image/webp",

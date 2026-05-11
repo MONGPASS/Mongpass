@@ -57,6 +57,7 @@ export const CATEGORY_REGISTRY: Record<ShopCategory, CategoryInfo> = {
     label: "Хуучин машин",
     productLabel: "Машин",
     productCategories: ["Седан", "SUV", "Ачааны машин"],
+    adminRoute: "/biz/car",
   },
   travel: {
     slug: "travel",
