@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Check, Utensils, Truck, Stethoscope, CarFront, Pizza, Briefcase, LayoutGrid, Scissors } from "lucide-react";
+import { ArrowLeft, Check, Scissors } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -10,15 +10,27 @@ import { createShop, findShopByOwner } from "@/lib/shopStore";
 import { getCurrentUser } from "@/lib/userStore";
 import { HOSPITAL_SPECIALTIES } from "@/lib/hospitalSpecialties";
 
-const PICKABLE: { slug: ShopCategory; icon: typeof Utensils; bgColor: string; iconColor: string }[] = [
-  { slug: "meat",       icon: Utensils,    bgColor: "bg-orange-100", iconColor: "text-orange-500" },
-  { slug: "restaurant", icon: Pizza,       bgColor: "bg-cyan-100",   iconColor: "text-cyan-500" },
-  { slug: "cargo",      icon: Truck,       bgColor: "bg-blue-100",   iconColor: "text-blue-500" },
-  { slug: "hospital",   icon: Stethoscope, bgColor: "bg-purple-100", iconColor: "text-purple-500" },
-  { slug: "beauty",     icon: Scissors,    bgColor: "bg-pink-100",   iconColor: "text-pink-500" },
-  { slug: "car",        icon: CarFront,    bgColor: "bg-red-100",    iconColor: "text-red-500" },
-  { slug: "travel",     icon: Briefcase,   bgColor: "bg-yellow-100", iconColor: "text-yellow-600" },
-  { slug: "other",      icon: LayoutGrid,  bgColor: "bg-gray-100",   iconColor: "text-gray-500" },
+/**
+ * Each category tile uses its custom artwork from /public/icons/<slug>.png
+ * (the same set powering the home grid). Slots without a PNG yet fall
+ * back to a lucide icon — currently only `beauty`, since no
+ * beauty.png has been uploaded.
+ */
+const PICKABLE: Array<{
+  slug: ShopCategory;
+  imgSrc?: string;
+  fallbackIcon?: typeof Scissors;
+  fallbackBg?: string;
+  fallbackTint?: string;
+}> = [
+  { slug: "meat",       imgSrc: "/icons/meat.png" },
+  { slug: "restaurant", imgSrc: "/icons/restaurant.png" },
+  { slug: "cargo",      imgSrc: "/icons/cargo.png" },
+  { slug: "hospital",   imgSrc: "/icons/hospital.png" },
+  { slug: "beauty",     fallbackIcon: Scissors, fallbackBg: "bg-pink-100", fallbackTint: "text-pink-500" },
+  { slug: "car",        imgSrc: "/icons/car.png" },
+  { slug: "travel",     imgSrc: "/icons/travel.png" },
+  { slug: "other",      imgSrc: "/icons/other.png" },
 ];
 
 export default function ShopRegisterPage() {
@@ -114,18 +126,32 @@ export default function ShopRegisterPage() {
         <section className="bg-white rounded-2xl shadow-sm p-4">
           <h2 className="font-bold text-sm text-gray-900 mb-3">1. Дэлгүүрийн төрөл</h2>
           <div className="grid grid-cols-2 gap-2">
-            {PICKABLE.map(({ slug, icon: Icon, bgColor, iconColor }) => {
-              const info = CATEGORY_REGISTRY[slug];
-              const active = category === slug;
+            {PICKABLE.map((pick) => {
+              const info = CATEGORY_REGISTRY[pick.slug];
+              const active = category === pick.slug;
+              const FallbackIcon = pick.fallbackIcon;
               return (
                 <button
-                  key={slug}
+                  key={pick.slug}
                   type="button"
-                  onClick={() => setCategory(slug)}
+                  onClick={() => setCategory(pick.slug)}
                   className={`flex items-center gap-2.5 p-3 rounded-xl border text-left transition-colors ${active ? "border-gray-900 bg-gray-50" : "border-gray-200 bg-white"}`}
                 >
-                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${bgColor}`}>
-                    <Icon className={`w-5 h-5 ${iconColor}`} />
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden ${
+                      pick.imgSrc ? "bg-[#f6f6f6]" : pick.fallbackBg ?? "bg-gray-100"
+                    }`}
+                  >
+                    {pick.imgSrc ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={pick.imgSrc}
+                        alt={info.label}
+                        className="w-8 h-8 object-contain"
+                      />
+                    ) : FallbackIcon ? (
+                      <FallbackIcon className={`w-5 h-5 ${pick.fallbackTint ?? "text-gray-500"}`} />
+                    ) : null}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-[13px] text-gray-900 truncate">{info.label}</p>
