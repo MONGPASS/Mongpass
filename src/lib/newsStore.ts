@@ -9,6 +9,7 @@ export interface NewsArticle {
   title: string;
   content: string;
   coverR2Key?: string;
+  category?: string;
   tags: string[];
   status: "draft" | "published";
   likeCount: number;
@@ -22,6 +23,7 @@ export type NewsArticleInput = {
   title: string;
   content: string;
   coverR2Key?: string | null;
+  category?: string | null;
   tags?: string[];
   status?: "draft" | "published";
 };
@@ -62,10 +64,20 @@ async function del(url: string): Promise<boolean> {
 /**
  * `status='all'` returns drafts + published; useful for the admin
  * list. Public callers omit it (server defaults to published).
+ * `category` is an optional server-side filter — useful for the
+ * dedicated /news page so the client doesn't have to load all
+ * articles and filter in memory.
  */
-export async function loadNews(opts: { status?: "all" | "published" } = {}): Promise<NewsArticle[]> {
-  const qs = opts.status ? `?status=${encodeURIComponent(opts.status)}` : "";
-  const data = await getJson<{ articles: NewsArticle[] }>(`/api/news${qs}`);
+export async function loadNews(
+  opts: { status?: "all" | "published"; category?: string } = {},
+): Promise<NewsArticle[]> {
+  const params = new URLSearchParams();
+  if (opts.status) params.set("status", opts.status);
+  if (opts.category) params.set("category", opts.category);
+  const qs = params.toString();
+  const data = await getJson<{ articles: NewsArticle[] }>(
+    `/api/news${qs ? `?${qs}` : ""}`,
+  );
   return data?.articles ?? [];
 }
 

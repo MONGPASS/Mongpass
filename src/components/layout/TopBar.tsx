@@ -1,13 +1,15 @@
 'use client';
 
-import { Search, Bell } from "lucide-react";
+import { Bell, Menu, Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { countUnread } from "@/lib/notificationStore";
 import { getCurrentUser } from "@/lib/userStore";
+import TopMenuDrawer from "./TopMenuDrawer";
 
 export default function TopBar() {
   const [unread, setUnread] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -26,34 +28,48 @@ export default function TopBar() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-50 flex items-center justify-between px-5 py-4 bg-background/80 backdrop-blur-md">
-      <Link href="/" className="flex items-center gap-2">
-        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-xl">
-          M
+    <>
+      <header className="sticky top-0 z-50 flex items-center justify-between px-5 py-4 bg-background/80 backdrop-blur-md">
+        <Link href="/" className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-xl">
+            M
+          </div>
+          <span className="text-xl font-bold tracking-tight text-foreground">MongPass</span>
+        </Link>
+        <div className="flex items-center gap-3 text-foreground">
+          <Link
+            href="/search"
+            aria-label="Хайх"
+            className="p-2 hover:bg-surfaceAlt rounded-full transition-colors"
+          >
+            <Search size={22} className="text-gray-700" />
+          </Link>
+          <Link
+            href="/notifications"
+            aria-label="Мэдэгдэл"
+            className="p-2 hover:bg-surfaceAlt rounded-full transition-colors relative"
+          >
+            <Bell size={22} className="text-gray-700" />
+            {unread > 0 && (
+              <span className="absolute top-1 right-1 min-w-[16px] h-[16px] px-1 bg-red-500 text-white text-[9px] font-bold rounded-full border-2 border-background flex items-center justify-center">
+                {unread > 9 ? "9+" : unread}
+              </span>
+            )}
+          </Link>
+          {/* Hamburger — opens a slide-in drawer that lists every
+              platform surface (main pages, services, personal).
+              Saves the user from hunting through the bottom nav. */}
+          <button
+            aria-label="Цэс"
+            onClick={() => setMenuOpen(true)}
+            className="p-2 hover:bg-surfaceAlt rounded-full transition-colors"
+          >
+            <Menu size={22} className="text-gray-700" />
+          </button>
         </div>
-        <span className="text-xl font-bold tracking-tight text-foreground">MongPass</span>
-      </Link>
-      <div className="flex items-center gap-3 text-foreground">
-        <Link
-          href="/search"
-          aria-label="Хайх"
-          className="p-2 hover:bg-surfaceAlt rounded-full transition-colors"
-        >
-          <Search size={22} className="text-gray-700" />
-        </Link>
-        <Link
-          href="/notifications"
-          aria-label="Мэдэгдэл"
-          className="p-2 hover:bg-surfaceAlt rounded-full transition-colors relative"
-        >
-          <Bell size={22} className="text-gray-700" />
-          {unread > 0 && (
-            <span className="absolute top-1 right-1 min-w-[16px] h-[16px] px-1 bg-red-500 text-white text-[9px] font-bold rounded-full border-2 border-background flex items-center justify-center">
-              {unread > 9 ? "9+" : unread}
-            </span>
-          )}
-        </Link>
-      </div>
-    </header>
+      </header>
+
+      <TopMenuDrawer open={menuOpen} onClose={() => setMenuOpen(false)} />
+    </>
   );
 }

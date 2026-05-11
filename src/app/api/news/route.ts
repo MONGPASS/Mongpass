@@ -17,6 +17,7 @@ interface ArticleRow {
   title: string;
   content: string;
   cover_r2_key: string | null;
+  category: string | null;
   tags_json: string | null;
   status: "draft" | "published";
   created_at: string;
@@ -34,13 +35,14 @@ function parseTags(raw: string | null): string[] {
 }
 
 const ARTICLE_SELECT = `
-  SELECT id, title, content, cover_r2_key, tags_json, status,
+  SELECT id, title, content, cover_r2_key, category, tags_json, status,
          created_at, updated_at
     FROM news_articles`;
 
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const status = url.searchParams.get("status");
+  const category = url.searchParams.get("category");
   const { db, user } = await getServerContext();
 
   const isAdmin = user?.role === "admin";
@@ -49,9 +51,17 @@ export async function GET(request: Request): Promise<Response> {
     if (!isAdmin) return forbidden();
   }
 
-  const where = status === "all" ? "" : "WHERE status = 'published'";
+  const conditions: string[] = [];
+  const values: unknown[] = [];
+  if (status !== "all") conditions.push("status = 'published'");
+  if (category) {
+    conditions.push("category = ?");
+    values.push(category);
+  }
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   const rows = await db
     .prepare(`${ARTICLE_SELECT} ${where} ORDER BY created_at DESC LIMIT 200`)
+    .bind(...values)
     .all<ArticleRow>();
   const articles = rows.results ?? [];
   if (articles.length === 0) return Response.json({ articles: [] });
@@ -96,6 +106,7 @@ export async function GET(request: Request): Promise<Response> {
       title: r.title,
       content: r.content,
       coverR2Key: r.cover_r2_key ?? undefined,
+      category: r.category ?? undefined,
       tags: parseTags(r.tags_json),
       status: r.status,
       likeCount: countByArticle.get(r.id) ?? 0,
@@ -115,6 +126,7 @@ export async function POST(request: Request): Promise<Response> {
     title: string;
     content: string;
     coverR2Key: string | null;
+    category: string | null;
     tags: string[];
     status: "draft" | "published";
   }>;
@@ -136,18 +148,23 @@ export async function POST(request: Request): Promise<Response> {
     typeof body.coverR2Key === "string" && body.coverR2Key.trim()
       ? body.coverR2Key.trim()
       : null;
+  const categoryValue =
+    typeof body.category === "string" && body.category.trim()
+      ? body.category.trim()
+      : null;
 
   await db
     .prepare(
       `INSERT INTO news_articles
-         (id, title, content, cover_r2_key, tags_json, status, author_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+         (id, title, content, cover_r2_key, category, tags_json, status, author_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
       body.title.trim(),
       body.content.trim(),
       coverKey,
+      categoryValue,
       JSON.stringify(tags),
       status,
       user.id,
@@ -166,6 +183,7 @@ export async function POST(request: Request): Promise<Response> {
         title: row.title,
         content: row.content,
         coverR2Key: row.cover_r2_key ?? undefined,
+        category: row.category ?? undefined,
         tags: parseTags(row.tags_json),
         status: row.status,
         likeCount: 0,

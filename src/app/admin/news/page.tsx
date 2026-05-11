@@ -1,7 +1,7 @@
 'use client';
 
 import { Camera, Edit2, Newspaper, Plus, Save, Trash2, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   NewsArticle,
   NewsArticleInput,
@@ -10,6 +10,7 @@ import {
   loadNews,
   updateNewsArticle,
 } from "@/lib/newsStore";
+import { NEWS_CATEGORIES, newsCategoryBadge } from "@/lib/newsCategories";
 import { r2Url, uploadImage } from "@/lib/images/upload";
 
 type FormState = NewsArticleInput;
@@ -18,6 +19,7 @@ const emptyForm: FormState = {
   title: "",
   content: "",
   coverR2Key: undefined,
+  category: undefined,
   tags: [],
   status: "published",
 };
@@ -67,6 +69,7 @@ export default function AdminNewsPage() {
       title: a.title,
       content: a.content,
       coverR2Key: a.coverR2Key,
+      category: a.category,
       tags: a.tags,
       status: a.status,
     });
@@ -117,6 +120,7 @@ export default function AdminNewsPage() {
         ...form,
         tags: tagsFromText(),
         coverR2Key: form.coverR2Key ?? null,
+        category: form.category ?? null,
       };
       if (isAdding) {
         const created = await createNewsArticle(payload);
@@ -145,6 +149,13 @@ export default function AdminNewsPage() {
   }
 
   const showForm = isAdding || editingId !== null;
+
+  // Filter the saved list by selected category. "" = all.
+  const [listFilter, setListFilter] = useState<string>("");
+  const filteredArticles = useMemo(() => {
+    if (!listFilter) return articles;
+    return articles.filter((a) => a.category === listFilter);
+  }, [articles, listFilter]);
 
   return (
     <>
@@ -232,7 +243,22 @@ export default function AdminNewsPage() {
 
                 <div>
                   <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
-                    Тэг <span className="font-medium text-gray-400">(таслалаар тусгаарла)</span>
+                    Ангилал
+                  </label>
+                  <select
+                    value={form.category ?? ""}
+                    onChange={(e) => setForm({ ...form, category: e.target.value || undefined })}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white"
+                  >
+                    <option value="">— Сонгоно уу —</option>
+                    {NEWS_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
+                    Тэг <span className="font-medium text-gray-400">(таслалаар тусгаарла, заавал биш)</span>
                   </label>
                   <input
                     type="text"
@@ -298,13 +324,40 @@ export default function AdminNewsPage() {
 
         {/* Saved articles list */}
         <div className="space-y-3 mt-4 lg:mt-0">
-          <div className="hidden lg:block bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-              Хадгалагдсан мэдээ ({articles.length})
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-3">
+              Хадгалагдсан мэдээ ({filteredArticles.length}/{articles.length})
             </p>
+            {/* Category filter chips so admin can scope the list when
+                the article count grows. */}
+            <div className="flex gap-1.5 overflow-x-auto hide-scroll">
+              <button
+                onClick={() => setListFilter("")}
+                className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-bold border ${
+                  listFilter === ""
+                    ? "bg-gray-900 border-gray-900 text-white"
+                    : "bg-white border-gray-200 text-gray-600"
+                }`}
+              >
+                Бүгд
+              </button>
+              {NEWS_CATEGORIES.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setListFilter(c)}
+                  className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap ${
+                    listFilter === c
+                      ? "bg-gray-900 border-gray-900 text-white"
+                      : "bg-white border-gray-200 text-gray-600"
+                  }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {articles.length === 0 ? (
+          {filteredArticles.length === 0 ? (
             <div className="bg-white rounded-2xl py-12 text-center shadow-sm">
               <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-400">
                 <Newspaper className="w-5 h-5" />
@@ -312,7 +365,7 @@ export default function AdminNewsPage() {
               <p className="text-sm text-gray-500">Мэдээ алга байна</p>
             </div>
           ) : (
-            articles.map((a) => (
+            filteredArticles.map((a) => (
               <div key={a.id} className="bg-white rounded-2xl shadow-sm overflow-hidden flex gap-3">
                 <div className="w-24 aspect-[4/3] bg-gray-100 shrink-0 flex items-center justify-center text-gray-400">
                   {a.coverR2Key ? (
@@ -323,7 +376,7 @@ export default function AdminNewsPage() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0 py-2.5 pr-3">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                     <span
                       className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
                         a.status === "published"
@@ -333,6 +386,13 @@ export default function AdminNewsPage() {
                     >
                       {a.status === "published" ? "Нийтэлсэн" : "Ноорог"}
                     </span>
+                    {a.category && (
+                      <span
+                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${newsCategoryBadge(a.category)}`}
+                      >
+                        {a.category}
+                      </span>
+                    )}
                     {a.tags.slice(0, 2).map((t) => (
                       <span key={t} className="text-[10px] text-gray-500">
                         #{t}

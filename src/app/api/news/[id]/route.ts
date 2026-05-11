@@ -14,6 +14,7 @@ interface ArticleRow {
   title: string;
   content: string;
   cover_r2_key: string | null;
+  category: string | null;
   tags_json: string | null;
   status: "draft" | "published";
   created_at: string;
@@ -31,7 +32,7 @@ function parseTags(raw: string | null): string[] {
 }
 
 const ARTICLE_SELECT = `
-  SELECT id, title, content, cover_r2_key, tags_json, status,
+  SELECT id, title, content, cover_r2_key, category, tags_json, status,
          created_at, updated_at
     FROM news_articles`;
 
@@ -64,6 +65,7 @@ async function loadWithLikes(
     title: row.title,
     content: row.content,
     coverR2Key: row.cover_r2_key ?? undefined,
+    category: row.category ?? undefined,
     tags: parseTags(row.tags_json),
     status: row.status,
     likeCount: count?.n ?? 0,
@@ -105,6 +107,7 @@ export async function PATCH(
     title: string;
     content: string;
     coverR2Key: string | null;
+    category: string | null;
     tags: string[];
     status: "draft" | "published";
   }>;
@@ -130,6 +133,14 @@ export async function PATCH(
     values.push(
       typeof body.coverR2Key === "string" && body.coverR2Key.trim()
         ? body.coverR2Key.trim()
+        : null,
+    );
+  }
+  if (body.category !== undefined) {
+    updates.push("category = ?");
+    values.push(
+      typeof body.category === "string" && body.category.trim()
+        ? body.category.trim()
         : null,
     );
   }
