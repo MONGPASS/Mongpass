@@ -3,6 +3,7 @@
 export const runtime = "edge";
 
 import { ArrowLeft, Send } from "lucide-react";
+import { parseTimestamp } from "@/lib/datetime";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -17,12 +18,12 @@ import { Shop, findShopById } from "@/lib/shopStore";
 import { r2Url } from "@/lib/images/upload";
 
 function fmtTime(iso: string): string {
-  const d = new Date(iso);
+  const d = parseTimestamp(iso);
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("mn-MN");
+  return parseTimestamp(iso).toLocaleDateString("mn-MN");
 }
 
 export default function ChatThreadPage({ params }: { params: { threadId: string } }) {

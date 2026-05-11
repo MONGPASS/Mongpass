@@ -7,6 +7,7 @@ import {
   Store,
   ShieldCheck,
 } from "lucide-react";
+import { parseTimestamp } from "@/lib/datetime";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -30,7 +31,7 @@ function NotificationIcon({ kind }: { kind: Notification["kind"] }) {
 }
 
 function fmtRelative(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
+  const diff = Date.now() - parseTimestamp(iso).getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return "Дөнгөж сая";
   if (mins < 60) return `${mins} мин өмнө`;
@@ -38,7 +39,7 @@ function fmtRelative(iso: string): string {
   if (hours < 24) return `${hours} цагийн өмнө`;
   const days = Math.floor(hours / 24);
   if (days < 30) return `${days} өдрийн өмнө`;
-  return new Date(iso).toLocaleDateString("mn-MN");
+  return parseTimestamp(iso).toLocaleDateString("mn-MN");
 }
 
 export default function NotificationsPage() {
@@ -101,7 +102,7 @@ export default function NotificationsPage() {
       ) : (
         <div className="px-4 pt-3 space-y-2">
           {items.map((n) => {
-            const unread = new Date(n.createdAt).getTime() > lastSeenMs;
+            const unread = parseTimestamp(n.createdAt).getTime() > lastSeenMs;
             return (
               <Link
                 key={n.id}

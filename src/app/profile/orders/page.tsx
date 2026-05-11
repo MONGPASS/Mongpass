@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowLeft, Plane, Zap, Package, Pizza, Stethoscope, Scissors, ShoppingBag, Beef } from "lucide-react";
+import { parseTimestamp } from "@/lib/datetime";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -34,7 +35,7 @@ const CARGO_TYPE_ICON: Record<CargoType, typeof Plane> = {
 };
 
 function fmtDateTime(iso: string): string {
-  const d = new Date(iso);
+  const d = parseTimestamp(iso);
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
@@ -246,7 +247,7 @@ export default function MyOrdersPage() {
   }, []);
 
   const sorted = [...orders].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    (a, b) => parseTimestamp(b.createdAt).getTime() - parseTimestamp(a.createdAt).getTime(),
   );
   const visible = sorted.filter((o) => {
     if (tab === "all") return true;

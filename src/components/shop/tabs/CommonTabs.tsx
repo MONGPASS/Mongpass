@@ -1,6 +1,7 @@
 'use client';
 
 import { MapPin, Clock, Phone, Facebook, Instagram, Star, MessageSquare } from "lucide-react";
+import { parseTimestamp } from "@/lib/datetime";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -241,7 +242,7 @@ export function ReviewTab({ shop }: { shop: ShopData }) {
                   <span className="font-bold text-sm text-gray-900">{r.userName}</span>
                 </div>
                 <span className="text-[10px] text-gray-400">
-                  {new Date(r.createdAt).toLocaleDateString("mn-MN")}
+                  {parseTimestamp(r.createdAt).toLocaleDateString("mn-MN")}
                 </span>
               </div>
               <div className="flex items-center gap-0.5 mb-1.5">

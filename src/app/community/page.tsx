@@ -1,6 +1,7 @@
 'use client';
 
 import { Heart, MessageCircle, PenLine, Users } from "lucide-react";
+import { parseTimestamp } from "@/lib/datetime";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import BottomNav from "@/components/layout/BottomNav";
@@ -12,7 +13,7 @@ import {
 import { getCurrentUser } from "@/lib/userStore";
 
 function fmtRelative(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
+  const diff = Date.now() - parseTimestamp(iso).getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return "Дөнгөж сая";
   if (mins < 60) return `${mins} мин`;
@@ -20,7 +21,7 @@ function fmtRelative(iso: string): string {
   if (hours < 24) return `${hours} цаг`;
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days} өдөр`;
-  return new Date(iso).toLocaleDateString("mn-MN");
+  return parseTimestamp(iso).toLocaleDateString("mn-MN");
 }
 
 const CATEGORY_BADGE: Record<string, string> = {

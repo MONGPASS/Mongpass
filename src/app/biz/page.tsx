@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowLeft, Share2, Menu, AlertCircle, Edit3, ShoppingBag, Camera, Home, PlusSquare, MessageCircle, Settings, X } from "lucide-react";
+import { parseTimestamp } from "@/lib/datetime";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState, useRef, useEffect } from "react";
@@ -911,7 +912,7 @@ function CargoOrdersList({ shopId }: { shopId: string }) {
           <p className="text-center text-gray-400 text-sm py-12">Захиалга байхгүй байна</p>
         )}
         {visible.map((order) => {
-          const created = new Date(order.createdAt);
+          const created = parseTimestamp(order.createdAt);
           const dateStr = `${created.getMonth() + 1}/${created.getDate()} ${String(created.getHours()).padStart(2, "0")}:${String(created.getMinutes()).padStart(2, "0")}`;
           return (
             <div key={order.id} className="bg-white rounded-2xl shadow-sm p-4">
@@ -1049,7 +1050,7 @@ function StatusSelect({
 }
 
 function fmtDateTime(iso: string): string {
-  const d = new Date(iso);
+  const d = parseTimestamp(iso);
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 

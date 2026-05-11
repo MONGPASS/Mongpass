@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowLeft, Edit2, Megaphone, Plus, Save, Trash2, X } from "lucide-react";
+import { parseTimestamp } from "@/lib/datetime";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -14,7 +15,7 @@ import { getCurrentUser } from "@/lib/userStore";
 const empty = { title: "", content: "" };
 
 function fmtDate(iso: string): string {
-  const d = new Date(iso);
+  const d = parseTimestamp(iso);
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 }
 

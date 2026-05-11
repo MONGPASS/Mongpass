@@ -14,6 +14,7 @@ import {
   getStatusLabel,
   loadOrders,
 } from "@/lib/orderStore";
+import { parseTimestamp } from "@/lib/datetime";
 import { ShopCategory } from "@/components/shop/types";
 import { findShopById, findShopByOwner, loadShopsByStatus } from "@/lib/shopStore";
 import { User } from "@/lib/userStore";
@@ -143,7 +144,7 @@ export async function buildNotifications(user: User | null): Promise<Notificatio
   }
 
   return out.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    (a, b) => parseTimestamp(b.createdAt).getTime() - parseTimestamp(a.createdAt).getTime(),
   );
 }
 
@@ -153,7 +154,7 @@ export async function countUnread(user: User | null): Promise<number> {
     fetchLastSeen(),
   ]);
   const lastSeenMs = lastSeen ? new Date(lastSeen).getTime() : 0;
-  return list.filter((n) => new Date(n.createdAt).getTime() > lastSeenMs).length;
+  return list.filter((n) => parseTimestamp(n.createdAt).getTime() > lastSeenMs).length;
 }
 
 function customerStatusBody(category: ShopCategory, status: OrderStatus): string {

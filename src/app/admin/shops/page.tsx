@@ -1,6 +1,7 @@
 'use client';
 
 import { Check, X, Store, Phone, MapPin, Clock, Calendar, Sparkles, Trash2 } from "lucide-react";
+import { parseTimestamp } from "@/lib/datetime";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Shop, ShopStatus, SHOP_STATUS_LABEL, approveShop, deleteShop, loadShopsByStatus, rejectShop, toggleFeatured } from "@/lib/shopStore";
@@ -18,7 +19,7 @@ const STATUS_BG: Record<ShopStatus, string> = {
 
 function fmtFull(iso: string | undefined): string {
   if (!iso) return "—";
-  const d = new Date(iso);
+  const d = parseTimestamp(iso);
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 

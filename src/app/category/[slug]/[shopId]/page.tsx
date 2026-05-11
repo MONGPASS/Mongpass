@@ -3,6 +3,7 @@
 export const runtime = "edge";
 
 import Link from "next/link";
+import { parseTimestamp } from "@/lib/datetime";
 import { ArrowLeft, Store } from "lucide-react";
 import { useEffect, useState } from "react";
 import ShopDetailPage from "@/components/shop/ShopDetailPage";
@@ -34,7 +35,7 @@ function shopToShopData(shop: Shop): ShopData {
       id: parseInt(n.id.replace(/[^0-9]/g, "").slice(-9), 10) || 0,
       title: n.title,
       content: n.content,
-      date: new Date(n.createdAt).toLocaleDateString("mn-MN"),
+      date: parseTimestamp(n.createdAt).toLocaleDateString("mn-MN"),
     })),
     isOpen: shop.isOpen,
     status: shop.status,
