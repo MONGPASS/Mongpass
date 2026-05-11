@@ -3,7 +3,7 @@
 export const runtime = "edge";
 
 import Link from "next/link";
-import { ArrowLeft, Search, Map, SlidersHorizontal, ArrowDownUp, Star, MapPin, Store } from "lucide-react";
+import { ArrowLeft, ArrowDownUp, Check, MapPin, Search, SlidersHorizontal, Star, Store, X } from "lucide-react";
 import BottomNav from "@/components/layout/BottomNav";
 import { useEffect, useMemo, useState } from "react";
 import { Shop, isShopOpen, loadApprovedShops } from "@/lib/shopStore";
@@ -12,6 +12,14 @@ import { ShopCategory } from "@/components/shop/types";
 import { CATEGORY_REGISTRY } from "@/lib/categories";
 import { getCurrentUser } from "@/lib/userStore";
 import { HOSPITAL_SPECIALTIES } from "@/lib/hospitalSpecialties";
+
+type SortKey = "newest" | "rating" | "reviews";
+
+const SORT_LABEL: Record<SortKey, string> = {
+  newest: "Шинээр",
+  rating: "Үнэлгээгээр",
+  reviews: "Сэтгэгдлээр",
+};
 
 /**
  * The slug from the URL doesn't always map 1:1 to a `ShopCategory`:
@@ -40,6 +48,15 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
   // "" = "Бүгд" (show all). When set, the visible list is restricted
   // to shops whose `specialty` matches.
   const [specialty, setSpecialty] = useState<string>("");
+  // Filter sheet state — currently just "show only open shops". The
+  // sheet is structured to grow as more filters land (price range,
+  // rating threshold, etc.) without rebuilding the modal.
+  const [showFilters, setShowFilters] = useState(false);
+  const [openOnly, setOpenOnly] = useState(false);
+  // Sort sheet state — three options today; default is newest first
+  // because customers expect to see what's new on top of a list.
+  const [showSort, setShowSort] = useState(false);
+  const [sortBy, setSortBy] = useState<SortKey>("newest");
 
   useEffect(() => {
     let active = true;
@@ -60,31 +77,45 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
     if (slug === "hospital" && specialty) {
       list = list.filter((s) => s.specialty === specialty);
     }
+    if (openOnly) {
+      list = list.filter((s) => isShopOpen(s));
+    }
     const q = query.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter((s) =>
-      s.name.toLowerCase().includes(q) ||
-      (s.description ?? "").toLowerCase().includes(q) ||
-      (s.address ?? "").toLowerCase().includes(q),
-    );
-  }, [shops, query, slug, specialty]);
+    if (q) {
+      list = list.filter((s) =>
+        s.name.toLowerCase().includes(q) ||
+        (s.description ?? "").toLowerCase().includes(q) ||
+        (s.address ?? "").toLowerCase().includes(q),
+      );
+    }
+    // Sort last so filters narrow the pool before we order it. Make
+    // a copy first — Array#sort mutates, and `shops` is React state.
+    const sorted = [...list];
+    if (sortBy === "rating") {
+      sorted.sort((a, b) => (b.avgRating ?? 0) - (a.avgRating ?? 0));
+    } else if (sortBy === "reviews") {
+      sorted.sort((a, b) => (b.reviewCount ?? 0) - (a.reviewCount ?? 0));
+    } else {
+      // newest — string ISO comparison works because of fixed width
+      sorted.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
+    return sorted;
+  }, [shops, query, slug, specialty, openOnly, sortBy]);
 
   return (
     <main className="w-full min-h-screen bg-gray-50 pb-[80px]">
-      {/* Header */}
+      {/* Header.
+          Map icon removed — used to be a non-functional <button>. The
+          search input below covers the discovery use case; revisit when
+          the maps integration lands. */}
       <header className="sticky top-0 z-50 bg-white px-5 py-3 flex items-center justify-between border-b border-gray-100">
         <Link href="/" className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition">
           <ArrowLeft size={24} className="text-gray-900" />
         </Link>
         <h1 className="text-[18px] font-bold text-gray-900">{title}</h1>
-        <div className="flex items-center gap-3">
-          <Link href="/search" className="p-1 hover:text-primary transition" aria-label="Хайх">
-            <Search size={22} className="text-gray-700" />
-          </Link>
-          <button className="p-1 hover:text-primary transition" aria-label="Газрын зураг">
-            <Map size={22} className="text-gray-700" />
-          </button>
-        </div>
+        <Link href="/search" className="p-1 hover:text-primary transition" aria-label="Хайх">
+          <Search size={22} className="text-gray-700" />
+        </Link>
       </header>
 
       {/* Search & Filters */}
@@ -101,14 +132,51 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
         </div>
 
         <div className="flex items-center gap-2 mb-1">
-          <button className="flex-1 flex items-center justify-center gap-2 py-2 border border-gray-200 rounded-xl text-[14px] font-semibold text-gray-800 hover:bg-gray-50 transition">
-            <SlidersHorizontal size={16} /> Шүүх
+          {/* Filter button — opens a small bottom sheet. Active state
+              (filter currently applied) gets a primary-tinted border so
+              the customer can see at a glance the list is narrowed. */}
+          <button
+            onClick={() => setShowFilters(true)}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 border rounded-xl text-[14px] font-semibold transition ${
+              openOnly
+                ? "bg-primary/10 border-primary text-primary"
+                : "border-gray-200 text-gray-800 hover:bg-gray-50"
+            }`}
+          >
+            <SlidersHorizontal size={16} /> Шүүх{openOnly ? " · 1" : ""}
           </button>
-          <button className="flex-1 flex items-center justify-center gap-2 py-2 border border-gray-200 rounded-xl text-[14px] font-semibold text-gray-800 hover:bg-gray-50 transition">
-            <ArrowDownUp size={16} /> Эрэмбэлэх
+          {/* Sort button — label includes the current sort key so the
+              customer doesn't have to open it just to check what's
+              applied. */}
+          <button
+            onClick={() => setShowSort(true)}
+            className="flex-1 flex items-center justify-center gap-2 py-2 border border-gray-200 rounded-xl text-[14px] font-semibold text-gray-800 hover:bg-gray-50 transition"
+          >
+            <ArrowDownUp size={16} /> {SORT_LABEL[sortBy]}
           </button>
         </div>
       </div>
+
+      {/* Filter sheet — bottom-anchored on mobile, centered on tablet+. */}
+      {showFilters && (
+        <FilterSheet
+          openOnly={openOnly}
+          onChangeOpenOnly={setOpenOnly}
+          onClose={() => setShowFilters(false)}
+        />
+      )}
+
+      {/* Sort sheet — picking an option auto-applies + closes. */}
+      {showSort && (
+        <SortSheet
+          value={sortBy}
+          onChange={(next) => {
+            setSortBy(next);
+            setShowSort(false);
+          }}
+          onClose={() => setShowSort(false)}
+        />
+      )}
 
       {/* Hospital specialty filter — horizontal scroll of all 19
           specialty types plus "Бүгд". Renders only on the hospital
@@ -247,5 +315,133 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
       )}
       <BottomNav />
     </main>
+  );
+}
+
+/**
+ * Filter sheet — bottom-anchored modal. Today the only filter is
+ * "open only", but the layout (toggle row + Reset / Apply footer) is
+ * the standard for any future toggle so adding more is a one-liner.
+ */
+function FilterSheet({
+  openOnly,
+  onChangeOpenOnly,
+  onClose,
+}: {
+  openOnly: boolean;
+  onChangeOpenOnly: (v: boolean) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[60] bg-black/40 flex items-end sm:items-center justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 pb-7"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-bold text-base text-gray-900">Шүүх</h2>
+          <button onClick={onClose} className="p-1 -mr-1 hover:bg-gray-100 rounded-full" aria-label="Хаах">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+        {/* Toggle row — clicks anywhere on the row flip it. */}
+        <button
+          onClick={() => onChangeOpenOnly(!openOnly)}
+          className="w-full flex items-center justify-between py-3 border-b border-gray-100"
+        >
+          <div className="text-left">
+            <p className="text-sm font-bold text-gray-900">Зөвхөн нээлттэй газар</p>
+            <p className="text-[11px] text-gray-500 mt-0.5">Одоо ажиллаж буй гэжүүгийг харуулна</p>
+          </div>
+          <span
+            className={`relative inline-block w-10 h-6 rounded-full transition-colors ${
+              openOnly ? "bg-primary" : "bg-gray-200"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                openOnly ? "translate-x-4" : ""
+              }`}
+            />
+          </span>
+        </button>
+
+        <div className="flex gap-2 mt-5">
+          <button
+            onClick={() => onChangeOpenOnly(false)}
+            className="flex-1 bg-gray-100 text-gray-700 font-semibold py-2.5 rounded-lg text-sm"
+          >
+            Дахин тохируулах
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 bg-primary text-white font-semibold py-2.5 rounded-lg text-sm"
+          >
+            Үзэх
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Sort sheet — radio-style list. Clicking an option auto-applies and
+ * dismisses the sheet (faster than asking for an extra "Apply" tap).
+ */
+function SortSheet({
+  value,
+  onChange,
+  onClose,
+}: {
+  value: SortKey;
+  onChange: (v: SortKey) => void;
+  onClose: () => void;
+}) {
+  const options: Array<{ key: SortKey; label: string; sub: string }> = [
+    { key: "newest", label: "Шинээр", sub: "Шинэ бүртгэгдсэн дэлгүүр эхэндээ" },
+    { key: "rating", label: "Үнэлгээгээр", sub: "Өндөр оноотой дэлгүүр эхэндээ" },
+    { key: "reviews", label: "Сэтгэгдлээр", sub: "Олон сэтгэгдэлтэй дэлгүүр эхэндээ" },
+  ];
+  return (
+    <div
+      className="fixed inset-0 z-[60] bg-black/40 flex items-end sm:items-center justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 pb-7"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-bold text-base text-gray-900">Эрэмбэлэх</h2>
+          <button onClick={onClose} className="p-1 -mr-1 hover:bg-gray-100 rounded-full" aria-label="Хаах">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+        <div className="divide-y divide-gray-100">
+          {options.map((opt) => {
+            const active = value === opt.key;
+            return (
+              <button
+                key={opt.key}
+                onClick={() => onChange(opt.key)}
+                className="w-full flex items-center justify-between py-3 text-left"
+              >
+                <div>
+                  <p className={`text-sm ${active ? "font-bold text-primary" : "font-semibold text-gray-900"}`}>
+                    {opt.label}
+                  </p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">{opt.sub}</p>
+                </div>
+                {active && <Check className="w-5 h-5 text-primary shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }
