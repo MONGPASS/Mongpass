@@ -228,6 +228,16 @@ export async function loadOrders(opts: LoadOrdersOptions = {}): Promise<Order[]>
   return data?.orders ?? [];
 }
 
+/**
+ * Total pending orders across every shop the caller owns. Drives the
+ * red "new order" badge on the /biz Захиалга tab. Returns 0 when not
+ * signed in (server returns 200 with count=0 there too).
+ */
+export async function loadBizPendingOrderCount(): Promise<number> {
+  const data = await getJson<{ count: number }>("/api/biz/orders/unread");
+  return data?.count ?? 0;
+}
+
 /** Convenience wrapper used by the /biz orders tabs. */
 export async function loadOrdersByShop(
   category: ShopCategory,

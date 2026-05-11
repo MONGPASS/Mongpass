@@ -1,11 +1,12 @@
 'use client';
 
 import { ArrowLeft, Share2, Menu, AlertCircle, Edit3, ShoppingBag, Camera, Home, PlusSquare, MessageCircle, Settings, X } from "lucide-react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState, useRef, useEffect } from "react";
 import { getCategoryInfo } from "@/lib/categories";
 import { ShopCategory } from "@/components/shop/types";
-import { BeautyAppointment, CargoOrder, HospitalAppointment, MeatOrder, ORDER_STATUS_LABEL, OrderStatus, RestaurantOrder, formatPrice, getStatusFlow, getStatusLabel, loadOrdersByShop, updateOrderStatus } from "@/lib/orderStore";
+import { BeautyAppointment, CargoOrder, HospitalAppointment, MeatOrder, ORDER_STATUS_LABEL, OrderStatus, RestaurantOrder, formatPrice, getStatusFlow, getStatusLabel, loadBizPendingOrderCount, loadOrdersByShop, updateOrderStatus } from "@/lib/orderStore";
 import { Shop, findShopByOwner, isShopOpen, toggleOpen, updateShop } from "@/lib/shopStore";
 import { HOSPITAL_SPECIALTIES } from "@/lib/hospitalSpecialties";
 import { getCurrentUser } from "@/lib/userStore";
@@ -35,6 +36,11 @@ function BizProfilePageInner() {
   const [shopName, setShopName] = useState("");
   const [shopImages, setShopImages] = useState<string[]>([]);
   const [savedFlash, setSavedFlash] = useState(false);
+  // Count of "pending" orders across all shops the owner runs. Drives
+  // both the red badge on the Захиалга tab and the alert banner on
+  // the Нүүр home tab. Polled every 8s while the page is open so a
+  // newly-placed order surfaces without a manual refresh.
+  const [pendingOrderCount, setPendingOrderCount] = useState(0);
   const shopCategoryInfo = currentShop ? getCategoryInfo(currentShop.category) : null;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -77,6 +83,26 @@ function BizProfilePageInner() {
       setIsEditingProfile(true);
     }
   }, [searchParams]);
+
+  // Poll the pending-order count so a customer placing an order while
+  // the owner is on /biz lights up the red badge within ~8s. The
+  // Захиалга lists also refresh themselves when their tab is visible,
+  // so this keeps the cross-tab badge in sync without coupling.
+  useEffect(() => {
+    if (!authChecked || !currentShop) return;
+    let active = true;
+    const refresh = () => {
+      loadBizPendingOrderCount().then((n) => {
+        if (active) setPendingOrderCount(n);
+      });
+    };
+    refresh();
+    const interval = setInterval(refresh, 8000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [authChecked, currentShop]);
 
   const [uploading, setUploading] = useState(false);
 
@@ -185,9 +211,42 @@ function BizProfilePageInner() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-gray-50 relative pb-20">
-      {/* Top Bar */}
-      <div className="flex items-center justify-between p-4 bg-white sticky top-0 z-50 shadow-sm border-b border-gray-100">
+    /* Desktop shell — only kicks in at lg+. `lg:fixed lg:inset-0` lets
+       the page break out of the customer-app .mobile-container (480px
+       max-width) and use the full viewport, mirroring the admin shell.
+       On mobile this stays a normal-flow div with bottom-nav padding. */
+    <div className="w-full min-h-screen bg-gray-50 relative pb-20 lg:pb-0 lg:fixed lg:inset-0 lg:z-40 lg:flex lg:overflow-hidden">
+      {/* PC sidebar — replaces the mobile bottom nav at lg+. */}
+      <BizSidebar
+        currentShop={currentShop}
+        shopCategoryInfo={shopCategoryInfo}
+        activeTab={activeTab}
+        isEditingProfile={isEditingProfile}
+        pendingOrderCount={pendingOrderCount}
+        onSelectTab={(t) => { setIsEditingProfile(false); setActiveTab(t); }}
+        onEditProfile={() => { setIsEditingProfile(true); setActiveTab("Нүүр"); }}
+        onProductsClick={() => {
+          setIsEditingProfile(false);
+          if (shopCategoryInfo.adminRoute) {
+            router.push(shopCategoryInfo.adminRoute);
+          } else {
+            setActiveTab("Бүтээгдэхүүн");
+          }
+        }}
+        onNoticesClick={() => router.push("/biz/notices")}
+        onToggleOpen={async () => {
+          const next = await toggleOpen(currentShop.id);
+          if (next) setCurrentShop(next);
+        }}
+      />
+
+      {/* Right-pane scroll container on desktop; on mobile this is a
+          static div whose children render the existing layout. */}
+      <div className="lg:flex-1 lg:min-w-0 lg:overflow-auto">
+        <div className="lg:max-w-5xl lg:mx-auto">
+
+      {/* Top Bar — mobile only. The desktop sidebar replaces it. */}
+      <div className="lg:hidden flex items-center justify-between p-4 bg-white sticky top-0 z-50 shadow-sm border-b border-gray-100">
         <button onClick={() => router.back()} className="p-1 -ml-1 text-gray-900 active:bg-gray-100 rounded-full transition-colors">
           <ArrowLeft size={28} strokeWidth={1.5} />
         </button>
@@ -492,17 +551,42 @@ function BizProfilePageInner() {
                 </button>
               </div>
             ) : (
-              <div className="bg-white mt-2 p-5 border-y border-gray-100 flex flex-col gap-4">
-                <h3 className="font-bold text-gray-900 text-[16px]">
-                  Сайн байна уу, {currentShop.name}!
-                </h3>
-                <p className="text-[13px] text-gray-600 leading-relaxed">
-                  Дээд талын <b>Засах</b> цэснээс дэлгүүрийн мэдээллээ удирдах,
-                  <b> Захиалга</b> цэснээс ирсэн захиалгуудыг харах,
-                  <b> Чат</b> цэснээс үйлчлүүлэгчтэй харилцаж болно.
-                </p>
-                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-[12px] text-blue-700 leading-relaxed">
-                  📊 Хандалт, орлого зэрэг статистик удахгүй нэмэгдэнэ.
+              <div className="space-y-2">
+                {/* New-order alert — surfaces above everything else on
+                    the Нүүр tab whenever there's at least one pending
+                    order. Clicking jumps straight to the Захиалга tab
+                    so the owner can act on it. */}
+                {pendingOrderCount > 0 && (
+                  <button
+                    onClick={() => setActiveTab("Захиалга")}
+                    className="w-full mt-2 bg-red-50 border-y border-red-200 px-5 py-3 flex items-center gap-3 active:bg-red-100 transition-colors text-left"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0 font-bold text-sm">
+                      {pendingOrderCount > 99 ? "99+" : pendingOrderCount}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-[14px] text-red-700">
+                        Шинэ захиалга хүлээгдэж байна
+                      </p>
+                      <p className="text-[12px] text-red-600">
+                        Хариу үйлдэл хүлээж буй захиалгууд байна. Үзэх →
+                      </p>
+                    </div>
+                  </button>
+                )}
+
+                <div className="bg-white mt-2 p-5 border-y border-gray-100 flex flex-col gap-4">
+                  <h3 className="font-bold text-gray-900 text-[16px]">
+                    Сайн байна уу, {currentShop.name}!
+                  </h3>
+                  <p className="text-[13px] text-gray-600 leading-relaxed">
+                    Дээд талын <b>Засах</b> цэснээс дэлгүүрийн мэдээллээ удирдах,
+                    <b> Захиалга</b> цэснээс ирсэн захиалгуудыг харах,
+                    <b> Чат</b> цэснээс үйлчлүүлэгчтэй харилцаж болно.
+                  </p>
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-[12px] text-blue-700 leading-relaxed">
+                    📊 Хандалт, орлого зэрэг статистик удахгүй нэмэгдэнэ.
+                  </div>
                 </div>
               </div>
             )}
@@ -550,8 +634,13 @@ function BizProfilePageInner() {
         )}
       </div>
 
-      {/* Admin Bottom Nav */}
-      <div className="fixed bottom-0 w-full max-w-[480px] bg-white border-t border-gray-200 pb-safe z-50">
+      {/* Close the desktop right-pane wrapper opened above. */}
+        </div>
+      </div>
+
+      {/* Admin Bottom Nav — mobile only. The PC sidebar provides the
+          same navigation at lg+. */}
+      <div className="lg:hidden fixed bottom-0 w-full max-w-[480px] bg-white border-t border-gray-200 pb-safe z-50">
         <div className="flex justify-between items-center h-[65px] px-1 overflow-x-auto hide-scroll">
           <button 
             onClick={() => { setIsEditingProfile(false); setActiveTab("Нүүр"); }}
@@ -569,11 +658,21 @@ function BizProfilePageInner() {
             <span className={`text-[9px] leading-tight text-center ${activeTab === 'Чат' && !isEditingProfile ? 'font-bold' : 'font-medium'}`}>Чат</span>
           </button>
           
-          <button 
+          <button
             onClick={() => { setIsEditingProfile(false); setActiveTab("Захиалга"); }}
-            className={`flex flex-col items-center justify-center min-w-[55px] h-full gap-1 transition-colors ${activeTab === 'Захиалга' && !isEditingProfile ? 'text-gray-900' : 'text-gray-400 hover:text-gray-900'}`}
+            className={`relative flex flex-col items-center justify-center min-w-[55px] h-full gap-1 transition-colors ${activeTab === 'Захиалга' && !isEditingProfile ? 'text-gray-900' : 'text-gray-400 hover:text-gray-900'}`}
           >
-            <ShoppingBag size={21} strokeWidth={activeTab === 'Захиалга' && !isEditingProfile ? 2.5 : 2} />
+            <span className="relative">
+              <ShoppingBag size={21} strokeWidth={activeTab === 'Захиалга' && !isEditingProfile ? 2.5 : 2} />
+              {pendingOrderCount > 0 && (
+                <span
+                  className="absolute -top-1.5 -right-2 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-white"
+                  aria-label={`${pendingOrderCount} шинэ захиалга`}
+                >
+                  {pendingOrderCount > 9 ? "9+" : pendingOrderCount}
+                </span>
+              )}
+            </span>
             <span className={`text-[9px] leading-tight text-center ${activeTab === 'Захиалга' && !isEditingProfile ? 'font-bold' : 'font-medium'}`}>Захиалга</span>
           </button>
           
@@ -614,6 +713,160 @@ function BizProfilePageInner() {
       </div>
 
     </div>
+  );
+}
+
+/**
+ * Desktop sidebar for /biz. Mirrors the mobile bottom-nav buttons +
+ * adds richer header content (logo, shop card with category badge +
+ * open/closed toggle) that there's no room for on a 480px-wide phone
+ * layout. Hidden under lg.
+ */
+function BizSidebar({
+  currentShop,
+  shopCategoryInfo,
+  activeTab,
+  isEditingProfile,
+  pendingOrderCount,
+  onSelectTab,
+  onEditProfile,
+  onProductsClick,
+  onNoticesClick,
+  onToggleOpen,
+}: {
+  currentShop: Shop;
+  shopCategoryInfo: { label: string; productLabel: string; adminRoute?: string };
+  activeTab: string;
+  isEditingProfile: boolean;
+  pendingOrderCount: number;
+  onSelectTab: (tab: string) => void;
+  onEditProfile: () => void;
+  onProductsClick: () => void;
+  onNoticesClick: () => void;
+  onToggleOpen: () => void;
+}) {
+  const cover = currentShop.images?.[0];
+  const NavItem = ({
+    icon: Icon,
+    label,
+    active,
+    badge,
+    onClick,
+  }: {
+    icon: React.ElementType;
+    label: string;
+    active: boolean;
+    badge?: number;
+    onClick: () => void;
+  }) => (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+        active ? "bg-primary/10 text-primary" : "text-gray-600 hover:bg-gray-50"
+      }`}
+    >
+      <span className="relative">
+        <Icon className="w-4 h-4" />
+        {badge && badge > 0 && (
+          <span className="absolute -top-1.5 -right-2 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-white">
+            {badge > 9 ? "9+" : badge}
+          </span>
+        )}
+      </span>
+      {label}
+    </button>
+  );
+  return (
+    <aside className="hidden lg:flex w-64 shrink-0 flex-col bg-white border-r border-gray-200">
+      {/* Logo */}
+      <div className="px-6 py-5 border-b border-gray-100">
+        <Link href="/" className="flex items-center gap-2 text-gray-900">
+          <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center font-black text-sm">
+            M
+          </div>
+          <span className="font-black text-lg tracking-tight">mongpass</span>
+        </Link>
+        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mt-3">
+          Бизнес удирдлага
+        </p>
+      </div>
+
+      {/* Shop card — cover + name + category + status pill. */}
+      <div className="px-4 py-4 border-b border-gray-100">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden shrink-0 flex items-center justify-center text-gray-400 font-bold">
+            {cover ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={r2Url(cover)} alt="" className="w-full h-full object-cover" />
+            ) : (
+              currentShop.name.slice(0, 1).toUpperCase()
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-sm text-gray-900 truncate">{currentShop.name}</p>
+            <p className="text-[11px] text-gray-500">{shopCategoryInfo.label}</p>
+          </div>
+        </div>
+        <button
+          onClick={onToggleOpen}
+          className={`w-full flex items-center justify-center gap-1.5 text-[11px] font-bold px-2.5 py-2 rounded-lg border transition-colors ${
+            isShopOpen(currentShop)
+              ? "bg-green-50 text-green-700 border-green-200"
+              : "bg-red-50 text-red-700 border-red-200"
+          }`}
+        >
+          <span
+            className={`w-2 h-2 rounded-full ${
+              isShopOpen(currentShop) ? "bg-green-500" : "bg-red-500"
+            }`}
+          />
+          {isShopOpen(currentShop) ? "Нээлттэй" : "Хаалттай"}
+        </button>
+      </div>
+
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <NavItem
+          icon={Home}
+          label="Нүүр"
+          active={!isEditingProfile && activeTab === "Нүүр"}
+          onClick={() => onSelectTab("Нүүр")}
+        />
+        <NavItem
+          icon={MessageCircle}
+          label="Чат"
+          active={!isEditingProfile && activeTab === "Чат"}
+          onClick={() => onSelectTab("Чат")}
+        />
+        <NavItem
+          icon={ShoppingBag}
+          label="Захиалга"
+          active={!isEditingProfile && activeTab === "Захиалга"}
+          badge={pendingOrderCount}
+          onClick={() => onSelectTab("Захиалга")}
+        />
+        <NavItem
+          icon={PlusSquare}
+          label={`${shopCategoryInfo.productLabel} оруулах`}
+          active={!isEditingProfile && activeTab === "Бүтээгдэхүүн"}
+          onClick={onProductsClick}
+        />
+        <NavItem
+          icon={Edit3}
+          label="Мэдээ удирдах"
+          active={false}
+          onClick={onNoticesClick}
+        />
+      </nav>
+
+      <div className="border-t border-gray-100 p-3">
+        <NavItem
+          icon={Settings}
+          label="Дэлгүүр засах"
+          active={isEditingProfile}
+          onClick={onEditProfile}
+        />
+      </div>
+    </aside>
   );
 }
 
