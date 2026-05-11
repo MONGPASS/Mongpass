@@ -19,12 +19,11 @@ import {
 import { User, getCurrentUser } from "@/lib/userStore";
 
 const CATEGORY_BADGE: Record<string, string> = {
-  "Зөвлөгөө": "bg-blue-100 text-blue-700",
-  "Худалдаа": "bg-orange-100 text-orange-700",
-  "Ажил": "bg-purple-100 text-purple-700",
-  "Үйл явдал": "bg-pink-100 text-pink-700",
-  "Мэдээ": "bg-emerald-100 text-emerald-700",
-  "Алдсан/Олсон": "bg-amber-100 text-amber-700",
+  "Ажлын зар": "bg-purple-100 text-purple-700",
+  "Виз зөвлөгөө": "bg-blue-100 text-blue-700",
+  "Эрүүл мэнд": "bg-emerald-100 text-emerald-700",
+  "Байр сууц": "bg-orange-100 text-orange-700",
+  "Мэдэхэд илүүдэхгүй": "bg-amber-100 text-amber-700",
   "Бусад": "bg-gray-100 text-gray-700",
 };
 
