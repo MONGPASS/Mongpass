@@ -40,6 +40,12 @@ export interface Shop {
   bankAccount?: string;
   /** Per-order delivery fee in KRW. Undefined when not configured. */
   deliveryFee?: number;
+  /**
+   * Sub-category. Today only used by hospitals (one of HOSPITAL_SPECIALTIES);
+   * other categories leave it undefined. Drives the specialty tab filter on
+   * /category/hospital and is shown as a small badge on the shop card.
+   */
+  specialty?: string;
   /** Number of reviews. Computed server-side via aggregate join. */
   reviewCount?: number;
   /** Average rating 0..5, rounded to 1 decimal. 0 when no reviews. */
@@ -158,6 +164,7 @@ export async function createShop(
     openHours: input.openHours,
     facebook: input.facebook,
     instagram: input.instagram,
+    specialty: input.specialty,
   });
   return data?.shop ?? null;
 }
@@ -169,6 +176,8 @@ export async function updateShop(
   > & {
     /** null is allowed and means "clear the value". */
     deliveryFee?: number | null;
+    /** null clears the specialty, undefined leaves it unchanged. */
+    specialty?: string | null;
   },
 ): Promise<Shop | null> {
   const data = await patchJson<{ shop: Shop }>(

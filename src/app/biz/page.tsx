@@ -7,6 +7,7 @@ import { getCategoryInfo } from "@/lib/categories";
 import { ShopCategory } from "@/components/shop/types";
 import { BeautyAppointment, CargoOrder, HospitalAppointment, MeatOrder, ORDER_STATUS_LABEL, OrderStatus, RestaurantOrder, formatPrice, getStatusFlow, getStatusLabel, loadOrdersByShop, updateOrderStatus } from "@/lib/orderStore";
 import { Shop, findShopByOwner, isShopOpen, toggleOpen, updateShop } from "@/lib/shopStore";
+import { HOSPITAL_SPECIALTIES } from "@/lib/hospitalSpecialties";
 import { getCurrentUser } from "@/lib/userStore";
 import { BizChatThreadList } from "@/components/biz/BizChatThreadList";
 import { r2Url, uploadImage } from "@/lib/images/upload";
@@ -63,6 +64,7 @@ function BizProfilePageInner() {
         instagram: shop.instagram ?? "",
         address: shop.address ?? "",
       });
+      setSpecialty(shop.specialty ?? "");
       setAuthChecked(true);
     })();
     return () => { active = false; };
@@ -142,6 +144,10 @@ function BizProfilePageInner() {
     instagram: "",
     address: "",
   });
+  // Hospital sub-category (Эмнэлгийн төрөл) — only meaningful when
+  // the shop's category === "hospital". Drives the customer-side
+  // /category/hospital tab filter.
+  const [specialty, setSpecialty] = useState<string>("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -159,6 +165,11 @@ function BizProfilePageInner() {
       facebook: formData.facebook.trim() || undefined,
       instagram: formData.instagram.trim() || undefined,
       address: formData.address.trim() || undefined,
+      // Only PATCH specialty for hospital shops; for any other category
+      // the server clamps it to NULL anyway, so don't even send it.
+      ...(currentShop.category === "hospital"
+        ? { specialty: specialty.trim() || null }
+        : {}),
     });
     if (next) {
       setCurrentShop(next);
@@ -368,6 +379,25 @@ function BizProfilePageInner() {
                     className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[14px] font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all text-gray-900"
                   />
                 </div>
+
+                {/* Эмнэлгийн төрөл — only for hospital category. */}
+                {currentShop.category === "hospital" && (
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[13px] font-bold text-gray-700">
+                      Эмнэлгийн төрөл <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={specialty}
+                      onChange={(e) => setSpecialty(e.target.value)}
+                      className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-primary/20 transition-all text-gray-800"
+                    >
+                      <option value="">— Сонгоно уу —</option>
+                      {HOSPITAL_SPECIALTIES.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 {/* Цагийн хуваарь */}
                 <div className="flex flex-col gap-2">

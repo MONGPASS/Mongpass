@@ -68,7 +68,7 @@ export async function GET(request: Request): Promise<Response> {
       `SELECT id, owner_id, category, name, description, contact_phone,
               address, open_hours, facebook, instagram, status,
               rejection_reason, reviewed_at, featured, is_open,
-              bank_account, delivery_fee, created_at
+              bank_account, delivery_fee, specialty, created_at
          FROM shops
          ${where}
          ORDER BY created_at DESC
@@ -94,6 +94,8 @@ export async function POST(request: Request): Promise<Response> {
     openHours: string;
     facebook: string;
     instagram: string;
+    /** Hospital sub-category (Эмнэлгийн төрөл). Optional even for hospitals. */
+    specialty: string;
   }>;
 
   if (!body.category || !body.name?.trim()) {
@@ -117,12 +119,20 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const id = `shop-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  // Specialty is only meaningful for hospital shops today; ignore the
+  // body field for any other category so a stray value doesn't show up
+  // in filters.
+  const specialtyValue =
+    body.category === "hospital"
+      ? body.specialty?.trim() || null
+      : null;
+
   await db
     .prepare(
       `INSERT INTO shops (
          id, owner_id, category, name, description, contact_phone,
-         address, open_hours, facebook, instagram
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         address, open_hours, facebook, instagram, specialty
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
@@ -135,6 +145,7 @@ export async function POST(request: Request): Promise<Response> {
       body.openHours?.trim() || null,
       body.facebook?.trim() || null,
       body.instagram?.trim() || null,
+      specialtyValue,
     )
     .run();
 
@@ -143,7 +154,7 @@ export async function POST(request: Request): Promise<Response> {
       `SELECT id, owner_id, category, name, description, contact_phone,
               address, open_hours, facebook, instagram, status,
               rejection_reason, reviewed_at, featured, is_open,
-              bank_account, delivery_fee, created_at
+              bank_account, delivery_fee, specialty, created_at
          FROM shops WHERE id = ?`,
     )
     .bind(id)

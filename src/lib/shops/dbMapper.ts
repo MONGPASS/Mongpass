@@ -27,6 +27,7 @@ export interface ShopRow {
   is_open: number;
   bank_account: string | null;
   delivery_fee: number | null;
+  specialty: string | null;
   created_at: string;
 }
 
@@ -60,6 +61,7 @@ export function rowToShop(
     notices: opts.notices ?? [],
     bankAccount: row.bank_account ?? undefined,
     deliveryFee: row.delivery_fee ?? undefined,
+    specialty: row.specialty ?? undefined,
     reviewCount: opts.reviewCount ?? 0,
     avgRating: opts.avgRating ?? 0,
     createdAt: row.created_at,

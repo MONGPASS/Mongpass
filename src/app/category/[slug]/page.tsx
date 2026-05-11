@@ -11,6 +11,7 @@ import { r2Url } from "@/lib/images/upload";
 import { ShopCategory } from "@/components/shop/types";
 import { CATEGORY_REGISTRY } from "@/lib/categories";
 import { getCurrentUser } from "@/lib/userStore";
+import { HOSPITAL_SPECIALTIES } from "@/lib/hospitalSpecialties";
 
 /**
  * The slug from the URL doesn't always map 1:1 to a `ShopCategory`:
@@ -35,6 +36,10 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
   const [query, setQuery] = useState("");
   const [hasUser, setHasUser] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  // Hospital sub-category filter — only used when slug === "hospital".
+  // "" = "Бүгд" (show all). When set, the visible list is restricted
+  // to shops whose `specialty` matches.
+  const [specialty, setSpecialty] = useState<string>("");
 
   useEffect(() => {
     let active = true;
@@ -49,14 +54,20 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
   }, [params.slug]);
 
   const visible = useMemo(() => {
+    let list = shops;
+    // Hospital specialty filter — applied first because it cuts the
+    // candidate pool faster than text search.
+    if (slug === "hospital" && specialty) {
+      list = list.filter((s) => s.specialty === specialty);
+    }
     const q = query.trim().toLowerCase();
-    if (!q) return shops;
-    return shops.filter((s) =>
+    if (!q) return list;
+    return list.filter((s) =>
       s.name.toLowerCase().includes(q) ||
       (s.description ?? "").toLowerCase().includes(q) ||
       (s.address ?? "").toLowerCase().includes(q),
     );
-  }, [shops, query]);
+  }, [shops, query, slug, specialty]);
 
   return (
     <main className="w-full min-h-screen bg-gray-50 pb-[80px]">
@@ -98,6 +109,39 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
           </button>
         </div>
       </div>
+
+      {/* Hospital specialty filter — horizontal scroll of all 19
+          specialty types plus "Бүгд". Renders only on the hospital
+          listing; other categories would just clutter their list. */}
+      {slug === "hospital" && (
+        <div className="bg-white border-b border-gray-100 px-5 py-3">
+          <div className="flex gap-2 overflow-x-auto hide-scroll">
+            <button
+              onClick={() => setSpecialty("")}
+              className={`shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-semibold border transition-colors ${
+                specialty === ""
+                  ? "bg-primary border-primary text-white"
+                  : "bg-white border-gray-200 text-gray-600"
+              }`}
+            >
+              Бүгд
+            </button>
+            {HOSPITAL_SPECIALTIES.map((s) => (
+              <button
+                key={s}
+                onClick={() => setSpecialty(s)}
+                className={`shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-semibold border whitespace-nowrap transition-colors ${
+                  specialty === s
+                    ? "bg-primary border-primary text-white"
+                    : "bg-white border-gray-200 text-gray-600"
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* List */}
       {loaded && visible.length === 0 ? (
@@ -153,7 +197,17 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
               </div>
 
               <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-[15px] text-gray-900 mb-0.5 truncate">{shop.name}</h3>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <h3 className="font-bold text-[15px] text-gray-900 truncate">{shop.name}</h3>
+                </div>
+                {/* Hospital specialty badge — only when set, only for
+                    hospital category. Helps the customer scan a long
+                    list at a glance. */}
+                {slug === "hospital" && shop.specialty && (
+                  <span className="inline-block bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-md mb-1.5">
+                    {shop.specialty}
+                  </span>
+                )}
                 {(() => {
                   // Counts arrive on the Shop record itself via a SQL
                   // aggregate in hydrateShops — no per-row fetch.

@@ -8,6 +8,7 @@ import { ShopCategory } from "@/components/shop/types";
 import { CATEGORY_REGISTRY } from "@/lib/categories";
 import { createShop, findShopByOwner } from "@/lib/shopStore";
 import { getCurrentUser } from "@/lib/userStore";
+import { HOSPITAL_SPECIALTIES } from "@/lib/hospitalSpecialties";
 
 const PICKABLE: { slug: ShopCategory; icon: typeof Utensils; bgColor: string; iconColor: string }[] = [
   { slug: "meat",       icon: Utensils,    bgColor: "bg-orange-100", iconColor: "text-orange-500" },
@@ -25,6 +26,7 @@ export default function ShopRegisterPage() {
 
   const [authChecked, setAuthChecked] = useState(false);
   const [category, setCategory] = useState<ShopCategory | null>(null);
+  const [specialty, setSpecialty] = useState<string>("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [contactPhone, setContactPhone] = useState("");
@@ -54,6 +56,9 @@ export default function ShopRegisterPage() {
 
   async function submit() {
     if (!category || !name.trim()) return;
+    // Hospital category requires a specialty pick — gates the submit
+    // button so we never POST a hospital row without one.
+    if (category === "hospital" && !specialty) return;
     // ownerId/status/createdAt are derived from the session by the API
     const created = await createShop({
       ownerId: "",
@@ -62,6 +67,7 @@ export default function ShopRegisterPage() {
       description: description.trim() || undefined,
       contactPhone: contactPhone.trim() || undefined,
       address: address.trim() || undefined,
+      specialty: category === "hospital" ? specialty : undefined,
     });
     if (!created) return;
     setSubmitted(true);
@@ -86,7 +92,11 @@ export default function ShopRegisterPage() {
     );
   }
 
-  const canSubmit = category !== null && name.trim().length > 0;
+  const needsSpecialty = category === "hospital";
+  const canSubmit =
+    category !== null &&
+    name.trim().length > 0 &&
+    (!needsSpecialty || specialty.length > 0);
   const categoryInfo = category ? CATEGORY_REGISTRY[category] : null;
 
   return (
@@ -130,6 +140,25 @@ export default function ShopRegisterPage() {
         <section className="bg-white rounded-2xl shadow-sm p-4">
           <h2 className="font-bold text-sm text-gray-900 mb-3">2. Дэлгүүрийн мэдээлэл</h2>
           <div className="space-y-3">
+            {/* Hospital sub-category — required only when the shop is
+                a hospital. The customer-facing list filters by this. */}
+            {needsSpecialty && (
+              <div>
+                <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
+                  Эмнэлгийн төрөл <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={specialty}
+                  onChange={(e) => setSpecialty(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white"
+                >
+                  <option value="">— Сонгоно уу —</option>
+                  {HOSPITAL_SPECIALTIES.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">Дэлгүүрийн нэр</label>
               <input

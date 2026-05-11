@@ -24,7 +24,7 @@ async function loadShop(
       `SELECT id, owner_id, category, name, description, contact_phone,
               address, open_hours, facebook, instagram, status,
               rejection_reason, reviewed_at, featured, is_open,
-              bank_account, delivery_fee, created_at
+              bank_account, delivery_fee, specialty, created_at
          FROM shops WHERE id = ?`,
     )
     .bind(id)
@@ -75,6 +75,8 @@ export async function PATCH(
      * Anything else must be a finite non-negative number.
      */
     deliveryFee: number | null;
+    /** Hospital sub-category. Pass null to clear. Only stored if shop is hospital. */
+    specialty: string | null;
   }>;
 
   // Only allow changing user-editable fields here. status / featured /
@@ -113,6 +115,18 @@ export async function PATCH(
     }
     updates.push("delivery_fee = ?");
     values.push(v === null ? null : Math.round(v));
+  }
+  if (body.specialty !== undefined) {
+    // Specialty is hospital-only; silently null it out for other
+    // categories so a stale value can't survive a category change
+    // (today categories don't change, but be future-safe).
+    const isHospital = row.category === "hospital";
+    const cleaned =
+      isHospital && typeof body.specialty === "string"
+        ? body.specialty.trim() || null
+        : null;
+    updates.push("specialty = ?");
+    values.push(cleaned);
   }
 
   // Editing a rejected shop bumps it back into review.
