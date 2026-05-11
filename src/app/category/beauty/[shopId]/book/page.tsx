@@ -101,12 +101,20 @@ export default function BeautyBookPage({ params }: { params: { shopId: string } 
           <p className="text-sm text-gray-500 mb-6 leading-relaxed">
             Салон тантай холбогдож цаг баталгаажуулна.
           </p>
-          <Link
-            href={`/category/beauty/${params.shopId}`}
-            className="block w-full bg-pink-500 text-white font-semibold py-3 rounded-xl text-sm"
-          >
-            Салон руу буцах
-          </Link>
+          <div className="flex flex-col gap-2">
+            <Link
+              href="/profile/orders"
+              className="block w-full bg-primary text-white font-semibold py-3 rounded-xl text-sm"
+            >
+              Миний захиалгууд руу
+            </Link>
+            <Link
+              href={`/category/beauty/${params.shopId}`}
+              className="block w-full bg-gray-100 text-gray-700 font-semibold py-3 rounded-xl text-sm"
+            >
+              Салон руу буцах
+            </Link>
+          </div>
         </div>
       </main>
     );

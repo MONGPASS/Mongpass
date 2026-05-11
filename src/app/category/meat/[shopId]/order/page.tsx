@@ -215,12 +215,20 @@ export default function MeatOrderPage({ params }: { params: { shopId: string } }
           <div className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 mb-6 text-sm font-bold text-gray-900 break-all">
             {bankAccount}
           </div>
-          <Link
-            href="/profile/orders"
-            className="inline-block bg-gray-900 text-white font-semibold px-5 py-2.5 rounded-xl text-sm"
-          >
-            Миний захиалгууд руу
-          </Link>
+          <div className="flex flex-col gap-2">
+            <Link
+              href="/profile/orders"
+              className="block w-full bg-primary text-white font-semibold py-3 rounded-xl text-sm"
+            >
+              Миний захиалгууд руу
+            </Link>
+            <Link
+              href={`/category/meat/${shop.id}`}
+              className="block w-full bg-gray-100 text-gray-700 font-semibold py-3 rounded-xl text-sm"
+            >
+              Дэлгүүр рүү буцах
+            </Link>
+          </div>
         </div>
       </main>
     );

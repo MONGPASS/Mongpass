@@ -4,7 +4,7 @@ export const runtime = "edge";
 
 import { ArrowLeft, Plane, Zap, Package, Send, Camera, X } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   CargoRoute,
@@ -27,7 +27,6 @@ const TYPE_ICON: Record<CargoType, typeof Plane> = {
 };
 
 export default function CargoOrderPage({ params }: { params: { shopId: string } }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const initialRouteId = searchParams.get("routeId");
 
@@ -130,19 +129,19 @@ export default function CargoOrderPage({ params }: { params: { shopId: string } 
           <p className="text-sm text-gray-500 mb-6 leading-relaxed">
             Карго компани таны захиалгыг хүлээн авсны дараа холбоо барих болно.
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2">
+            <Link
+              href="/profile/orders"
+              className="block w-full bg-primary text-white font-semibold py-3 rounded-xl text-sm"
+            >
+              Миний захиалгууд руу
+            </Link>
             <Link
               href={`/category/cargo/${params.shopId}`}
-              className="flex-1 bg-gray-100 text-gray-800 font-semibold py-3 rounded-xl text-sm"
+              className="block w-full bg-gray-100 text-gray-700 font-semibold py-3 rounded-xl text-sm"
             >
               Дэлгүүр рүү буцах
             </Link>
-            <button
-              onClick={() => router.push(`/category/cargo/${params.shopId}/order`)}
-              className="flex-1 bg-blue-500 text-white font-semibold py-3 rounded-xl text-sm"
-            >
-              Шинэ захиалга
-            </button>
           </div>
         </div>
       </main>

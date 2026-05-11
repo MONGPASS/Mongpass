@@ -77,12 +77,20 @@ export default function RestaurantCheckoutPage({ params }: { params: { shopId: s
           <p className="text-sm text-gray-500 mb-6 leading-relaxed">
             Дэлгүүр таны захиалгыг хүлээн авч баталгаажуулна.
           </p>
-          <Link
-            href={`/category/restaurant/${params.shopId}`}
-            className="block w-full bg-primary text-white font-semibold py-3 rounded-xl text-sm"
-          >
-            Дэлгүүр рүү буцах
-          </Link>
+          <div className="flex flex-col gap-2">
+            <Link
+              href="/profile/orders"
+              className="block w-full bg-primary text-white font-semibold py-3 rounded-xl text-sm"
+            >
+              Миний захиалгууд руу
+            </Link>
+            <Link
+              href={`/category/restaurant/${params.shopId}`}
+              className="block w-full bg-gray-100 text-gray-700 font-semibold py-3 rounded-xl text-sm"
+            >
+              Дэлгүүр рүү буцах
+            </Link>
+          </div>
         </div>
       </main>
     );

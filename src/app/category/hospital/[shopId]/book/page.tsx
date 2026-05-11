@@ -89,12 +89,23 @@ export default function HospitalBookPage({ params }: { params: { shopId: string 
           <p className="text-sm text-gray-500 mb-6 leading-relaxed">
             Эмнэлгийн ажилтан таны хүсэлтийг хүлээн авч, цаг баталгаажуулах болно.
           </p>
-          <Link
-            href={`/category/hospital/${params.shopId}`}
-            className="block w-full bg-purple-500 text-white font-semibold py-3 rounded-xl text-sm"
-          >
-            Эмнэлэг рүү буцах
-          </Link>
+          {/* Primary action sends the user to their orders list so
+              they can track the appointment status; secondary returns
+              to the shop for browsing more services. */}
+          <div className="flex flex-col gap-2">
+            <Link
+              href="/profile/orders"
+              className="block w-full bg-primary text-white font-semibold py-3 rounded-xl text-sm"
+            >
+              Миний захиалгууд руу
+            </Link>
+            <Link
+              href={`/category/hospital/${params.shopId}`}
+              className="block w-full bg-gray-100 text-gray-700 font-semibold py-3 rounded-xl text-sm"
+            >
+              Эмнэлэг рүү буцах
+            </Link>
+          </div>
         </div>
       </main>
     );
