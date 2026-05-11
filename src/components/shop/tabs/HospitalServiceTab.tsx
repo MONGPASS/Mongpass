@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight, Stethoscope } from "lucide-react";
 import { Doctor, loadDoctors } from "@/lib/hospitalStore";
+import { r2Url } from "@/lib/images/upload";
 
 export function HospitalServiceTab() {
   const params = useParams();
@@ -43,8 +44,13 @@ export function HospitalServiceTab() {
       {doctors.map((doc) => (
         <div key={doc.id} className="border border-gray-100 rounded-2xl p-4 bg-white shadow-sm">
           <div className="flex items-start gap-3 mb-3">
-            <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center text-purple-500 shrink-0">
-              <Stethoscope className="w-5 h-5" />
+            <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center text-purple-500 shrink-0 overflow-hidden">
+              {doc.imageR2Key ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={r2Url(doc.imageR2Key)} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <Stethoscope className="w-5 h-5" />
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">

@@ -20,7 +20,7 @@ function rowToDoctor(r: DoctorRow) {
     department: r.department,
     specialty: r.specialty ?? undefined,
     bio: r.bio ?? undefined,
-    imageDataUrl: undefined,
+    imageR2Key: r.image_r2_key ?? undefined,
   };
 }
 
@@ -39,6 +39,7 @@ export async function PATCH(
 
   const body = (await request.json()) as Partial<{
     name: string; department: string; specialty: string; bio: string;
+    imageR2Key: string | null;
   }>;
   const updates: string[] = [];
   const values: unknown[] = [];
@@ -54,6 +55,14 @@ export async function PATCH(
       const optional = field === "specialty" || field === "bio";
       values.push(optional ? (v?.trim() || null) : (v?.trim() ?? ""));
     }
+  }
+  if (body.imageR2Key !== undefined) {
+    updates.push("image_r2_key = ?");
+    values.push(
+      typeof body.imageR2Key === "string" && body.imageR2Key.trim()
+        ? body.imageR2Key.trim()
+        : null,
+    );
   }
   if (updates.length > 0) {
     values.push(params.doctorId);

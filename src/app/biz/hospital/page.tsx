@@ -1,9 +1,9 @@
 'use client';
 
-import { ArrowLeft, Plus, Edit2, Trash2, Save, X, Stethoscope } from "lucide-react";
+import { ArrowLeft, Camera, Edit2, Plus, Save, Stethoscope, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Doctor,
   loadDoctors,
@@ -13,6 +13,7 @@ import {
 } from "@/lib/hospitalStore";
 import { findShopByOwner } from "@/lib/shopStore";
 import { getCurrentUser } from "@/lib/userStore";
+import { r2Url, uploadImage } from "@/lib/images/upload";
 
 const HOSPITAL_DEPARTMENTS = [
   "Дотор",
@@ -25,11 +26,21 @@ const HOSPITAL_DEPARTMENTS = [
   "Бусад",
 ];
 
+/**
+ * Sentinel value for the "type my own" option in the Тасаг select.
+ * Picked → the form swaps the dropdown for a free-text input.
+ * Stored on the doctor row as the actual typed string, so existing
+ * read code (HospitalServiceTab, booking page) doesn't have to know
+ * about this distinction.
+ */
+const CUSTOM_DEPT = "__custom__";
+
 const emptyForm: Omit<Doctor, "id"> = {
   name: "",
   department: HOSPITAL_DEPARTMENTS[0],
   specialty: "",
   bio: "",
+  imageR2Key: undefined,
 };
 
 export default function HospitalAdminPage() {
@@ -42,6 +53,11 @@ export default function HospitalAdminPage() {
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState<Omit<Doctor, "id">>(emptyForm);
   const [savedFlash, setSavedFlash] = useState(false);
+  // True when the dropdown is set to "Өөрөө бичих" — the real value
+  // lives in `form.department` (free text) instead of a select option.
+  const [customDept, setCustomDept] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -76,6 +92,7 @@ export default function HospitalAdminPage() {
 
   function startAdd() {
     setForm(emptyForm);
+    setCustomDept(false);
     setIsAdding(true);
     setEditingId(null);
   }
@@ -86,7 +103,12 @@ export default function HospitalAdminPage() {
       department: doc.department,
       specialty: doc.specialty ?? "",
       bio: doc.bio ?? "",
+      imageR2Key: doc.imageR2Key,
     });
+    // If the loaded department isn't in the canonical list, the user
+    // previously typed it themselves — pre-open custom mode so the
+    // text input shows up populated.
+    setCustomDept(!HOSPITAL_DEPARTMENTS.includes(doc.department));
     setEditingId(doc.id);
     setIsAdding(false);
   }
@@ -94,6 +116,40 @@ export default function HospitalAdminPage() {
   function cancel() {
     setEditingId(null);
     setIsAdding(false);
+    setCustomDept(false);
+  }
+
+  function onDeptSelectChange(value: string) {
+    if (value === CUSTOM_DEPT) {
+      setCustomDept(true);
+      // Clear the field so the text input starts empty rather than
+      // carrying over whatever was last selected.
+      setForm({ ...form, department: "" });
+    } else {
+      setCustomDept(false);
+      setForm({ ...form, department: value });
+    }
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      alert("Зургийн хэмжээ 8MB-аас бага байх ёстой.");
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      const uploaded = await uploadImage(file, "doctor");
+      if (!uploaded) {
+        alert("Зураг ачаалж чадсангүй. Дахин оролдоно уу.");
+        return;
+      }
+      setForm((f) => ({ ...f, imageR2Key: uploaded.key }));
+    } finally {
+      setUploadingImage(false);
+    }
   }
 
   async function submit() {
@@ -106,13 +162,20 @@ export default function HospitalAdminPage() {
         if (created) {
           setDoctors((prev) => [...prev, created]);
           setIsAdding(false);
+          setCustomDept(false);
           flash();
         }
       } else if (editingId) {
-        const updated = await updateDoctor(shopId, editingId, form);
+        // PATCH passes null (not undefined) when the user removed the
+        // image so the server actively clears it.
+        const updated = await updateDoctor(shopId, editingId, {
+          ...form,
+          imageR2Key: form.imageR2Key ?? null,
+        });
         if (updated) {
           setDoctors((prev) => prev.map((d) => (d.id === editingId ? updated : d)));
           setEditingId(null);
+          setCustomDept(false);
           flash();
         }
       }
@@ -133,6 +196,14 @@ export default function HospitalAdminPage() {
   }
 
   const showForm = isAdding || editingId !== null;
+  // The select shows the sentinel when in custom mode; otherwise the
+  // current department value. Departments not in HOSPITAL_DEPARTMENTS
+  // are surfaced as the sentinel so the dropdown stays consistent.
+  const selectValue = customDept
+    ? CUSTOM_DEPT
+    : HOSPITAL_DEPARTMENTS.includes(form.department)
+      ? form.department
+      : CUSTOM_DEPT;
 
   return (
     <main className="w-full min-h-screen bg-gray-50 pb-24">
@@ -159,6 +230,53 @@ export default function HospitalAdminPage() {
         {showForm && (
           <div className="bg-white rounded-2xl p-4 shadow-sm">
             <h2 className="font-bold mb-3 text-sm">{isAdding ? "Шинэ эмч" : "Эмч засах"}</h2>
+
+            {/* Doctor portrait — same WebP-on-upload pipeline as
+                meat / banner / community. Empty slot opens the
+                picker; filled slot shows preview + remove. */}
+            <div className="mb-3">
+              <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
+                Эмчийн зураг <span className="font-medium text-gray-400">(заавал биш)</span>
+              </label>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageUpload}
+              />
+              {form.imageR2Key ? (
+                <div className="relative w-32 h-32 rounded-2xl overflow-hidden border border-gray-200 bg-gray-50">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={r2Url(form.imageR2Key)}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, imageR2Key: undefined }))}
+                    className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center"
+                    aria-label="Зураг хасах"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={uploadingImage}
+                  className="w-32 h-32 rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1.5 text-gray-400 active:bg-gray-50 disabled:opacity-50"
+                >
+                  <Camera className="w-5 h-5" />
+                  <span className="text-[10px] font-medium">
+                    {uploadingImage ? "Ачаалж байна..." : "Зураг сонгох"}
+                  </span>
+                </button>
+              )}
+            </div>
+
             <div className="space-y-3">
               <div>
                 <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">Нэр</label>
@@ -170,18 +288,34 @@ export default function HospitalAdminPage() {
                   className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
                 />
               </div>
+
               <div>
                 <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">Тасаг</label>
                 <select
-                  value={form.department}
-                  onChange={(e) => setForm({ ...form, department: e.target.value })}
+                  value={selectValue}
+                  onChange={(e) => onDeptSelectChange(e.target.value)}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white"
                 >
                   {HOSPITAL_DEPARTMENTS.map((d) => (
                     <option key={d} value={d}>{d}</option>
                   ))}
+                  <option value={CUSTOM_DEPT}>+ Өөрөө бичиж оруулах</option>
                 </select>
+                {/* Free-text Тасаг — appears when the sentinel option
+                    is selected, including when editing a doctor whose
+                    saved department isn't in the canonical list. */}
+                {customDept && (
+                  <input
+                    type="text"
+                    placeholder="Жнь: Зүрх судас, Мэдрэл, Сэтгэц..."
+                    value={form.department}
+                    onChange={(e) => setForm({ ...form, department: e.target.value })}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm mt-2"
+                    autoFocus
+                  />
+                )}
               </div>
+
               <div>
                 <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
                   Мэргэжил <span className="font-medium text-gray-400">(заавал биш)</span>
@@ -233,8 +367,15 @@ export default function HospitalAdminPage() {
         {doctors.map((doc) => (
           <div key={doc.id} className="bg-white rounded-2xl p-4 mb-3 shadow-sm">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center text-purple-500 shrink-0">
-                <Stethoscope className="w-5 h-5" />
+              {/* Doctor thumbnail — falls back to the Stethoscope icon
+                  tile when no portrait has been uploaded yet. */}
+              <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center text-purple-500 shrink-0 overflow-hidden">
+                {doc.imageR2Key ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={r2Url(doc.imageR2Key)} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <Stethoscope className="w-5 h-5" />
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">

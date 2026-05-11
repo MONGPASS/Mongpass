@@ -21,7 +21,8 @@ function rowToDoctor(r: DoctorRow) {
     department: r.department,
     specialty: r.specialty ?? undefined,
     bio: r.bio ?? undefined,
-    imageDataUrl: undefined, // R2 image swap lands in Phase 5
+    // R2 key — client wraps with r2Url() for rendering.
+    imageR2Key: r.image_r2_key ?? undefined,
   };
 }
 
@@ -50,18 +51,31 @@ export async function POST(
 
   const body = (await request.json()) as Partial<{
     name: string; department: string; specialty: string; bio: string;
+    imageR2Key: string | null;
   }>;
   if (!body.name?.trim() || !body.department?.trim()) {
     return Response.json({ error: "name and department are required" }, { status: 400 });
   }
 
   const id = `dr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const imageKey =
+    typeof body.imageR2Key === "string" && body.imageR2Key.trim()
+      ? body.imageR2Key.trim()
+      : null;
   await ctx.db
     .prepare(
-      `INSERT INTO doctors (id, shop_id, name, department, specialty, bio)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO doctors (id, shop_id, name, department, specialty, bio, image_r2_key)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
     )
-    .bind(id, ctx.shopId, body.name.trim(), body.department.trim(), body.specialty?.trim() || null, body.bio?.trim() || null)
+    .bind(
+      id,
+      ctx.shopId,
+      body.name.trim(),
+      body.department.trim(),
+      body.specialty?.trim() || null,
+      body.bio?.trim() || null,
+      imageKey,
+    )
     .run();
   const row = await ctx.db
     .prepare(

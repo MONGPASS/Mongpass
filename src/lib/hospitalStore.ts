@@ -6,8 +6,12 @@ export interface Doctor {
   department: string;
   specialty?: string;
   bio?: string;
-  /** Will hold an R2 key once Phase 5 lands. */
-  imageDataUrl?: string;
+  /**
+   * R2 object key for the doctor's portrait (e.g. "doctor/<rand>.webp").
+   * Render through `r2Url()` to get a same-origin <img> src. PATCH
+   * accepts null to clear; reads always normalise to undefined.
+   */
+  imageR2Key?: string;
 }
 
 async function getJson<T>(url: string): Promise<T | null> {
@@ -64,7 +68,10 @@ export async function createDoctor(
 export async function updateDoctor(
   shopId: string,
   doctorId: string,
-  patch: Partial<Omit<Doctor, "id">>,
+  patch: Partial<Omit<Doctor, "id" | "imageR2Key">> & {
+    /** null clears the portrait; undefined leaves it unchanged. */
+    imageR2Key?: string | null;
+  },
 ): Promise<Doctor | null> {
   const data = await patchJson<{ doctor: Doctor }>(
     `/api/shops/${encodeURIComponent(shopId)}/doctors/${encodeURIComponent(doctorId)}`,

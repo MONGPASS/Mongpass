@@ -3,6 +3,7 @@
 export const runtime = "edge";
 
 import { ArrowLeft, Send, Check, Stethoscope } from "lucide-react";
+import { r2Url } from "@/lib/images/upload";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -131,9 +132,14 @@ export default function HospitalBookPage({ params }: { params: { shopId: string 
                     className={`w-full text-left flex items-start gap-3 p-3 rounded-xl border transition-colors ${active ? "border-purple-500 bg-purple-50" : "border-gray-200 bg-white"}`}
                   >
                     <div
-                      className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${active ? "bg-purple-500 text-white" : "bg-purple-50 text-purple-500"}`}
+                      className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 overflow-hidden ${active ? "bg-purple-500 text-white" : "bg-purple-50 text-purple-500"}`}
                     >
-                      <Stethoscope className="w-5 h-5" />
+                      {d.imageR2Key ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={r2Url(d.imageR2Key)} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <Stethoscope className="w-5 h-5" />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">
