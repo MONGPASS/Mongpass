@@ -207,6 +207,26 @@ export default function AdminBannerPage() {
                   maxLength={80}
                 />
               </div>
+              {/* Click target — internal app routes start with /, external
+                  with http(s)://. Empty value = non-clickable banner.
+                  The server rejects anything else (javascript:, data:, …). */}
+              <div>
+                <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
+                  Хүрэх линк <span className="font-medium text-gray-400">(заавал биш)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="/category/cargo  эсвэл  https://example.com"
+                  value={form.linkUrl ?? ""}
+                  onChange={(e) =>
+                    setForm({ ...form, linkUrl: e.target.value || undefined })
+                  }
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
+                />
+                <p className="text-[10px] text-gray-400 mt-1 leading-relaxed">
+                  Аппын дотоод хуудас: <code>/category/cargo</code> / Гадаад вэб: <code>https://...</code>
+                </p>
+              </div>
               <div>
                 <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">
                   Зураг <span className="font-medium text-gray-400">(заавал биш)</span>

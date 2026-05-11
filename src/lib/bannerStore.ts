@@ -21,6 +21,13 @@ export interface Banner {
    * unchanged.
    */
   imageR2Key?: string;
+  /**
+   * Optional click target. Internal app routes start with "/" (use
+   * Next.js Link), external links start with "http(s)://" (open in
+   * a new tab). Anything else is rejected server-side to avoid
+   * `javascript:` and other unsafe schemes.
+   */
+  linkUrl?: string;
 }
 
 export type BannerGradient =

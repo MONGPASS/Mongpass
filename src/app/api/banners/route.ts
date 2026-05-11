@@ -34,6 +34,7 @@ interface BannerRow {
   gradient: string;
   sort_order: number;
   image_r2_key: string | null;
+  link_url: string | null;
 }
 
 function rowToBanner(r: BannerRow) {
@@ -46,14 +47,35 @@ function rowToBanner(r: BannerRow) {
     // Stored as an R2 key; if non-null, served via /api/r2/<key> by
     // r2Url() at the call site. Falls through to the gradient when null.
     imageR2Key: r.image_r2_key ?? undefined,
+    linkUrl: r.link_url ?? undefined,
   };
+}
+
+/**
+ * Whitelist of allowed URL shapes — internal paths and http(s) only.
+ * Blocks `javascript:`, `data:`, `vbscript:`, and any other scheme
+ * that could XSS via a banner click.
+ */
+function isSafeLinkUrl(value: string): boolean {
+  if (value.startsWith("/")) return true;
+  if (value.startsWith("https://") || value.startsWith("http://")) {
+    try {
+      // new URL() throws on malformed input — cheap validation.
+      new URL(value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 export async function GET(): Promise<Response> {
   const { db } = await getServerContext();
   const result = await db
     .prepare(
-      `SELECT id, badge, title, description, gradient, sort_order, image_r2_key
+      `SELECT id, badge, title, description, gradient, sort_order,
+              image_r2_key, link_url
          FROM banners ORDER BY sort_order ASC, id ASC LIMIT 50`,
     )
     .all<BannerRow>();
@@ -73,6 +95,7 @@ export async function PUT(request: Request): Promise<Response> {
       desc?: string;
       gradient?: string;
       imageR2Key?: string | null;
+      linkUrl?: string | null;
     }>;
   };
   const incoming = body.banners ?? [];
@@ -98,6 +121,16 @@ export async function PUT(request: Request): Promise<Response> {
         { status: 400 },
       );
     }
+    if (
+      typeof b.linkUrl === "string" &&
+      b.linkUrl.trim() &&
+      !isSafeLinkUrl(b.linkUrl.trim())
+    ) {
+      return Response.json(
+        { error: "linkUrl must start with / or http(s)://" },
+        { status: 400 },
+      );
+    }
   }
 
   // Replace the entire list in one batch so an error mid-way doesn't
@@ -113,8 +146,8 @@ export async function PUT(request: Request): Promise<Response> {
       db
         .prepare(
           `INSERT INTO banners
-             (id, badge, title, description, gradient, sort_order, image_r2_key)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+             (id, badge, title, description, gradient, sort_order, image_r2_key, link_url)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(
           id,
@@ -126,6 +159,9 @@ export async function PUT(request: Request): Promise<Response> {
           typeof b.imageR2Key === "string" && b.imageR2Key.trim()
             ? b.imageR2Key.trim()
             : null,
+          typeof b.linkUrl === "string" && b.linkUrl.trim()
+            ? b.linkUrl.trim()
+            : null,
         ),
     );
   });
@@ -135,7 +171,8 @@ export async function PUT(request: Request): Promise<Response> {
   // server may have minted new ones for added entries).
   const result = await db
     .prepare(
-      `SELECT id, badge, title, description, gradient, sort_order, image_r2_key
+      `SELECT id, badge, title, description, gradient, sort_order,
+              image_r2_key, link_url
          FROM banners ORDER BY sort_order ASC, id ASC LIMIT 50`,
     )
     .all<BannerRow>();
