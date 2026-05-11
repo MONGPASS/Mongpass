@@ -64,6 +64,7 @@ export const CATEGORY_REGISTRY: Record<ShopCategory, CategoryInfo> = {
     label: "Аялал",
     productLabel: "Багц",
     productCategories: ["Дотоод аялал", "Гадаад аялал", "Виз"],
+    adminRoute: "/biz/travel",
   },
   other: {
     slug: "other",
