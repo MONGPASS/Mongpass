@@ -1,0 +1,44 @@
+name: Bug report
+description: 재현 가능한 오류를 제보합니다.
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: 개인정보, OAuth 키, 세션 쿠키를 포함하지 마세요.
+  - type: input
+    id: area
+    attributes:
+      label: 기능 영역
+      placeholder: 커뮤니티, 상점, 로그인, API 등
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 재현 방법
+      description: 번호를 붙여 순서대로 작성해 주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대 결과
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 실제 결과
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 실행 환경
+      placeholder: Windows 11, Chrome 138, Node.js 20
+  - type: textarea
+    id: context
+    attributes:
+      label: 추가 정보
+      description: 민감 정보를 제거한 로그나 스크린샷을 첨부해 주세요.

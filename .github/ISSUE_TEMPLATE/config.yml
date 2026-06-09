@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Community questions and ideas
+    url: https://github.com/MONGPASS/Mongpass/discussions
+    about: 사용 방법, 아이디어, 설계 논의는 Discussions를 이용해 주세요.
+  - name: Security vulnerability
+    url: https://github.com/MONGPASS/Mongpass/security/advisories/new
+    about: 보안 취약점은 비공개로 신고해 주세요.

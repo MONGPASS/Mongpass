@@ -13,8 +13,9 @@ const sans = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "MongPass - MongolHub",
-  description: "Бүх үйлчилгээг нэг дороос - All services in one place",
+  title: "MongPass - 한국 거주 몽골인을 위한 생활 플랫폼",
+  description:
+    "한국 거주 몽골인을 위한 몽골어 커뮤니티, 지역 상점, 생활 정보 플랫폼",
 };
 
 export const viewport: Viewport = {

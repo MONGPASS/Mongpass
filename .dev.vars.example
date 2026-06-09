@@ -12,8 +12,8 @@ GOOGLE_CLIENT_SECRET=paste-from-google-cloud-console
 
 # Comma-separated email allowlist. Anyone in this list automatically
 # becomes admin on first sign-in.
-ADMIN_EMAILS=tulgamaidar3@gmail.com
+ADMIN_EMAILS=admin@example.com
 
 # Random base64url 32-byte secret for HMAC etc. The same value should
 # be set on Cloudflare Pages (Settings → Variables and Secrets).
-AUTH_SECRET=ZAz4dRo1mlwfDun3a-YiN0LcSqkZP4almbtg2jyijQE
+AUTH_SECRET=replace-with-a-random-base64url-secret

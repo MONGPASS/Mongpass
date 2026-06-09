@@ -1,0 +1,188 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "MongPass API",
+    "version": "0.1.0",
+    "description": "Public read API for the MongPass community and local life platform."
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "Current MongPass deployment"
+    }
+  ],
+  "paths": {
+    "/shops": {
+      "get": {
+        "summary": "List approved local shops",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["meat", "restaurant", "food", "cargo", "hospital", "beauty", "car", "travel", "other"]
+            }
+          },
+          {
+            "name": "featured",
+            "in": "query",
+            "schema": { "type": "boolean" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shop list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["shops"],
+                  "properties": {
+                    "shops": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Shop" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/shops/{shopId}": {
+      "get": {
+        "summary": "Get a shop",
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shop detail"
+          },
+          "404": {
+            "description": "Shop not found"
+          }
+        }
+      }
+    },
+    "/community/posts": {
+      "get": {
+        "summary": "List community posts",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Community post list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["posts"],
+                  "properties": {
+                    "posts": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/CommunityPost" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/news": {
+      "get": {
+        "summary": "List published life-information articles",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Published article list"
+          }
+        }
+      }
+    },
+    "/reviews": {
+      "get": {
+        "summary": "List shop reviews",
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Review list"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Shop": {
+        "type": "object",
+        "required": ["id", "category", "name", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "category": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": ["string", "null"] },
+          "address": { "type": ["string", "null"] },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "approved", "rejected"]
+          },
+          "images": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "CommunityPost": {
+        "type": "object",
+        "required": ["id", "authorName", "category", "title", "content", "createdAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "authorName": { "type": "string" },
+          "category": { "type": "string" },
+          "title": { "type": "string" },
+          "content": { "type": "string" },
+          "likeCount": { "type": "integer" },
+          "commentCount": { "type": "integer" },
+          "createdAt": { "type": "string" }
+        }
+      }
+    }
+  }
+}

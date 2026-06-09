@@ -1,0 +1,37 @@
+name: Translation correction
+description: 몽골어, 한국어 또는 영어 번역을 수정합니다.
+title: "[Translation]: "
+labels: ["translation", "triage"]
+body:
+  - type: dropdown
+    id: locale
+    attributes:
+      label: 언어
+      options:
+        - Mongolian (mn)
+        - Korean (ko)
+        - English (en)
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: 화면 또는 파일
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: 현재 문구
+    validations:
+      required: true
+  - type: textarea
+    id: proposed
+    attributes:
+      label: 수정 문구
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: 문맥과 근거
