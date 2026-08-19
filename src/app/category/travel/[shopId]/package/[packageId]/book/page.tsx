@@ -15,6 +15,7 @@ import {
 } from "@/lib/orderStore";
 import { getCurrentUser } from "@/lib/userStore";
 import { FormErrorBanner } from "@/components/ui/FormErrorBanner";
+import { todayLocalISODate } from "@/lib/datetime";
 
 /**
  * Travel booking form. Captures the minimum the agency needs to plan
@@ -91,11 +92,14 @@ export default function TravelBookingPage({
   const childrenN = Math.max(0, parseInt(children, 10) || 0);
   const totalTravelers = adultsN + childrenN;
 
+  // Trips start today at the earliest — see the hospital/beauty forms.
+  const minDate = todayLocalISODate();
   const canSubmit =
     !busy &&
     name.trim().length > 0 &&
     phone.trim().length > 0 &&
     preferredDate.length > 0 &&
+    preferredDate >= minDate &&
     totalTravelers > 0;
 
   async function submit() {
@@ -270,9 +274,15 @@ export default function TravelBookingPage({
             <input
               type="date"
               value={preferredDate}
+              min={minDate}
               onChange={(e) => setPreferredDate(e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
             />
+            {preferredDate && preferredDate < minDate && (
+              <p className="text-[10px] text-red-500 mt-1">
+                Өнгөрсөн огноо сонгох боломжгүй
+              </p>
+            )}
             <p className="text-[10px] text-gray-400 mt-1">
               Аяллын газар таны хүссэн огноотой ойролцоо нэгтгэж санал болгож болзошгүй.
             </p>

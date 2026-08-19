@@ -22,7 +22,9 @@ import { User } from "@/lib/userStore";
 export type NotificationKind =
   | "order-status"
   | "new-order"
-  | "shop-pending";
+  | "shop-pending"
+  | "shop-approved"
+  | "shop-rejected";
 
 export interface Notification {
   id: string;
@@ -86,16 +88,6 @@ export async function markAllNotificationsSeen(userId: string | null): Promise<v
 
 // ===================== Notification builders =====================
 
-/** Helper for a shop owner — collect orders they should be notified about. */
-async function loadOwnerPendingOrders(userId: string): Promise<{ shop: { id: string; name: string }; order: Order }[]> {
-  // Each user owns at most one shop (enforced server-side); fetch its
-  // pending orders if there is one.
-  const shop = await findShopByOwner(userId);
-  if (!shop) return [];
-  const list = await loadOrders({ shopId: shop.id, status: "pending" });
-  return list.map((order) => ({ shop: { id: shop.id, name: shop.name }, order }));
-}
-
 export async function buildNotifications(user: User | null): Promise<Notification[]> {
   if (!user) return [];
 
@@ -115,17 +107,50 @@ export async function buildNotifications(user: User | null): Promise<Notificatio
     });
   }
 
-  // Shop owner side: new (pending) orders to any shop they own.
-  const ownerOrders = await loadOwnerPendingOrders(user.id);
-  for (const { shop, order } of ownerOrders) {
-    out.push({
-      id: `${order.id}:new-order`,
-      kind: "new-order",
-      title: `Шинэ захиалга — ${shop.name}`,
-      body: await orderTitle(order),
-      href: "/biz",
-      createdAt: order.createdAt,
-    });
+  // Shop owner side — each user owns at most one shop (enforced
+  // server-side). One fetch feeds both the new-order feed and the
+  // review-verdict notifications below.
+  const myShop = await findShopByOwner(user.id);
+  if (myShop) {
+    // New (pending) orders awaiting action.
+    const ownerOrders = await loadOrders({ shopId: myShop.id, status: "pending" });
+    for (const order of ownerOrders) {
+      out.push({
+        id: `${order.id}:new-order`,
+        kind: "new-order",
+        title: `Шинэ захиалга — ${myShop.name}`,
+        body: await orderTitle(order),
+        href: "/biz",
+        createdAt: order.createdAt,
+      });
+    }
+
+    // Review verdict: the owner used to find out their shop was
+    // approved (or rejected) only by re-opening /biz and looking at
+    // the banner. Surface it in the feed — reviewedAt is set by the
+    // approve/reject routes, so the timestamp keys the unread state
+    // and a re-review after edits produces a fresh notification.
+    if (myShop.status === "approved" && myShop.reviewedAt) {
+      out.push({
+        id: `${myShop.id}:approved:${myShop.reviewedAt}`,
+        kind: "shop-approved",
+        title: "Дэлгүүр баталгаажлаа 🎉",
+        body: `${myShop.name} одоо хэрэглэгчдэд харагдаж байна`,
+        href: "/biz",
+        createdAt: myShop.reviewedAt,
+      });
+    } else if (myShop.status === "rejected" && myShop.reviewedAt) {
+      out.push({
+        id: `${myShop.id}:rejected:${myShop.reviewedAt}`,
+        kind: "shop-rejected",
+        title: "Дэлгүүрийн бүртгэл татгалзагдлаа",
+        body: myShop.rejectionReason
+          ? `Шалтгаан: ${myShop.rejectionReason}`
+          : "Мэдээллээ засаад дахин хадгалбал шинэ хүсэлт автоматаар илгээгдэнэ",
+        href: "/biz",
+        createdAt: myShop.reviewedAt,
+      });
+    }
   }
 
   // Admin side: pending shops awaiting review.
