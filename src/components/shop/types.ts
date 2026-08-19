@@ -3,6 +3,8 @@ export type ShopCategory = "meat" | "cargo" | "hospital" | "beauty" | "car" | "f
 export interface ShopData {
   id: string | number;
   name: string;
+  /** Owner's user id — lets tabs show owner-only controls (reply, …). */
+  ownerId?: string;
   images: string[];
   rating: number;
   reviews: number;

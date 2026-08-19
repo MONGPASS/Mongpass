@@ -22,6 +22,7 @@ function shopToShopData(shop: Shop): ShopData {
   return {
     id: shop.id,
     name: shop.name,
+    ownerId: shop.ownerId,
     images: shop.images ?? [],
     rating: shop.avgRating ?? 0,
     reviews: shop.reviewCount ?? 0,

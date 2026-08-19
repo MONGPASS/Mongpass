@@ -13,6 +13,9 @@ export interface Review {
   userName: string;          // snapshot — survives if user renames
   rating: number;            // 1–5
   comment: string;
+  /** Shop owner's public answer, if any. */
+  reply?: string;
+  replyAt?: string;
   createdAt: string;
 }
 
@@ -52,6 +55,32 @@ export async function loadReviewsPage(
   if (cursor) params.set("cursor", cursor);
   const data = await getJson<ReviewsPage>(`/api/reviews?${params}`);
   return { reviews: data?.reviews ?? [], nextCursor: data?.nextCursor ?? null };
+}
+
+/** Shop owner (or admin): set/update the public reply on a review. */
+export async function setReviewReply(
+  reviewId: string,
+  reply: string,
+): Promise<boolean> {
+  const res = await fetch(
+    `/api/reviews/${encodeURIComponent(reviewId)}/reply`,
+    {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reply }),
+    },
+  );
+  return res.ok;
+}
+
+/** Shop owner (or admin): remove the reply. */
+export async function clearReviewReply(reviewId: string): Promise<boolean> {
+  const res = await fetch(
+    `/api/reviews/${encodeURIComponent(reviewId)}/reply`,
+    { method: "DELETE", credentials: "same-origin" },
+  );
+  return res.ok;
 }
 
 export async function addReview(input: {

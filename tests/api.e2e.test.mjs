@@ -315,6 +315,54 @@ test("reports: member can file, cannot read the queue; dedupe is silent", async 
   assert.equal(mine[0].targetPreview, `e2e ${RUN}`); // enrichment works
 });
 
+// ===================== Review replies =====================
+
+test("review replies: only the shop owner (or admin) can answer", async () => {
+  // Admin owns "E2E Shop" from the lifecycle test; find it.
+  const shops = await api("/api/shops?owner=mine", { token: ADMIN.token });
+  const shop = shops.json.shops.find((s) => s.name === `E2E Shop ${RUN}`);
+  assert.ok(shop, "lifecycle test shop should exist");
+
+  // Member leaves a review on the (approved) shop.
+  const review = await api("/api/reviews", {
+    method: "POST",
+    token: MEMBER.token,
+    body: { shopId: shop.id, rating: 2, comment: "slow delivery" },
+  });
+  assert.equal(review.status, 201);
+  const reviewId = review.json.review.id;
+
+  // The reviewer themselves cannot post the shop's reply.
+  const memberReply = await api(`/api/reviews/${reviewId}/reply`, {
+    method: "POST",
+    token: MEMBER.token,
+    body: { reply: "self reply" },
+  });
+  assert.equal(memberReply.status, 403);
+
+  // The owner can; the reply then rides along in the public list.
+  const ownerReply = await api(`/api/reviews/${reviewId}/reply`, {
+    method: "POST",
+    token: ADMIN.token,
+    body: { reply: "Уучлаарай, дараагийн удаад хурдан хүргэнэ" },
+  });
+  assert.equal(ownerReply.status, 200);
+
+  const list = await api(`/api/reviews?shopId=${shop.id}`);
+  const withReply = list.json.reviews.find((r) => r.id === reviewId);
+  assert.ok(withReply.reply.includes("Уучлаарай"));
+  assert.ok(withReply.replyAt);
+
+  // Clearing works and the field disappears.
+  const cleared = await api(`/api/reviews/${reviewId}/reply`, {
+    method: "DELETE",
+    token: ADMIN.token,
+  });
+  assert.equal(cleared.status, 200);
+  const after = await api(`/api/reviews?shopId=${shop.id}`);
+  assert.equal(after.json.reviews.find((r) => r.id === reviewId).reply, undefined);
+});
+
 // ===================== Bans =====================
 
 test("bans: guards hold and a banned session dies immediately", async () => {
