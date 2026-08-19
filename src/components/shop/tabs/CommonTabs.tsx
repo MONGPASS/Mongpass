@@ -13,6 +13,7 @@ import {
   userHasReviewed,
 } from "@/lib/reviewStore";
 import { getCurrentUser } from "@/lib/userStore";
+import { ReportButton } from "@/components/ui/ReportButton";
 import { r2Url } from "@/lib/images/upload";
 
 export function HomeTab({ shop }: { shop: ShopData }) {
@@ -264,9 +265,14 @@ export function ReviewTab({ shop }: { shop: ShopData }) {
                   </div>
                   <span className="font-bold text-sm text-gray-900">{r.userName}</span>
                 </div>
-                <span className="text-[10px] text-gray-400">
-                  {parseTimestamp(r.createdAt).toLocaleDateString("mn-MN")}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-gray-400">
+                    {parseTimestamp(r.createdAt).toLocaleDateString("mn-MN")}
+                  </span>
+                  {user?.id !== r.userId && (
+                    <ReportButton targetType="review" targetId={r.id} compact />
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-0.5 mb-1.5">
                 {[1, 2, 3, 4, 5].map((n) => (
