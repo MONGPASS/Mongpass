@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Share2, Menu, AlertCircle, Edit3, ShoppingBag, Camera, Home, PlusSquare, MessageCircle, Settings, X } from "lucide-react";
+import { ArrowLeft, Share2, AlertCircle, Check, Edit3, ShoppingBag, Camera, Home, PlusSquare, MessageCircle, Settings, X } from "lucide-react";
 import { parseTimestamp } from "@/lib/datetime";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -15,6 +15,7 @@ import { HOSPITAL_SPECIALTIES } from "@/lib/hospitalSpecialties";
 import { getCurrentUser } from "@/lib/userStore";
 import { BizChatThreadList } from "@/components/biz/BizChatThreadList";
 import { r2Url, uploadImage } from "@/lib/images/upload";
+import { shareUrl } from "@/lib/share";
 
 const CATEGORY_HAS_DEDICATED_ORDERS_UI: ShopCategory[] = ["cargo", "restaurant", "food", "hospital", "beauty", "meat", "travel"];
 
@@ -99,6 +100,21 @@ function BizProfilePageInner() {
   usePolling(refreshPendingCount, 15000, authChecked && currentShop !== null);
 
   const [uploading, setUploading] = useState(false);
+  const [shopLinkCopied, setShopLinkCopied] = useState(false);
+
+  // The owner's share button spreads their *customer-facing* page —
+  // /biz itself is private to them and useless to a customer.
+  async function handleShareShop() {
+    if (!currentShop) return;
+    const outcome = await shareUrl({
+      title: currentShop.name,
+      path: `/category/${currentShop.category}/${currentShop.id}`,
+    });
+    if (outcome === "copied") {
+      setShopLinkCopied(true);
+      setTimeout(() => setShopLinkCopied(false), 1500);
+    }
+  }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     // Snapshot the FileList into a real array BEFORE clearing the input.
@@ -245,8 +261,13 @@ function BizProfilePageInner() {
           <ArrowLeft size={28} strokeWidth={1.5} />
         </button>
         <div className="flex items-center gap-4 text-gray-900">
-          <button><Share2 size={24} strokeWidth={1.5} /></button>
-          <button><Menu size={26} strokeWidth={1.5} /></button>
+          <button onClick={handleShareShop} aria-label="Дэлгүүрээ хуваалцах">
+            {shopLinkCopied ? (
+              <Check size={24} strokeWidth={2} className="text-green-600" />
+            ) : (
+              <Share2 size={24} strokeWidth={1.5} />
+            )}
+          </button>
         </div>
       </div>
 

@@ -58,7 +58,7 @@ export default function ShopDetailPage({ category, shopData }: ShopDetailPagePro
 
   return (
     <div className="w-full min-h-screen bg-white pb-[80px] relative">
-      <TopNavBar shopId={String(shopData.id)} />
+      <TopNavBar shopId={String(shopData.id)} shareTitle={shopData.name} />
       <ShopHeader shop={shopData} />
       <ImageGallery images={shopData.images} />
       
