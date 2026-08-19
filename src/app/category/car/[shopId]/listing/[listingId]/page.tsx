@@ -2,7 +2,7 @@
 
 export const runtime = "edge";
 
-import { ArrowLeft, CarFront, Heart, MessageCircle, Share2 } from "lucide-react";
+import { ArrowLeft, CarFront, Check, Heart, MessageCircle, Share2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -11,6 +11,7 @@ import { Shop, findShopById } from "@/lib/shopStore";
 import { ensureThread, threadIdFor } from "@/lib/chatStore";
 import { getCurrentUser } from "@/lib/userStore";
 import { r2Url } from "@/lib/images/upload";
+import { shareUrl } from "@/lib/share";
 
 /**
  * Customer-facing car listing detail page.
@@ -45,6 +46,7 @@ export default function CarListingDetailPage({
   const [shop, setShop] = useState<Shop | null>(null);
   const [activeImg, setActiveImg] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -80,6 +82,17 @@ export default function CarListingDetailPage({
       router.push(`/chat/${encodeURIComponent(threadIdFor(user.id, shop.id))}`);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleShare() {
+    const outcome = await shareUrl({
+      title: listing?.title ?? "MongPass",
+      text: listing?.price ?? undefined,
+    });
+    if (outcome === "copied") {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1500);
     }
   }
 
@@ -123,8 +136,12 @@ export default function CarListingDetailPage({
             <button className="p-1" aria-label="Хадгалах">
               <Heart className="w-5 h-5" />
             </button>
-            <button className="p-1" aria-label="Хуваалцах">
-              <Share2 className="w-5 h-5" />
+            <button onClick={handleShare} className="p-1" aria-label="Хуваалцах">
+              {linkCopied ? (
+                <Check className="w-5 h-5 text-green-600" />
+              ) : (
+                <Share2 className="w-5 h-5" />
+              )}
             </button>
           </div>
         </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { Heart, Star, Share2, ArrowLeft, BadgeCheck, MessageCircle } from "lucide-react";
+import { Heart, Star, Share2, ArrowLeft, BadgeCheck, Check, MessageCircle } from "lucide-react";
 import { ShopCategory, ShopData } from "./types";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -8,10 +8,19 @@ import { isFavorite, toggleFavorite } from "@/lib/favoriteStore";
 import { getCurrentUser } from "@/lib/userStore";
 import { ensureThread, threadIdFor } from "@/lib/chatStore";
 import { r2Url } from "@/lib/images/upload";
+import { shareUrl } from "@/lib/share";
 
-export function TopNavBar({ shopId }: { shopId?: string }) {
+export function TopNavBar({
+  shopId,
+  shareTitle,
+}: {
+  shopId?: string;
+  /** Title passed to the platform share sheet; defaults to the app name. */
+  shareTitle?: string;
+}) {
   const router = useRouter();
   const [favorite, setFavorite] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     if (!shopId) return;
@@ -35,6 +44,16 @@ export function TopNavBar({ shopId }: { shopId?: string }) {
     setFavorite(next);
   }
 
+  async function handleShare() {
+    const outcome = await shareUrl({ title: shareTitle ?? "MongPass" });
+    if (outcome === "copied") {
+      // Desktop fallback: flash a check so the user knows the link is
+      // on their clipboard (the share sheet is its own feedback).
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1500);
+    }
+  }
+
   return (
     <div className="flex items-center justify-between p-4 bg-white sticky top-0 z-50">
       <button onClick={() => router.back()} className="p-1 -ml-1 flex items-center justify-center text-gray-900">
@@ -48,7 +67,13 @@ export function TopNavBar({ shopId }: { shopId?: string }) {
             className={favorite ? "fill-red-500 text-red-500" : ""}
           />
         </button>
-        <button><Share2 size={26} strokeWidth={1.5} /></button>
+        <button onClick={handleShare} aria-label="Хуваалцах">
+          {linkCopied ? (
+            <Check size={26} strokeWidth={2} className="text-green-600" />
+          ) : (
+            <Share2 size={26} strokeWidth={1.5} />
+          )}
+        </button>
       </div>
     </div>
   );
