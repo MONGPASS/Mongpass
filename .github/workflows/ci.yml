@@ -52,7 +52,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # wrangler 4.x wants a newer node than the 20 the other jobs
+          # pin (EBADENGINE warnings on install); the suite itself only
+          # needs global fetch (18+).
+          node-version: 22
           cache: npm
       - run: npm ci
       # The suite boots `next dev` against wrangler's local D1 itself;

@@ -52,14 +52,27 @@ const cookie = (t) => ({ Cookie: `mongpass_session=${t}` });
 let server = null;
 let tmp = null;
 
+/** Run a wrangler subcommand, surfacing its stderr on failure — the
+ *  default execFileSync error hides the actual wrangler message. */
+function wranglerCli(args) {
+  try {
+    execFileSync(
+      process.platform === "win32" ? "npx.cmd" : "npx",
+      ["wrangler", ...args],
+      { cwd: ROOT, stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32" },
+    );
+  } catch (err) {
+    const detail = [err.stdout, err.stderr]
+      .map((b) => (b ? b.toString() : ""))
+      .join("\n");
+    throw new Error(`wrangler ${args.join(" ")} failed:\n${detail}`);
+  }
+}
+
 function d1(sql) {
   const file = join(tmp, `q-${Date.now()}-${Math.random().toString(36).slice(2)}.sql`);
   writeFileSync(file, sql);
-  execFileSync(
-    process.platform === "win32" ? "npx.cmd" : "npx",
-    ["wrangler", "d1", "execute", "mongpass", "--local", "--file", file],
-    { cwd: ROOT, stdio: "pipe", shell: process.platform === "win32" },
-  );
+  wranglerCli(["d1", "execute", "mongpass", "--local", "--file", file]);
 }
 
 async function waitForServer(timeoutMs = 120_000) {
@@ -105,11 +118,7 @@ before(async () => {
   }
 
   // Schema up to date, then seed the two accounts + sessions.
-  execFileSync(
-    process.platform === "win32" ? "npx.cmd" : "npx",
-    ["wrangler", "d1", "migrations", "apply", "mongpass", "--local"],
-    { cwd: ROOT, stdio: "pipe", shell: process.platform === "win32" },
-  );
+  wranglerCli(["d1", "migrations", "apply", "mongpass", "--local"]);
   const far = Date.now() + 24 * 3600 * 1000;
   d1(
     [
