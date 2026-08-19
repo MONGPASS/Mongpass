@@ -9,8 +9,7 @@ import { ShopData } from "../types";
 import {
   Review,
   addReview,
-  loadReviewsForShop,
-  summarizeReviews,
+  loadReviewsPage,
   userHasReviewed,
 } from "@/lib/reviewStore";
 import { getCurrentUser } from "@/lib/userStore";
@@ -102,6 +101,8 @@ export function InfoTab({ shop }: { shop: ShopData }) {
 export function ReviewTab({ shop }: { shop: ShopData }) {
   const shopId = String(shop.id);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
@@ -111,18 +112,38 @@ export function ReviewTab({ shop }: { shop: ShopData }) {
   useEffect(() => {
     let active = true;
     (async () => {
-      const [list, u] = await Promise.all([
-        loadReviewsForShop(shopId),
+      const [page, u] = await Promise.all([
+        loadReviewsPage(shopId),
         getCurrentUser(),
       ]);
       if (!active) return;
-      setReviews(list);
+      setReviews(page.reviews);
+      setNextCursor(page.nextCursor);
       setUser(u);
     })();
     return () => { active = false; };
   }, [shopId]);
 
-  const summary = useMemo(() => summarizeReviews(reviews), [reviews]);
+  async function loadMore() {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const page = await loadReviewsPage(shopId, nextCursor);
+      setReviews((prev) => [...prev, ...page.reviews]);
+      setNextCursor(page.nextCursor);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  // Header numbers come from the shop record's SQL aggregate — the
+  // loaded list is just the first page now, so averaging it locally
+  // would misreport shops with more than one page of reviews.
+  const summary = useMemo(
+    () => ({ count: shop.reviews ?? 0, average: shop.rating ?? 0 }),
+    [shop.reviews, shop.rating],
+  );
+  // Best-effort on the loaded page; the server's 409 stays the real guard.
   const alreadyReviewed = userHasReviewed(reviews, user?.id ?? null);
 
   async function submit() {
@@ -139,7 +160,9 @@ export function ReviewTab({ shop }: { shop: ShopData }) {
         alert("Сэтгэгдэл нэмэхэд алдаа гарлаа. Та нэвтэрсэн эсэхээ шалгана уу.");
         return;
       }
-      setReviews(await loadReviewsForShop(shopId));
+      const page = await loadReviewsPage(shopId);
+      setReviews(page.reviews);
+      setNextCursor(page.nextCursor);
       setShowForm(false);
       setComment("");
       setRating(5);
@@ -260,6 +283,17 @@ export function ReviewTab({ shop }: { shop: ShopData }) {
               </p>
             </div>
           ))}
+          {nextCursor && (
+            <div className="px-5 py-4">
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="w-full bg-gray-50 border border-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl text-[13px] active:bg-gray-100 disabled:opacity-50"
+              >
+                {loadingMore ? "Уншиж байна..." : "Цааш үзэх"}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -19,6 +19,7 @@ import {
 } from "@/lib/auth/server";
 import { type OrderRow, orderToPayloadJson, rowToOrder } from "@/lib/orders/dbMapper";
 import { sendPushToUser } from "@/lib/push/server";
+import { clampLimit, pageAndCursor, parseCursor } from "@/lib/pagination";
 
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
@@ -65,6 +66,16 @@ export async function GET(request: Request): Promise<Response> {
     values.push(status);
   }
 
+  // Keyset pagination. Default limit stays at the old 200 cap so
+  // existing consumers (biz order tabs, notification feed) behave
+  // unchanged; paginated consumers pass limit=<n> and walk nextCursor.
+  const cursor = parseCursor(url.searchParams.get("cursor"));
+  const limit = clampLimit(url.searchParams.get("limit"), 200, 200);
+  if (cursor) {
+    conditions.push("(created_at, id) < (?, ?)");
+    values.push(cursor.createdAt, cursor.id);
+  }
+
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   const result = await db
     .prepare(
@@ -72,13 +83,14 @@ export async function GET(request: Request): Promise<Response> {
               status_updated_at, created_at, payload_json
          FROM orders
          ${where}
-         ORDER BY created_at DESC
-         LIMIT 200`,
+         ORDER BY created_at DESC, id DESC
+         LIMIT ?`,
     )
-    .bind(...values)
+    .bind(...values, limit + 1)
     .all<OrderRow>();
 
-  return Response.json({ orders: (result.results ?? []).map(rowToOrder) });
+  const { page, nextCursor } = pageAndCursor(result.results ?? [], limit);
+  return Response.json({ orders: page.map(rowToOrder), nextCursor });
 }
 
 export async function POST(request: Request): Promise<Response> {

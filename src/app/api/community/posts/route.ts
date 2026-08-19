@@ -1,12 +1,14 @@
 /**
  * /api/community/posts
- *   GET  ?category=… — list posts (public, newest first)
+ *   GET  ?category=…&cursor=…&limit=… — list posts (public, newest
+ *        first, keyset-paginated; response carries `nextCursor`)
  *   POST { category, title, content, imageDataUrl? } — auth required
  */
 
 export const runtime = "edge";
 
 import { getServerContext, unauthorized } from "@/lib/auth/server";
+import { clampLimit, pageAndCursor, parseCursor } from "@/lib/pagination";
 
 interface PostRow {
   id: string;
@@ -40,6 +42,8 @@ function rowToPost(r: PostRow, likedBy: string[] = []) {
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const category = url.searchParams.get("category");
+  const cursor = parseCursor(url.searchParams.get("cursor"));
+  const limit = clampLimit(url.searchParams.get("limit"), 20, 50);
   const { db } = await getServerContext();
 
   const conditions: string[] = [];
@@ -48,9 +52,15 @@ export async function GET(request: Request): Promise<Response> {
     conditions.push("p.category = ?");
     values.push(category);
   }
+  if (cursor) {
+    // Keyset: strictly older than the last row of the previous page.
+    conditions.push("(p.created_at, p.id) < (?, ?)");
+    values.push(cursor.createdAt, cursor.id);
+  }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
-  // JOIN users for author name; subqueries for like + comment counts
+  // JOIN users for author name; subqueries for like + comment counts.
+  // limit+1 so we know whether another page exists without a COUNT().
   const result = await db
     .prepare(
       `SELECT p.id, p.author_id, p.category, p.title, p.content,
@@ -61,13 +71,14 @@ export async function GET(request: Request): Promise<Response> {
          FROM community_posts p
          LEFT JOIN users u ON u.id = p.author_id
          ${where}
-         ORDER BY p.created_at DESC
-         LIMIT 100`,
+         ORDER BY p.created_at DESC, p.id DESC
+         LIMIT ?`,
     )
-    .bind(...values)
+    .bind(...values, limit + 1)
     .all<PostRow>();
 
-  return Response.json({ posts: (result.results ?? []).map((r) => rowToPost(r)) });
+  const { page, nextCursor } = pageAndCursor(result.results ?? [], limit);
+  return Response.json({ posts: page.map((r) => rowToPost(r)), nextCursor });
 }
 
 export async function POST(request: Request): Promise<Response> {

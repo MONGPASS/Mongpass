@@ -18,7 +18,7 @@ import {
 } from "@/lib/orderStore";
 import { ShopCategory } from "@/components/shop/types";
 import { CargoType } from "@/lib/cargoStore";
-import { loadOrders } from "@/lib/orderStore";
+import { loadOrdersPage } from "@/lib/orderStore";
 
 const STATUS_BADGE: Record<OrderStatus, string> = {
   pending: "bg-yellow-100 text-yellow-700",
@@ -234,17 +234,39 @@ function OrderCard({ order }: { order: Order }) {
 
 type TabKey = "all" | "active" | "done";
 
+const PAGE_SIZE = 20;
+
 export default function MyOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [tab, setTab] = useState<TabKey>("all");
 
   useEffect(() => {
     let active = true;
-    loadOrders({ mine: true }).then((list) => {
-      if (active) setOrders(list);
+    loadOrdersPage({ mine: true, limit: PAGE_SIZE }).then((page) => {
+      if (!active) return;
+      setOrders(page.orders);
+      setNextCursor(page.nextCursor);
     });
     return () => { active = false; };
   }, []);
+
+  async function loadMore() {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const page = await loadOrdersPage({
+        mine: true,
+        limit: PAGE_SIZE,
+        cursor: nextCursor,
+      });
+      setOrders((prev) => [...prev, ...page.orders]);
+      setNextCursor(page.nextCursor);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   const sorted = [...orders].sort(
     (a, b) => parseTimestamp(b.createdAt).getTime() - parseTimestamp(a.createdAt).getTime(),
@@ -308,6 +330,15 @@ export default function MyOrdersPage() {
             <OrderCard order={order} />
           </Link>
         ))}
+        {nextCursor && (
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="w-full bg-white border border-gray-200 text-gray-700 font-semibold py-3 rounded-xl text-sm active:bg-gray-50 disabled:opacity-50"
+          >
+            {loadingMore ? "Уншиж байна..." : "Цааш үзэх"}
+          </button>
+        )}
       </div>
     </main>
   );

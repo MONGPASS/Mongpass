@@ -59,10 +59,25 @@ async function del(url: string): Promise<boolean> {
 
 // ===================== Posts =====================
 
-export async function loadPosts(category?: string): Promise<CommunityPost[]> {
-  const qs = category ? `?category=${encodeURIComponent(category)}` : "";
-  const data = await getJson<{ posts: CommunityPost[] }>(`/api/community/posts${qs}`);
-  return data?.posts ?? [];
+export interface PostsPage {
+  posts: CommunityPost[];
+  /** Pass back as `cursor` to fetch the next (older) page; null = end. */
+  nextCursor: string | null;
+}
+
+/** One keyset page of posts, newest first. */
+export async function loadPostsPage(opts: {
+  category?: string;
+  cursor?: string | null;
+} = {}): Promise<PostsPage> {
+  const params = new URLSearchParams();
+  if (opts.category) params.set("category", opts.category);
+  if (opts.cursor) params.set("cursor", opts.cursor);
+  const qs = params.toString();
+  const data = await getJson<PostsPage>(
+    `/api/community/posts${qs ? `?${qs}` : ""}`,
+  );
+  return { posts: data?.posts ?? [], nextCursor: data?.nextCursor ?? null };
 }
 
 export async function findPost(id: string): Promise<CommunityPost | null> {
