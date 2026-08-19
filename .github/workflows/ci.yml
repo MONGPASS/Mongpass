@@ -44,3 +44,17 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+
+  api-tests:
+    name: API tests (e2e)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # The suite boots `next dev` against wrangler's local D1 itself;
+      # it copies .dev.vars.example and applies migrations on startup.
+      - run: npm run test:api
