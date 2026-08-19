@@ -20,6 +20,13 @@ export const runtime = "edge";
 import { forbidden, getServerContext, unauthorized } from "@/lib/auth/server";
 
 const MAX_BYTES = 5_000_000; // 5 MB after client-side WebP compression
+
+// Per-user rate limits. Generous for legitimate use — a shop owner
+// uploading a full gallery plus a product catalog stays well inside —
+// but a scripted abuser can no longer stream 5 MB files into R2
+// indefinitely on a free account.
+const MAX_PER_HOUR = 30;
+const MAX_PER_DAY = 150;
 const ALLOWED_KINDS = new Set([
   "shop",        // shop banners
   "banner",      // homepage banners
@@ -45,8 +52,26 @@ function safeRand(): string {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const { images, user } = await getServerContext();
+  const { db, images, user } = await getServerContext();
   if (!user) return unauthorized();
+
+  // Rate limit check — one query returns both window counts.
+  const counts = await db
+    .prepare(
+      `SELECT
+         SUM(CASE WHEN created_at > datetime('now', '-1 hour') THEN 1 ELSE 0 END) AS hour_n,
+         COUNT(*) AS day_n
+        FROM upload_log
+       WHERE user_id = ? AND created_at > datetime('now', '-1 day')`,
+    )
+    .bind(user.id)
+    .first<{ hour_n: number | null; day_n: number }>();
+  if ((counts?.hour_n ?? 0) >= MAX_PER_HOUR || (counts?.day_n ?? 0) >= MAX_PER_DAY) {
+    return Response.json(
+      { error: "Upload limit reached. Try again later." },
+      { status: 429 },
+    );
+  }
 
   let formData: FormData;
   try {
@@ -87,6 +112,20 @@ export async function POST(request: Request): Promise<Response> {
       kind,
     },
   });
+
+  // Record the upload for the rate limiter and sweep this user's rows
+  // that have aged out of every window — keeps the table from growing
+  // without a scheduled job.
+  await db.batch([
+    db
+      .prepare("INSERT INTO upload_log (id, user_id) VALUES (?, ?)")
+      .bind(`upl-${Date.now()}-${safeRand()}`, user.id),
+    db
+      .prepare(
+        "DELETE FROM upload_log WHERE user_id = ? AND created_at < datetime('now', '-1 day')",
+      )
+      .bind(user.id),
+  ]);
 
   return Response.json({ key, url: `/api/r2/${key}` }, { status: 201 });
 }

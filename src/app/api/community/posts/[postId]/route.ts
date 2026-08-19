@@ -13,6 +13,7 @@ import {
   notFound,
   unauthorized,
 } from "@/lib/auth/server";
+import { deleteR2Objects } from "@/lib/images/r2Cleanup";
 
 interface PostRow {
   id: string;
@@ -80,13 +81,13 @@ export async function DELETE(
   _request: Request,
   { params }: { params: { postId: string } },
 ): Promise<Response> {
-  const { db, user } = await getServerContext();
+  const { db, images, user } = await getServerContext();
   if (!user) return unauthorized();
 
   const row = await db
-    .prepare("SELECT author_id FROM community_posts WHERE id = ?")
+    .prepare("SELECT author_id, image_r2_key FROM community_posts WHERE id = ?")
     .bind(params.postId)
-    .first<{ author_id: string }>();
+    .first<{ author_id: string; image_r2_key: string | null }>();
   if (!row) return notFound("Post not found");
   if (row.author_id !== user.id && user.role !== "admin") return forbidden();
 
@@ -95,5 +96,7 @@ export async function DELETE(
     .prepare("DELETE FROM community_posts WHERE id = ?")
     .bind(params.postId)
     .run();
+  // The attached photo would otherwise sit in R2 forever.
+  await deleteR2Objects(images, [row.image_r2_key]);
   return Response.json({ ok: true });
 }
