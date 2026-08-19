@@ -16,6 +16,7 @@ import { getCurrentUser } from "@/lib/userStore";
 import { BizChatThreadList } from "@/components/biz/BizChatThreadList";
 import { r2Url, uploadImage } from "@/lib/images/upload";
 import { shareUrl } from "@/lib/share";
+import { PushStatus, disablePush, enablePush, getPushStatus } from "@/lib/pushClient";
 
 const CATEGORY_HAS_DEDICATED_ORDERS_UI: ShopCategory[] = ["cargo", "restaurant", "food", "hospital", "beauty", "meat", "travel"];
 
@@ -599,6 +600,7 @@ function BizProfilePageInner() {
                     <b> Захиалга</b> цэснээс ирсэн захиалгуудыг харах,
                     <b> Чат</b> цэснээс үйлчлүүлэгчтэй харилцаж болно.
                   </p>
+                  <PushOptInCard />
                   <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-[12px] text-blue-700 leading-relaxed">
                     📊 Хандалт, орлого зэрэг статистик удахгүй нэмэгдэнэ.
                   </div>
@@ -897,6 +899,77 @@ function BizSidebar({
         />
       </div>
     </aside>
+  );
+}
+
+/**
+ * Push-notification opt-in for shop owners, shown on the /biz home
+ * tab. The whole point of push here: a new order should reach the
+ * owner's phone even when MongPass isn't open — before this their
+ * only signal was the badge polling inside an open tab.
+ */
+function PushOptInCard() {
+  const [status, setStatus] = useState<PushStatus | "loading">("loading");
+  const [working, setWorking] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    getPushStatus().then((s) => {
+      if (active) setStatus(s);
+    });
+    return () => { active = false; };
+  }, []);
+
+  // Nothing to offer: no browser support or server keys not set.
+  if (status === "loading" || status === "unsupported") return null;
+
+  if (status === "denied") {
+    return (
+      <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-[12px] text-gray-500 leading-relaxed">
+        🔕 Мэдэгдэл хориглогдсон байна. Браузерын тохиргооноос
+        зөвшөөрвөл шинэ захиалгын мэдэгдэл авах боломжтой.
+      </div>
+    );
+  }
+
+  const subscribed = status === "subscribed";
+  return (
+    <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 flex items-center gap-3">
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] font-bold text-amber-900">
+          🔔 Захиалгын мэдэгдэл
+        </p>
+        <p className="text-[11px] text-amber-800/80 leading-relaxed">
+          {subscribed
+            ? "Асаалттай — шинэ захиалга ирэхэд утсанд тань мэдэгдэнэ"
+            : "Аппыг хаасан үед ч шинэ захиалгын мэдэгдэл утсандаа аваарай"}
+        </p>
+      </div>
+      <button
+        onClick={async () => {
+          if (working) return;
+          setWorking(true);
+          try {
+            if (subscribed) {
+              await disablePush();
+              setStatus("not-subscribed");
+            } else {
+              setStatus(await enablePush());
+            }
+          } finally {
+            setWorking(false);
+          }
+        }}
+        disabled={working}
+        className={`shrink-0 text-[12px] font-bold px-3 py-2 rounded-lg transition-colors disabled:opacity-50 ${
+          subscribed
+            ? "bg-white border border-amber-200 text-amber-800"
+            : "bg-amber-500 text-white"
+        }`}
+      >
+        {working ? "..." : subscribed ? "Унтраах" : "Асаах"}
+      </button>
+    </div>
   );
 }
 
