@@ -34,3 +34,14 @@ export function parseTimestamp(value: string | null | undefined): Date {
 export function parseTimestampMs(value: string | null | undefined): number {
   return parseTimestamp(value).getTime();
 }
+
+/**
+ * Today's date as a local-timezone "YYYY-MM-DD" string — for `min`
+ * attributes on <input type="date"> and validating booking dates.
+ * NOT `toISOString().slice(0, 10)`: that's UTC, which for KST users
+ * is yesterday's date until 9am.
+ */
+export function todayLocalISODate(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}

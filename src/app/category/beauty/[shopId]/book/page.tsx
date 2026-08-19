@@ -20,6 +20,7 @@ import {
 } from "@/lib/orderStore";
 import { useRequireUser } from "@/lib/auth/useRequireUser";
 import { FormErrorBanner } from "@/components/ui/FormErrorBanner";
+import { todayLocalISODate } from "@/lib/datetime";
 
 export default function BeautyBookPage({ params }: { params: { shopId: string } }) {
   const searchParams = useSearchParams();
@@ -60,12 +61,15 @@ export default function BeautyBookPage({ params }: { params: { shopId: string } 
     [stylists, selectedStylistId],
   );
 
+  // Same past-date guard as the hospital booking form.
+  const minDate = todayLocalISODate();
   const canSubmit =
     !busy &&
     selectedService !== null &&
     customerName.trim().length > 0 &&
     customerPhone.trim().length > 0 &&
     preferredDate.trim().length > 0 &&
+    preferredDate >= minDate &&
     preferredTime.trim().length > 0;
 
   async function submit() {
@@ -236,9 +240,15 @@ export default function BeautyBookPage({ params }: { params: { shopId: string } 
               <input
                 type="date"
                 value={preferredDate}
+                min={minDate}
                 onChange={(e) => setPreferredDate(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white"
               />
+              {preferredDate && preferredDate < minDate && (
+                <p className="text-[10px] text-red-500 mt-1">
+                  Өнгөрсөн огноо сонгох боломжгүй
+                </p>
+              )}
             </div>
             <div>
               <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">Цаг</label>

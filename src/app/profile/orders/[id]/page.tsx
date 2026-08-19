@@ -19,6 +19,7 @@ import {
   getStatusFlow,
   getStatusLabel,
   findOrderById,
+  updateOrderStatus,
 } from "@/lib/orderStore";
 import { ShopCategory } from "@/components/shop/types";
 import { CargoType } from "@/lib/cargoStore";
@@ -448,6 +449,7 @@ function OrderBody({ order }: { order: Order }) {
 
 export default function OrderDetailPage({ params }: { params: { id: string } }) {
   const [order, setOrder] = useState<Order | null | undefined>(undefined);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -456,6 +458,26 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
     });
     return () => { active = false; };
   }, [params.id]);
+
+  // Customer-side cancel — the API has allowed cancelling a *pending*
+  // order all along, but no UI ever exposed it, so customers who
+  // changed their mind either phoned the shop or just no-showed.
+  // Confined to 'pending': once the shop confirms, cancellation is a
+  // conversation (chat/phone), not a button.
+  async function cancelOrder() {
+    if (!order || order.status !== "pending" || cancelling) return;
+    if (!window.confirm("Захиалгыг цуцлахдаа итгэлтэй байна уу?")) return;
+    setCancelling(true);
+    try {
+      const updated = await updateOrderStatus(order.id, "cancelled");
+      if (updated) setOrder(updated);
+    } catch (err) {
+      console.error(err);
+      alert("Цуцлахад алдаа гарлаа. Дахин оролдоно уу.");
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   if (order === undefined) {
     return (
@@ -510,6 +532,15 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
             <Row label="Захиалгын дугаар" value={<span className="font-mono text-xs">{order.id}</span>} />
             <Row label="Үүсгэсэн" value={fmtFull(order.createdAt)} />
           </div>
+          {order.status === "pending" && (
+            <button
+              onClick={cancelOrder}
+              disabled={cancelling}
+              className="w-full mt-3 border border-red-200 bg-red-50 text-red-600 font-bold py-2.5 rounded-xl text-[13px] active:scale-[0.98] transition-transform disabled:opacity-50"
+            >
+              {cancelling ? "Цуцалж байна..." : "Захиалга цуцлах"}
+            </button>
+          )}
         </div>
 
         <OrderBody order={order} />

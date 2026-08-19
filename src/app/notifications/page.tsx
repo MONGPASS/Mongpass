@@ -2,9 +2,11 @@
 
 import {
   ArrowLeft,
+  BadgeCheck,
   Bell,
   ShoppingBag,
   Store,
+  ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
 import { parseTimestamp } from "@/lib/datetime";
@@ -22,11 +24,15 @@ const ICON_BG: Record<Notification["kind"], string> = {
   "order-status": "bg-blue-100 text-blue-600",
   "new-order": "bg-orange-100 text-orange-600",
   "shop-pending": "bg-purple-100 text-purple-600",
+  "shop-approved": "bg-green-100 text-green-600",
+  "shop-rejected": "bg-red-100 text-red-600",
 };
 
 function NotificationIcon({ kind }: { kind: Notification["kind"] }) {
   if (kind === "order-status") return <ShoppingBag className="w-4 h-4" />;
   if (kind === "new-order") return <Store className="w-4 h-4" />;
+  if (kind === "shop-approved") return <BadgeCheck className="w-4 h-4" />;
+  if (kind === "shop-rejected") return <ShieldAlert className="w-4 h-4" />;
   return <ShieldCheck className="w-4 h-4" />;
 }
 
