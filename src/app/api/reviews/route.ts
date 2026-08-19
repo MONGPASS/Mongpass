@@ -22,6 +22,8 @@ interface ReviewRow {
   user_name: string;
   rating: number;
   comment: string;
+  reply: string | null;
+  reply_at: string | null;
   created_at: string;
 }
 
@@ -33,6 +35,8 @@ function rowToReview(r: ReviewRow) {
     userName: r.user_name,
     rating: r.rating,
     comment: r.comment,
+    reply: r.reply ?? undefined,
+    replyAt: r.reply_at ?? undefined,
     createdAt: r.created_at,
   };
 }
@@ -61,7 +65,8 @@ export async function GET(request: Request): Promise<Response> {
 
   const result = await db
     .prepare(
-      `SELECT id, shop_id, user_id, user_name, rating, comment, created_at
+      `SELECT id, shop_id, user_id, user_name, rating, comment,
+              reply, reply_at, created_at
          FROM reviews WHERE ${conditions.join(" AND ")}
          ORDER BY created_at DESC, id DESC
          LIMIT ?`,
@@ -127,7 +132,8 @@ export async function POST(request: Request): Promise<Response> {
 
   const row = await db
     .prepare(
-      `SELECT id, shop_id, user_id, user_name, rating, comment, created_at
+      `SELECT id, shop_id, user_id, user_name, rating, comment,
+              reply, reply_at, created_at
          FROM reviews WHERE id = ?`,
     )
     .bind(id)

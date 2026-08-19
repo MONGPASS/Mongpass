@@ -9,7 +9,9 @@ import { ShopData } from "../types";
 import {
   Review,
   addReview,
+  clearReviewReply,
   loadReviewsPage,
+  setReviewReply,
   userHasReviewed,
 } from "@/lib/reviewStore";
 import { getCurrentUser } from "@/lib/userStore";
@@ -146,6 +148,15 @@ export function ReviewTab({ shop }: { shop: ShopData }) {
   );
   // Best-effort on the loaded page; the server's 409 stays the real guard.
   const alreadyReviewed = userHasReviewed(reviews, user?.id ?? null);
+  // Owner-only reply controls. The server re-checks ownership, so this
+  // flag is purely about not rendering dead buttons for customers.
+  const isOwner = Boolean(user && shop.ownerId && user.id === shop.ownerId);
+
+  async function refreshFirstPage() {
+    const page = await loadReviewsPage(shopId);
+    setReviews(page.reviews);
+    setNextCursor(page.nextCursor);
+  }
 
   async function submit() {
     if (!comment.trim() || rating < 1 || rating > 5 || submitting) return;
@@ -287,6 +298,12 @@ export function ReviewTab({ shop }: { shop: ShopData }) {
               <p className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-wrap">
                 {r.comment}
               </p>
+              <ReviewReply
+                review={r}
+                shopName={shop.name}
+                isOwner={isOwner}
+                onChanged={refreshFirstPage}
+              />
             </div>
           ))}
           {nextCursor && (
@@ -332,5 +349,128 @@ export function PhotoTab({ shop }: { shop: ShopData }) {
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * The shop's answer under a review: visible to everyone once set;
+ * write / edit / delete controls appear only for the shop owner
+ * (the reply API re-checks ownership server-side).
+ */
+function ReviewReply({
+  review,
+  shopName,
+  isOwner,
+  onChanged,
+}: {
+  review: Review;
+  shopName: string;
+  isOwner: boolean;
+  onChanged: () => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(review.reply ?? "");
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    if (!draft.trim() || busy) return;
+    setBusy(true);
+    try {
+      const ok = await setReviewReply(review.id, draft.trim());
+      if (!ok) {
+        alert("Хариулт хадгалахад алдаа гарлаа.");
+        return;
+      }
+      setEditing(false);
+      await onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (busy || !window.confirm("Хариултыг устгах уу?")) return;
+    setBusy(true);
+    try {
+      await clearReviewReply(review.id);
+      await onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="mt-3 ml-4 border-l-2 border-gray-200 pl-3">
+        <textarea
+          rows={2}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Сэтгэгдэлд хариулах..."
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[13px] resize-none"
+        />
+        <div className="flex gap-2 mt-1.5">
+          <button
+            onClick={save}
+            disabled={busy || !draft.trim()}
+            className="bg-gray-900 text-white text-[12px] font-bold px-3 py-1.5 rounded-lg disabled:opacity-40"
+          >
+            {busy ? "..." : "Хадгалах"}
+          </button>
+          <button
+            onClick={() => { setEditing(false); setDraft(review.reply ?? ""); }}
+            className="text-[12px] font-semibold text-gray-500 px-2"
+          >
+            Болих
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (review.reply) {
+    return (
+      <div className="mt-3 ml-4 border-l-2 border-primary/30 pl-3">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-[11px] font-bold text-primary">
+            {shopName}-н хариулт
+          </span>
+          {review.replyAt && (
+            <span className="text-[10px] text-gray-400">
+              {parseTimestamp(review.replyAt).toLocaleDateString("mn-MN")}
+            </span>
+          )}
+          {isOwner && (
+            <span className="flex items-center gap-2 ml-auto">
+              <button
+                onClick={() => { setDraft(review.reply ?? ""); setEditing(true); }}
+                className="text-[11px] font-semibold text-gray-400 hover:text-gray-600"
+              >
+                Засах
+              </button>
+              <button
+                onClick={remove}
+                className="text-[11px] font-semibold text-gray-400 hover:text-red-500"
+              >
+                Устгах
+              </button>
+            </span>
+          )}
+        </div>
+        <p className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-wrap">
+          {review.reply}
+        </p>
+      </div>
+    );
+  }
+
+  if (!isOwner) return null;
+  return (
+    <button
+      onClick={() => setEditing(true)}
+      className="mt-2 text-[12px] font-semibold text-primary"
+    >
+      Хариулах
+    </button>
   );
 }

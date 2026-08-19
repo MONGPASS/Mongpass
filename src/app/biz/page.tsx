@@ -601,6 +601,19 @@ function BizProfilePageInner() {
                     <b> Чат</b> цэснээс үйлчлүүлэгчтэй харилцаж болно.
                   </p>
                   <PushOptInCard />
+                  {/* Owners reply to reviews from their public page's
+                      Сэтгэгдэл tab — give them a direct way there. */}
+                  <Link
+                    href={`/category/${currentShop.category}/${currentShop.id}`}
+                    className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 active:bg-gray-100 transition-colors"
+                  >
+                    <span className="text-[13px] font-bold text-gray-700">
+                      🏪 Дэлгүүрийн нүүр хуудсаа үзэх
+                    </span>
+                    <span className="text-[12px] text-gray-400">
+                      сэтгэгдэлд хариулах →
+                    </span>
+                  </Link>
                   <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-[12px] text-blue-700 leading-relaxed">
                     📊 Хандалт, орлого зэрэг статистик удахгүй нэмэгдэнэ.
                   </div>
