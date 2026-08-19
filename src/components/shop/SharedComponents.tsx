@@ -9,6 +9,7 @@ import { getCurrentUser } from "@/lib/userStore";
 import { ensureThread, threadIdFor } from "@/lib/chatStore";
 import { r2Url } from "@/lib/images/upload";
 import { shareUrl } from "@/lib/share";
+import { ReportButton } from "@/components/ui/ReportButton";
 
 export function TopNavBar({
   shopId,
@@ -85,6 +86,9 @@ export function ShopHeader({ shop }: { shop: ShopData }) {
     <div className="px-5 pt-2 pb-5 bg-white space-y-3">
       <div className="flex items-start justify-between gap-4">
         <h1 className="text-[22px] font-bold text-gray-900 leading-tight">{shop.name}</h1>
+        <div className="pt-1.5 shrink-0">
+          <ReportButton targetType="shop" targetId={String(shop.id)} />
+        </div>
       </div>
 
       <div className="flex items-center gap-2 text-[13px] text-gray-600 flex-wrap">

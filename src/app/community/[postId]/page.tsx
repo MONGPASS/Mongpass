@@ -18,6 +18,7 @@ import {
   toggleLike,
 } from "@/lib/communityStore";
 import { User, getCurrentUser } from "@/lib/userStore";
+import { ReportButton } from "@/components/ui/ReportButton";
 
 const CATEGORY_BADGE: Record<string, string> = {
   "Ажлын зар": "bg-purple-100 text-purple-700",
@@ -138,7 +139,7 @@ export default function CommunityPostDetailPage({ params }: { params: { postId: 
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <h1 className="font-bold text-base flex-1">Нийтлэл</h1>
-          {isAuthor && (
+          {isAuthor ? (
             <button
               onClick={handleDeletePost}
               className="p-2 text-red-500 hover:bg-red-50 rounded-full"
@@ -146,6 +147,8 @@ export default function CommunityPostDetailPage({ params }: { params: { postId: 
             >
               <Trash2 className="w-4 h-4" />
             </button>
+          ) : (
+            <ReportButton targetType="post" targetId={params.postId} />
           )}
         </div>
       </header>
