@@ -10,6 +10,7 @@
 
 export const runtime = "edge";
 
+import { getRequestContext } from "@cloudflare/next-on-pages";
 import {
   forbidden,
   getServerContext,
@@ -17,6 +18,7 @@ import {
   unauthorized,
 } from "@/lib/auth/server";
 import { type OrderRow, orderToPayloadJson, rowToOrder } from "@/lib/orders/dbMapper";
+import { sendPushToUser } from "@/lib/push/server";
 
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
@@ -105,9 +107,17 @@ export async function POST(request: Request): Promise<Response> {
   // category in the body must match the shop's actual category —
   // prevents clients from spoofing.
   const shop = await db
-    .prepare("SELECT id, category, status, is_open FROM shops WHERE id = ?")
+    .prepare(
+      "SELECT id, owner_id, category, status, is_open FROM shops WHERE id = ?",
+    )
     .bind(body.shopId)
-    .first<{ id: string; category: string; status: string; is_open: number }>();
+    .first<{
+      id: string;
+      owner_id: string;
+      category: string;
+      status: string;
+      is_open: number;
+    }>();
   if (!shop) {
     return Response.json(
       { error: "Shop not found", code: "shop_not_found" },
@@ -163,6 +173,17 @@ export async function POST(request: Request): Promise<Response> {
     .bind(id)
     .first<OrderRow>();
   if (!row) return Response.json({ error: "Insert failed" }, { status: 500 });
+
+  // Ping the owner's phone about the new order — after the response,
+  // so push-service latency never slows down checkout.
+  try {
+    const { env, ctx } = getRequestContext();
+    ctx.waitUntil(
+      sendPushToUser(db, env as unknown as CloudflareEnv, shop.owner_id),
+    );
+  } catch {
+    /* push is best-effort */
+  }
 
   return Response.json({ order: rowToOrder(row) }, { status: 201 });
 }

@@ -17,6 +17,11 @@ declare global {
     ADMIN_EMAILS: string;
     /** Random 32-byte secret used by the session module (HMAC etc.) */
     AUTH_SECRET: string;
+    /** Web Push (VAPID). Public key: base64url raw P-256 point; private key: JWK JSON. */
+    VAPID_PUBLIC_KEY?: string;
+    VAPID_PRIVATE_JWK?: string;
+    /** mailto: or https: contact for push services. */
+    VAPID_SUBJECT?: string;
   }
 }
 

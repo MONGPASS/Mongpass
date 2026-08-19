@@ -9,7 +9,9 @@
 
 export const runtime = "edge";
 
+import { getRequestContext } from "@cloudflare/next-on-pages";
 import { forbidden, getServerContext, notFound, unauthorized } from "@/lib/auth/server";
+import { sendPushToUser } from "@/lib/push/server";
 
 interface MessageRow {
   id: string;
@@ -143,6 +145,31 @@ export async function POST(
       )
       .bind(now, text.slice(0, 80), now, params.threadId),
   ]);
+
+  // Push to whoever is on the other side of the thread — the customer
+  // when a shop replies, the shop owner when a customer writes. Sent
+  // after the response via waitUntil; the fixed notification tag in
+  // sw.js collapses rapid-fire messages into one entry.
+  try {
+    let recipientId: string | null = null;
+    if (auth.side === "user") {
+      const shop = await db
+        .prepare("SELECT owner_id FROM shops WHERE id = ?")
+        .bind(auth.thread.shop_id)
+        .first<{ owner_id: string }>();
+      recipientId = shop?.owner_id ?? null;
+    } else {
+      recipientId = auth.thread.user_id;
+    }
+    if (recipientId && recipientId !== user.id) {
+      const { env, ctx } = getRequestContext();
+      ctx.waitUntil(
+        sendPushToUser(db, env as unknown as CloudflareEnv, recipientId),
+      );
+    }
+  } catch {
+    /* push is best-effort */
+  }
 
   return Response.json({
     message: {
