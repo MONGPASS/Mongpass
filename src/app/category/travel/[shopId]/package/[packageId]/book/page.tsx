@@ -11,8 +11,10 @@ import {
   TravelBooking,
   addOrder,
   newOrderId,
+  orderErrorMessage,
 } from "@/lib/orderStore";
 import { getCurrentUser } from "@/lib/userStore";
+import { FormErrorBanner } from "@/components/ui/FormErrorBanner";
 
 /**
  * Travel booking form. Captures the minimum the agency needs to plan
@@ -43,6 +45,7 @@ export default function TravelBookingPage({
   const [preferredDate, setPreferredDate] = useState("");
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
@@ -98,6 +101,7 @@ export default function TravelBookingPage({
   async function submit() {
     if (!canSubmit || !pkg) return;
     setBusy(true);
+    setError(null);
     try {
       const order: TravelBooking = {
         id: newOrderId(),
@@ -120,8 +124,10 @@ export default function TravelBookingPage({
         preferredDate,
         notes: notes.trim() || undefined,
       };
-      const created = await addOrder(order);
-      if (created) setSubmitted(true);
+      await addOrder(order);
+      setSubmitted(true);
+    } catch (err) {
+      setError(orderErrorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -289,6 +295,7 @@ export default function TravelBookingPage({
       {/* Sticky submit */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-40">
         <div className="max-w-[480px] mx-auto">
+          <FormErrorBanner message={error} />
           <button
             onClick={submit}
             disabled={!canSubmit}

@@ -18,15 +18,23 @@ import {
   addOrder,
   formatPrice,
   newOrderId,
+  orderErrorMessage,
 } from "@/lib/orderStore";
+import { useRequireUser } from "@/lib/auth/useRequireUser";
+import { FormErrorBanner } from "@/components/ui/FormErrorBanner";
 
 export default function RestaurantCheckoutPage({ params }: { params: { shopId: string } }) {
+  const { checking } = useRequireUser(
+    `/category/restaurant/${params.shopId}/checkout`,
+  );
   const [cart, setCart] = useState<CartItem[]>([]);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setCart(loadCart(params.shopId));
@@ -38,6 +46,8 @@ export default function RestaurantCheckoutPage({ params }: { params: { shopId: s
 
   async function submit() {
     if (cart.length === 0 || !name.trim() || !phone.trim() || !address.trim()) return;
+    setBusy(true);
+    setError(null);
     const order: RestaurantOrder = {
       id: newOrderId(),
       shopCategory: "restaurant",
@@ -55,16 +65,28 @@ export default function RestaurantCheckoutPage({ params }: { params: { shopId: s
       customer: { name: name.trim(), phone: phone.trim(), address: address.trim() },
       notes: notes.trim() || undefined,
     };
-    const created = await addOrder(order);
-    if (!created) return;
-    clearCart(params.shopId);
-    setSubmitted(true);
+    try {
+      await addOrder(order);
+      clearCart(params.shopId);
+      setSubmitted(true);
+    } catch (err) {
+      setError(orderErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
   }
 
   const subtotal = cartSubtotal(cart);
   const totalCount = cartTotalCount(cart);
   const canSubmit =
+    !busy &&
     cart.length > 0 && name.trim().length > 0 && phone.trim().length > 0 && address.trim().length > 0;
+
+  // Blank shell while the auth gate resolves (and through the redirect
+  // for signed-out visitors) so the form never flashes.
+  if (checking) {
+    return <main className="w-full min-h-screen bg-gray-50" />;
+  }
 
   if (submitted) {
     return (
@@ -216,6 +238,7 @@ export default function RestaurantCheckoutPage({ params }: { params: { shopId: s
       {/* Sticky bottom — submit */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-40">
         <div className="max-w-[480px] mx-auto">
+          <FormErrorBanner message={error} />
           <div className="flex items-baseline justify-between mb-2">
             <span className="text-[11px] font-medium text-gray-500">Нийт дүн</span>
             <span className="font-bold text-base text-gray-900">{formatPrice(subtotal)}</span>
@@ -225,7 +248,7 @@ export default function RestaurantCheckoutPage({ params }: { params: { shopId: s
             disabled={!canSubmit}
             className="w-full bg-primary text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
           >
-            <Send className="w-4 h-4" /> Захиалга илгээх
+            <Send className="w-4 h-4" /> {busy ? "Илгээж байна..." : "Захиалга илгээх"}
           </button>
         </div>
       </div>

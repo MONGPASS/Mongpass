@@ -219,15 +219,66 @@ async function getJson<T>(url: string): Promise<T | null> {
   return (await res.json()) as T;
 }
 
-async function postJson<T>(url: string, body: unknown): Promise<T | null> {
-  const res = await fetch(url, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) return null;
-  return (await res.json()) as T;
+// ===================== Submit errors =====================
+
+/**
+ * Why an order submission failed, in terms the customer can act on.
+ * The server sends the code in its JSON body; we fall back to mapping
+ * the HTTP status when it doesn't (older deploys, proxy errors).
+ */
+export type OrderErrorCode =
+  | "unauthenticated"
+  | "shop_not_found"
+  | "shop_not_approved"
+  | "shop_closed"
+  | "invalid"
+  | "network"
+  | "unknown";
+
+const ORDER_ERROR_MESSAGE: Record<OrderErrorCode, string> = {
+  unauthenticated: "Захиалга өгөхийн тулд нэвтэрнэ үү.",
+  shop_not_found: "Дэлгүүр олдсонгүй. Хуудсаа дахин ачаална уу.",
+  shop_not_approved:
+    "Энэ дэлгүүр баталгаажаагүй тул одоогоор захиалга авах боломжгүй байна.",
+  shop_closed:
+    "Дэлгүүр одоогоор хаалттай байна. Нээх үед нь дахин оролдоно уу.",
+  invalid: "Захиалгын мэдээлэл дутуу байна. Шалгаад дахин илгээнэ үү.",
+  network: "Сүлжээнд холбогдож чадсангүй. Дахин оролдоно уу.",
+  unknown: "Захиалга илгээхэд алдаа гарлаа. Дахин оролдоно уу.",
+};
+
+export class OrderSubmitError extends Error {
+  readonly code: OrderErrorCode;
+  constructor(code: OrderErrorCode) {
+    super(ORDER_ERROR_MESSAGE[code]);
+    this.name = "OrderSubmitError";
+    this.code = code;
+  }
+}
+
+/** Map an HTTP status to a code when the body carries no explicit one. */
+function codeFromStatus(status: number): OrderErrorCode {
+  if (status === 401) return "unauthenticated";
+  if (status === 400) return "invalid";
+  if (status === 404) return "shop_not_found";
+  if (status === 409) return "shop_not_approved";
+  return "unknown";
+}
+
+function isOrderErrorCode(value: unknown): value is OrderErrorCode {
+  return (
+    typeof value === "string" && value in ORDER_ERROR_MESSAGE
+  );
+}
+
+/**
+ * Turn anything thrown by `addOrder` into a message safe to show the
+ * customer. Unexpected throws collapse to the generic string rather
+ * than leaking a stack trace into the UI.
+ */
+export function orderErrorMessage(err: unknown): string {
+  if (err instanceof OrderSubmitError) return err.message;
+  return ORDER_ERROR_MESSAGE.unknown;
 }
 
 // ===================== Reads =====================
@@ -258,15 +309,6 @@ export async function loadOrders(opts: LoadOrdersOptions = {}): Promise<Order[]>
   return data?.orders ?? [];
 }
 
-/**
- * Total pending orders across every shop the caller owns. Drives the
- * red "new order" badge on the /biz Захиалга tab. Returns 0 when not
- * signed in (server returns 200 with count=0 there too).
- */
-export async function loadBizPendingOrderCount(): Promise<number> {
-  const data = await getJson<{ count: number }>("/api/biz/orders/unread");
-  return data?.count ?? 0;
-}
 
 /** Convenience wrapper used by the /biz orders tabs. */
 export async function loadOrdersByShop(
@@ -291,11 +333,39 @@ export async function findOrderById(id: string): Promise<Order | null> {
 
 // ===================== Writes =====================
 
-export async function addOrder(order: Order): Promise<Order | null> {
+/**
+ * Submit an order. Throws {@link OrderSubmitError} on every failure so
+ * the caller is forced to surface *something* — the previous
+ * "return null on error" contract made a failed submit look identical
+ * to a no-op, leaving the customer staring at an unchanged form.
+ */
+export async function addOrder(order: Order): Promise<Order> {
   // The server fills in id/createdAt/customer_user_id and forces
   // status='pending', so we just send the body fields.
-  const data = await postJson<OrderResponse>("/api/orders", order);
-  return data?.order ?? null;
+  let res: Response;
+  try {
+    res = await fetch("/api/orders", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(order),
+    });
+  } catch {
+    throw new OrderSubmitError("network");
+  }
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as
+      | { code?: unknown }
+      | null;
+    throw new OrderSubmitError(
+      isOrderErrorCode(body?.code) ? body.code : codeFromStatus(res.status),
+    );
+  }
+
+  const data = (await res.json().catch(() => null)) as OrderResponse | null;
+  if (!data?.order) throw new OrderSubmitError("unknown");
+  return data.order;
 }
 
 export async function updateOrderStatus(

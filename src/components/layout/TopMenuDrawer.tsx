@@ -2,7 +2,7 @@
 
 import {
   Beef, Briefcase, CarFront, ImageIcon, LogIn, LogOut, MessageCircle, Newspaper,
-  Phone, Pizza, Scissors, Search, Settings, ShieldCheck, ShoppingBag, Stethoscope,
+  Pizza, Scissors, Search, Settings, ShieldCheck, ShoppingBag, Stethoscope,
   Store, Truck, User as UserIcon, Users, X,
 } from "lucide-react";
 import Link from "next/link";
@@ -137,7 +137,6 @@ export default function TopMenuDrawer({
             <NavItem icon={Stethoscope} label="Эмнэлэг"       href="/category/hospital" onClick={onClose} />
             <NavItem icon={Scissors}    label="Гоо сайхан"    href="/category/beauty" onClick={onClose} />
             <NavItem icon={CarFront}    label="Хуучин машин"  href="/category/car" onClick={onClose} />
-            <NavItem icon={Phone}       label="Утас дугаар"   href="/category/phone" onClick={onClose} />
             <NavItem icon={Briefcase}   label="Аялал"          href="/category/travel" onClick={onClose} />
             <NavItem icon={ImageIcon}   label="Бусад"          href="/category/other" onClick={onClose} />
           </Group>

@@ -16,11 +16,15 @@ import {
   BeautyAppointment,
   addOrder,
   newOrderId,
+  orderErrorMessage,
 } from "@/lib/orderStore";
+import { useRequireUser } from "@/lib/auth/useRequireUser";
+import { FormErrorBanner } from "@/components/ui/FormErrorBanner";
 
 export default function BeautyBookPage({ params }: { params: { shopId: string } }) {
   const searchParams = useSearchParams();
   const initialServiceId = searchParams.get("serviceId");
+  const { checking } = useRequireUser(`/category/beauty/${params.shopId}/book`);
 
   const [services, setServices] = useState<BeautyService[]>([]);
   const [stylists, setStylists] = useState<Stylist[]>([]);
@@ -32,6 +36,8 @@ export default function BeautyBookPage({ params }: { params: { shopId: string } 
   const [preferredTime, setPreferredTime] = useState("");
   const [notes, setNotes] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -55,6 +61,7 @@ export default function BeautyBookPage({ params }: { params: { shopId: string } 
   );
 
   const canSubmit =
+    !busy &&
     selectedService !== null &&
     customerName.trim().length > 0 &&
     customerPhone.trim().length > 0 &&
@@ -63,6 +70,8 @@ export default function BeautyBookPage({ params }: { params: { shopId: string } 
 
   async function submit() {
     if (!selectedService || !canSubmit) return;
+    setBusy(true);
+    setError(null);
     const order: BeautyAppointment = {
       id: newOrderId(),
       shopCategory: "beauty",
@@ -85,9 +94,18 @@ export default function BeautyBookPage({ params }: { params: { shopId: string } 
       },
       notes: notes.trim() || undefined,
     };
-    const created = await addOrder(order);
-    if (!created) return;
-    setSubmitted(true);
+    try {
+      await addOrder(order);
+      setSubmitted(true);
+    } catch (err) {
+      setError(orderErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (checking) {
+    return <main className="w-full min-h-screen bg-gray-50" />;
   }
 
   if (submitted) {
@@ -276,6 +294,7 @@ export default function BeautyBookPage({ params }: { params: { shopId: string } 
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-40">
         <div className="max-w-[480px] mx-auto">
+          <FormErrorBanner message={error} />
           {selectedService && (
             <div className="flex items-baseline justify-between mb-2 text-[11px]">
               <span className="text-gray-500">{selectedService.name}</span>
@@ -287,7 +306,7 @@ export default function BeautyBookPage({ params }: { params: { shopId: string } 
             disabled={!canSubmit}
             className="w-full bg-pink-500 text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
           >
-            <Send className="w-4 h-4" /> Цаг захиалах
+            <Send className="w-4 h-4" /> {busy ? "Илгээж байна..." : "Цаг захиалах"}
           </button>
         </div>
       </div>

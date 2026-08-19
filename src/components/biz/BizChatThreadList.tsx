@@ -3,8 +3,9 @@
 import { MessageCircle } from "lucide-react";
 import { parseTimestamp } from "@/lib/datetime";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { ChatThread, loadThreadsForShop } from "@/lib/chatStore";
+import { usePolling } from "@/lib/usePolling";
 
 function fmtRelative(iso: string): string {
   const diff = Date.now() - parseTimestamp(iso).getTime();
@@ -27,21 +28,14 @@ function fmtRelative(iso: string): string {
 export function BizChatThreadList({ shopId }: { shopId: string }) {
   const [threads, setThreads] = useState<ChatThread[]>([]);
 
-  useEffect(() => {
-    let active = true;
-    const refresh = async () => {
-      const list = await loadThreadsForShop(shopId);
-      if (active) setThreads(list);
-    };
-    refresh();
-    // Light polling so a customer's new message shows up while the shop
-    // owner is on this screen.
-    const interval = setInterval(refresh, 3000);
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
+  // Light polling so a customer's new message shows up while the shop
+  // owner is on this screen. Paused when the tab is hidden — an owner
+  // who leaves /biz open all day shouldn't generate a request every
+  // three seconds.
+  const refresh = useCallback(() => {
+    loadThreadsForShop(shopId).then(setThreads);
   }, [shopId]);
+  usePolling(refresh, 10000);
 
   return (
     <div className="bg-white mt-2 border-y border-gray-100">

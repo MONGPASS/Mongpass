@@ -16,8 +16,10 @@ import {
   addOrder,
   formatPrice,
   newOrderId,
+  orderErrorMessage,
   parsePrice,
 } from "@/lib/orderStore";
+import { FormErrorBanner } from "@/components/ui/FormErrorBanner";
 import { Shop, findShopById } from "@/lib/shopStore";
 import { getCurrentUser } from "@/lib/userStore";
 import { useRouter } from "next/navigation";
@@ -39,7 +41,12 @@ export default function MeatOrderPage({ params }: { params: { shopId: string } }
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  // Total captured at submit time — the live `total` recomputes from
+  // the cart, which we clear on success, so the confirmation screen
+  // would otherwise show just the delivery fee.
+  const [submittedTotal, setSubmittedTotal] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [bankCopied, setBankCopied] = useState(false);
 
   // Auth gate + initial load.
@@ -150,6 +157,7 @@ export default function MeatOrderPage({ params }: { params: { shopId: string } }
   async function submit() {
     if (!shop || !canSubmit) return;
     setBusy(true);
+    setError(null);
     try {
       const order: MeatOrder = {
         id: newOrderId(),
@@ -169,12 +177,13 @@ export default function MeatOrderPage({ params }: { params: { shopId: string } }
         },
         notes: notes.trim() || undefined,
       };
-      const created = await addOrder(order);
-      if (created) {
-        clearCart(params.shopId);
-        setCart([]);
-        setSubmitted(true);
-      }
+      await addOrder(order);
+      setSubmittedTotal(order.totalAmount);
+      clearCart(params.shopId);
+      setCart([]);
+      setSubmitted(true);
+    } catch (err) {
+      setError(orderErrorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -209,7 +218,7 @@ export default function MeatOrderPage({ params }: { params: { shopId: string } }
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">Захиалга илгээгдлээ!</h2>
           <p className="text-sm text-gray-500 mb-2 leading-relaxed">
-            Доорх данс руу <span className="font-bold text-gray-900">{formatPrice(total)}</span>{" "}
+            Доорх данс руу <span className="font-bold text-gray-900">{formatPrice(submittedTotal)}</span>{" "}
             шилжүүлсний дараа дэлгүүр баталгаажуулна.
           </p>
           <div className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 mb-6 text-sm font-bold text-gray-900 break-all">
@@ -454,6 +463,7 @@ export default function MeatOrderPage({ params }: { params: { shopId: string } }
       {/* Sticky submit */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-40">
         <div className="max-w-[480px] mx-auto">
+          <FormErrorBanner message={error} />
           <button
             onClick={submit}
             disabled={!canSubmit}

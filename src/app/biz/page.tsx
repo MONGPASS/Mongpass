@@ -4,10 +4,12 @@ import { ArrowLeft, Share2, Menu, AlertCircle, Edit3, ShoppingBag, Camera, Home,
 import { parseTimestamp } from "@/lib/datetime";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState, useRef, useEffect } from "react";
+import { Suspense, useState, useRef, useEffect, useCallback } from "react";
+import { usePolling } from "@/lib/usePolling";
 import { getCategoryInfo } from "@/lib/categories";
 import { ShopCategory } from "@/components/shop/types";
-import { BeautyAppointment, CargoOrder, HospitalAppointment, MeatOrder, ORDER_STATUS_LABEL, OrderStatus, RestaurantOrder, TravelBooking, formatPrice, getStatusFlow, getStatusLabel, loadBizPendingOrderCount, loadOrdersByShop, updateOrderStatus } from "@/lib/orderStore";
+import { BeautyAppointment, CargoOrder, HospitalAppointment, MeatOrder, ORDER_STATUS_LABEL, OrderStatus, RestaurantOrder, TravelBooking, formatPrice, getStatusFlow, getStatusLabel, loadOrdersByShop, updateOrderStatus } from "@/lib/orderStore";
+import { loadBadges } from "@/lib/badgeStore";
 import { Shop, findShopByOwner, isShopOpen, toggleOpen, updateShop } from "@/lib/shopStore";
 import { HOSPITAL_SPECIALTIES } from "@/lib/hospitalSpecialties";
 import { getCurrentUser } from "@/lib/userStore";
@@ -86,24 +88,15 @@ function BizProfilePageInner() {
   }, [searchParams]);
 
   // Poll the pending-order count so a customer placing an order while
-  // the owner is on /biz lights up the red badge within ~8s. The
-  // Захиалга lists also refresh themselves when their tab is visible,
-  // so this keeps the cross-tab badge in sync without coupling.
-  useEffect(() => {
-    if (!authChecked || !currentShop) return;
-    let active = true;
-    const refresh = () => {
-      loadBizPendingOrderCount().then((n) => {
-        if (active) setPendingOrderCount(n);
-      });
-    };
-    refresh();
-    const interval = setInterval(refresh, 8000);
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [authChecked, currentShop]);
+  // the owner is on /biz lights up the red badge. The Захиалга lists
+  // also refresh themselves when their tab is visible, so this keeps
+  // the cross-tab badge in sync without coupling. Paused while the tab
+  // is hidden and refreshed on return — shop owners tend to leave this
+  // page parked all day.
+  const refreshPendingCount = useCallback(() => {
+    loadBadges().then((b) => setPendingOrderCount(b.bizPendingOrders));
+  }, []);
+  usePolling(refreshPendingCount, 15000, authChecked && currentShop !== null);
 
   const [uploading, setUploading] = useState(false);
 
@@ -615,7 +608,19 @@ function BizProfilePageInner() {
           <TravelBookingsList shopId={currentShop.id} />
         )}
 
-        {/* Categories without a dedicated orders renderer (currently meat) — show empty state */}
+        {/* Бүтээгдэхүүн tab — only reachable for categories with no
+            dedicated admin route (currently "other"). Without this
+            branch the tab rendered nothing at all, leaving the owner
+            staring at an empty grey screen. */}
+        {!isEditingProfile && activeTab === "Бүтээгдэхүүн" && (
+          <GenericCatalogPanel
+            productLabel={shopCategoryInfo.productLabel}
+            onOpenNotices={() => router.push("/biz/notices")}
+            onOpenChat={() => { setIsEditingProfile(false); setActiveTab("Чат"); }}
+          />
+        )}
+
+        {/* Categories without a dedicated orders renderer (car / other) — show empty state */}
         {!isEditingProfile && activeTab === "Захиалга" &&
           !CATEGORY_HAS_DEDICATED_ORDERS_UI.includes(currentShop.category) && (
             <div className="bg-gray-50 mt-2 min-h-screen px-5 py-12">
@@ -871,6 +876,55 @@ function BizSidebar({
         />
       </div>
     </aside>
+  );
+}
+
+/**
+ * Fallback for shop categories that have no structured catalog yet
+ * (today only "Бусад"). Rather than a blank screen, explain how the
+ * category actually operates — notices for what you offer, chat to
+ * close the deal — and link straight to both.
+ */
+function GenericCatalogPanel({
+  productLabel,
+  onOpenNotices,
+  onOpenChat,
+}: {
+  productLabel: string;
+  onOpenNotices: () => void;
+  onOpenChat: () => void;
+}) {
+  return (
+    <div className="bg-gray-50 mt-2 min-h-screen px-4 py-6">
+      <div className="bg-white rounded-2xl shadow-sm p-6">
+        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-gray-500">
+          <PlusSquare className="w-5 h-5" />
+        </div>
+        <h3 className="font-bold text-gray-900 text-[16px] mb-2">
+          {productLabel} жагсаалт удахгүй
+        </h3>
+        <p className="text-[13px] text-gray-600 leading-relaxed mb-5">
+          Таны ангилалд бүтээгдэхүүний бүтэцтэй жагсаалт хараахан
+          нэмэгдээгүй байна. Одоогоор санал болгож буй зүйлээ{" "}
+          <b>Мэдээ</b> хэсэгт бичиж, үйлчлүүлэгчтэй <b>Чат</b>-аар
+          тохирох боломжтой.
+        </p>
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={onOpenNotices}
+            className="w-full bg-gray-900 text-white font-bold py-3 rounded-xl text-[14px] active:scale-[0.98] transition-transform"
+          >
+            Мэдээ бичих →
+          </button>
+          <button
+            onClick={onOpenChat}
+            className="w-full bg-gray-100 text-gray-700 font-bold py-3 rounded-xl text-[14px] active:scale-[0.98] transition-transform"
+          >
+            Чат руу очих
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

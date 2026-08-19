@@ -21,9 +21,17 @@ interface ShopDetailPageProps {
 export default function ShopDetailPage({ category, shopData }: ShopDetailPageProps) {
   const [activeTab, setActiveTab] = useState("home");
 
-  let serviceTabName = "Үнэ"; // Changed to '가격' (Price) matching the screenshot for default
+  // `serviceTabName === null` hides the service tab entirely — used by
+  // categories that have no catalog to show (currently "other"), which
+  // would otherwise render a permanently-empty placeholder tab.
+  let serviceTabName: string | null = "Үнэ";
   let ctaText = "Захиалах";
-  let ServiceTabComponent = () => <div className="p-5 text-gray-400 text-sm font-medium text-center bg-white min-h-[40vh] flex items-center justify-center">Бэлтгэгдэж байна...</div>;
+  let ServiceTabComponent: () => JSX.Element = () => <div className="p-5 text-gray-400 text-sm font-medium text-center bg-white min-h-[40vh] flex items-center justify-center">Бэлтгэгдэж байна...</div>;
+  // Categories whose CTA opens their own catalog tab instead of a
+  // dedicated order route (booking happens per package/listing, one
+  // level deeper). BottomCTA hides the button entirely when neither a
+  // route nor a click handler is supplied.
+  let ctaOpensServiceTab = false;
 
   switch (category) {
     case "meat":
@@ -40,9 +48,12 @@ export default function ShopDetailPage({ category, shopData }: ShopDetailPagePro
     case "restaurant":
       serviceTabName = "Цэс"; ctaText = "Захиалах"; ServiceTabComponent = FoodServiceTab; break;
     case "travel":
-      serviceTabName = "Аялал"; ctaText = "Захиалах"; ServiceTabComponent = TravelServiceTab; break;
+      // Travel bookings are per-package, so the CTA surfaces the
+      // package list rather than a shop-wide order form.
+      serviceTabName = "Аялал"; ctaText = "Аяллын багц үзэх";
+      ServiceTabComponent = TravelServiceTab; ctaOpensServiceTab = true; break;
     case "other":
-      serviceTabName = "Бусад"; ctaText = "Дэлгэрэнгүй"; break;
+      serviceTabName = null; ctaText = "Дэлгэрэнгүй"; break;
   }
 
   return (
@@ -62,12 +73,17 @@ export default function ShopDetailPage({ category, shopData }: ShopDetailPagePro
       <div className="bg-white min-h-[50vh]">
         {activeTab === "home" && <HomeTab shop={shopData} />}
         {activeTab === "info" && <InfoTab shop={shopData} />}
-        {activeTab === "service" && <ServiceTabComponent />}
+        {activeTab === "service" && serviceTabName !== null && <ServiceTabComponent />}
         {activeTab === "review" && <ReviewTab shop={shopData} />}
         {activeTab === "photo" && <PhotoTab shop={shopData} />}
       </div>
 
-      <BottomCTA text={ctaText} shop={shopData} category={category} />
+      <BottomCTA
+        text={ctaText}
+        shop={shopData}
+        category={category}
+        onCtaClick={ctaOpensServiceTab ? () => setActiveTab("service") : undefined}
+      />
     </div>
   );
 }
