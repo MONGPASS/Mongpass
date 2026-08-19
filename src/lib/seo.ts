@@ -33,9 +33,11 @@ export function buildPageMetadata(opts: {
   /** R2 key of the preview image, if any. */
   imageR2Key?: string | null;
 }): Metadata {
+  // No content photo → fall back to the brand card instead of letting
+  // scrapers pick a random <img> off the page.
   const images = opts.imageR2Key
     ? [{ url: `${requestOrigin()}/api/r2/${opts.imageR2Key}` }]
-    : undefined;
+    : [{ url: `${requestOrigin()}/og-image.png`, width: 1200, height: 630 }];
   return {
     title: `${opts.title} | MongPass`,
     description: opts.description,
@@ -44,13 +46,13 @@ export function buildPageMetadata(opts: {
       description: opts.description,
       siteName: "MongPass",
       type: "website",
-      ...(images ? { images } : {}),
+      images,
     },
     twitter: {
-      card: images ? "summary_large_image" : "summary",
+      card: "summary_large_image",
       title: opts.title,
       description: opts.description,
-      ...(images ? { images: images.map((i) => i.url) } : {}),
+      images: images.map((i) => i.url),
     },
   };
 }

@@ -12,10 +12,30 @@ const sans = Inter({
   display: "swap",
 });
 
+// Link previews (Kakao / Facebook / Telegram) read these. The audience
+// is Mongolian, so the shareable identity is Mongolian-first; the
+// Korean line stays in the description for Korean-language surfaces.
+// metadataBase anchors the og:image to the canonical domain even when
+// a preview deployment is being shared.
 export const metadata: Metadata = {
-  title: "MongPass - 한국 거주 몽골인을 위한 생활 플랫폼",
+  metadataBase: new URL("https://mongpass.kr"),
+  title: "MongPass — Солонгос дахь монголчуудын цогц платформ",
   description:
-    "한국 거주 몽골인을 위한 몽골어 커뮤니티, 지역 상점, 생활 정보 플랫폼",
+    "Солонгос дахь монголчуудын цогц платформ — дэлгүүр, захиалга, зар, мэдээ. 한국 거주 몽골인을 위한 생활 플랫폼.",
+  openGraph: {
+    title: "MongPass",
+    description: "Солонгос дахь монголчуудын цогц платформ",
+    siteName: "MongPass",
+    type: "website",
+    locale: "mn_MN",
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MongPass",
+    description: "Солонгос дахь монголчуудын цогц платформ",
+    images: ["/og-image.png"],
+  },
 };
 
 export const viewport: Viewport = {
