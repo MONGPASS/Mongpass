@@ -1,6 +1,7 @@
 /**
  * /api/reviews
- *   GET  ?shopId=… — list reviews for a shop, newest first (public)
+ *   GET  ?shopId=…&cursor=…&limit=… — one keyset page of a shop's
+ *        reviews, newest first (public; response carries `nextCursor`)
  *   POST { shopId, rating, comment } — auth required; one review per
  *        (user, shop) pair (uniqueness enforced here, not in schema,
  *        because the table allows null user_id for legacy rows).
@@ -12,6 +13,7 @@
 export const runtime = "edge";
 
 import { getServerContext, unauthorized } from "@/lib/auth/server";
+import { clampLimit, pageAndCursor, parseCursor } from "@/lib/pagination";
 
 interface ReviewRow {
   id: string;
@@ -40,27 +42,35 @@ export async function GET(request: Request): Promise<Response> {
   const shopId = url.searchParams.get("shopId");
   const { db } = await getServerContext();
 
-  let result;
-  if (shopId) {
-    result = await db
-      .prepare(
-        `SELECT id, shop_id, user_id, user_name, rating, comment, created_at
-           FROM reviews WHERE shop_id = ? ORDER BY created_at DESC LIMIT 200`,
-      )
-      .bind(shopId)
-      .all<ReviewRow>();
-  } else {
-    // No filter → return everything (used by aggregate widgets like
-    // shop list cards). Capped to keep payload bounded.
-    result = await db
-      .prepare(
-        `SELECT id, shop_id, user_id, user_name, rating, comment, created_at
-           FROM reviews ORDER BY created_at DESC LIMIT 500`,
-      )
-      .all<ReviewRow>();
+  // The old no-filter branch dumped every review on the platform (up
+  // to 500 rows) to anyone. Its one legitimate use — aggregate rating
+  // on shop cards — moved into hydrateShops' SQL long ago, so require
+  // the filter now.
+  if (!shopId) {
+    return Response.json({ error: "shopId is required" }, { status: 400 });
   }
 
-  return Response.json({ reviews: (result.results ?? []).map(rowToReview) });
+  const cursor = parseCursor(url.searchParams.get("cursor"));
+  const limit = clampLimit(url.searchParams.get("limit"), 20, 50);
+  const conditions = ["shop_id = ?"];
+  const values: unknown[] = [shopId];
+  if (cursor) {
+    conditions.push("(created_at, id) < (?, ?)");
+    values.push(cursor.createdAt, cursor.id);
+  }
+
+  const result = await db
+    .prepare(
+      `SELECT id, shop_id, user_id, user_name, rating, comment, created_at
+         FROM reviews WHERE ${conditions.join(" AND ")}
+         ORDER BY created_at DESC, id DESC
+         LIMIT ?`,
+    )
+    .bind(...values, limit + 1)
+    .all<ReviewRow>();
+
+  const { page, nextCursor } = pageAndCursor(result.results ?? [], limit);
+  return Response.json({ reviews: page.map(rowToReview), nextCursor });
 }
 
 export async function POST(request: Request): Promise<Response> {

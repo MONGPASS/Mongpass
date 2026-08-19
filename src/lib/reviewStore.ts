@@ -38,11 +38,20 @@ async function postJson<T>(url: string, body: unknown): Promise<T | null> {
   return (await res.json()) as T;
 }
 
-export async function loadReviewsForShop(shopId: string): Promise<Review[]> {
-  const data = await getJson<{ reviews: Review[] }>(
-    `/api/reviews?shopId=${encodeURIComponent(shopId)}`,
-  );
-  return data?.reviews ?? [];
+export interface ReviewsPage {
+  reviews: Review[];
+  nextCursor: string | null;
+}
+
+/** One keyset page of a shop's reviews, newest first. */
+export async function loadReviewsPage(
+  shopId: string,
+  cursor?: string | null,
+): Promise<ReviewsPage> {
+  const params = new URLSearchParams({ shopId });
+  if (cursor) params.set("cursor", cursor);
+  const data = await getJson<ReviewsPage>(`/api/reviews?${params}`);
+  return { reviews: data?.reviews ?? [], nextCursor: data?.nextCursor ?? null };
 }
 
 export async function addReview(input: {

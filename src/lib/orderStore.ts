@@ -292,21 +292,43 @@ export interface LoadOrdersOptions {
   category?: ShopCategory;
   /** Optional status filter (pending / received / …). */
   status?: OrderStatus;
+  /** Page size — omit for the legacy 200-row cap. */
+  limit?: number;
+  /** Keyset cursor from a previous page's `nextCursor`. */
+  cursor?: string | null;
+}
+
+export interface OrdersPage {
+  orders: Order[];
+  nextCursor: string | null;
 }
 
 /**
- * Generic order list. Pass at least one of {mine, shopId, category};
- * an empty options object falls back to admin-only "all orders".
+ * One keyset page of orders. Pass at least one of {mine, shopId,
+ * category}; an empty options object falls back to admin-only
+ * "all orders".
  */
-export async function loadOrders(opts: LoadOrdersOptions = {}): Promise<Order[]> {
+export async function loadOrdersPage(
+  opts: LoadOrdersOptions = {},
+): Promise<OrdersPage> {
   const params = new URLSearchParams();
   if (opts.mine) params.set("mine", "true");
   if (opts.shopId) params.set("shopId", opts.shopId);
   if (opts.category) params.set("category", opts.category);
   if (opts.status) params.set("status", opts.status);
+  if (opts.limit) params.set("limit", String(opts.limit));
+  if (opts.cursor) params.set("cursor", opts.cursor);
   const qs = params.toString();
-  const data = await getJson<OrdersResponse>(`/api/orders${qs ? `?${qs}` : ""}`);
-  return data?.orders ?? [];
+  const data = await getJson<OrdersResponse & { nextCursor?: string | null }>(
+    `/api/orders${qs ? `?${qs}` : ""}`,
+  );
+  return { orders: data?.orders ?? [], nextCursor: data?.nextCursor ?? null };
+}
+
+/** Legacy list form — first page only (up to the server's 200 cap). */
+export async function loadOrders(opts: LoadOrdersOptions = {}): Promise<Order[]> {
+  const { orders } = await loadOrdersPage(opts);
+  return orders;
 }
 
 

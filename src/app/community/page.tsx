@@ -3,12 +3,12 @@
 import { Heart, MessageCircle, PenLine, Users } from "lucide-react";
 import { parseTimestamp } from "@/lib/datetime";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import BottomNav from "@/components/layout/BottomNav";
 import {
   COMMUNITY_CATEGORIES,
   CommunityPost,
-  loadPosts,
+  loadPostsPage,
 } from "@/lib/communityStore";
 import { getCurrentUser } from "@/lib/userStore";
 
@@ -35,23 +35,49 @@ const CATEGORY_BADGE: Record<string, string> = {
 
 export default function CommunityListPage() {
   const [posts, setPosts] = useState<CommunityPost[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [filter, setFilter] = useState<string>("all");
   const [hasUser, setHasUser] = useState(false);
 
   useEffect(() => {
-    let active = true;
-    Promise.all([loadPosts(), getCurrentUser()]).then(([list, u]) => {
-      if (!active) return;
-      setPosts(list);
-      setHasUser(u !== null);
-    });
-    return () => { active = false; };
+    getCurrentUser().then((u) => setHasUser(u !== null));
   }, []);
 
-  const visible = useMemo(() => {
-    if (filter === "all") return posts;
-    return posts.filter((p) => p.category === filter);
-  }, [posts, filter]);
+  // Category filtering moved server-side: with pagination, filtering a
+  // 20-post page client-side would show near-empty categories even
+  // when older matching posts exist.
+  useEffect(() => {
+    let active = true;
+    setLoaded(false);
+    loadPostsPage({ category: filter === "all" ? undefined : filter }).then(
+      (page) => {
+        if (!active) return;
+        setPosts(page.posts);
+        setNextCursor(page.nextCursor);
+        setLoaded(true);
+      },
+    );
+    return () => { active = false; };
+  }, [filter]);
+
+  async function loadMore() {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const page = await loadPostsPage({
+        category: filter === "all" ? undefined : filter,
+        cursor: nextCursor,
+      });
+      setPosts((prev) => [...prev, ...page.posts]);
+      setNextCursor(page.nextCursor);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  const visible = posts;
 
   return (
     <main className="w-full min-h-screen bg-gray-50 pb-[80px]">
@@ -92,12 +118,16 @@ export default function CommunityListPage() {
         </div>
       </header>
 
-      {visible.length === 0 ? (
+      {!loaded && visible.length === 0 ? (
+        <div className="px-5 py-16 text-center text-sm text-gray-400">
+          Уншиж байна...
+        </div>
+      ) : visible.length === 0 ? (
         <div className="px-5 py-16 text-center">
           <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm border border-gray-100 text-gray-400">
             <Users className="w-5 h-5" />
           </div>
-          {posts.length === 0 ? (
+          {filter === "all" ? (
             <>
               <p className="text-sm text-gray-500 mb-1">Чөлөөт булан хоосон байна</p>
               <p className="text-[12px] text-gray-400 mb-5">Хамгийн эхэнд нийтлэл бичсэн хүн та байх уу?</p>
@@ -113,11 +143,24 @@ export default function CommunityListPage() {
           )}
         </div>
       ) : (
-        <div className="divide-y divide-gray-100 bg-white">
-          {visible.map((post) => (
-            <PostListItem key={post.id} post={post} />
-          ))}
-        </div>
+        <>
+          <div className="divide-y divide-gray-100 bg-white">
+            {visible.map((post) => (
+              <PostListItem key={post.id} post={post} />
+            ))}
+          </div>
+          {nextCursor && (
+            <div className="px-5 py-4">
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="w-full bg-white border border-gray-200 text-gray-700 font-semibold py-3 rounded-xl text-sm active:bg-gray-50 disabled:opacity-50"
+              >
+                {loadingMore ? "Уншиж байна..." : "Цааш үзэх"}
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       <BottomNav />
