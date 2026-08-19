@@ -148,6 +148,7 @@ after(() => {
         `DELETE FROM shops WHERE owner_id IN ('${ADMIN.id}', '${MEMBER.id}');`,
         `DELETE FROM reports WHERE reporter_id IN ('${ADMIN.id}', '${MEMBER.id}');`,
         `DELETE FROM community_posts WHERE author_id IN ('${ADMIN.id}', '${MEMBER.id}');`,
+        `DELETE FROM upload_log WHERE user_id IN ('${ADMIN.id}', '${MEMBER.id}');`,
         `DELETE FROM users WHERE id IN ('${ADMIN.id}', '${MEMBER.id}');`,
       ].join("\n"),
     );
@@ -313,6 +314,27 @@ test("reports: member can file, cannot read the queue; dedupe is silent", async 
   const mine = adminQueue.json.reports.filter((x) => x.targetId === postId);
   assert.equal(mine.length, 1); // dedupe held
   assert.equal(mine[0].targetPreview, `e2e ${RUN}`); // enrichment works
+});
+
+// ===================== Uploads =====================
+
+test("uploads: per-user rate limit kicks in at the hourly cap", async () => {
+  // Seed the log to exactly the hourly cap (30) instead of uploading
+  // 30 real files — same code path, none of the R2 churn.
+  const rows = Array.from({ length: 30 }, (_, i) =>
+    `INSERT INTO upload_log (id, user_id) VALUES ('upl-e2e-${RUN}-${i}', '${MEMBER.id}');`,
+  ).join("\n");
+  d1(rows);
+
+  const form = new FormData();
+  form.append("file", new File([new Uint8Array(64)], "t.png", { type: "image/png" }));
+  form.append("kind", "post");
+  const res = await fetch(`${BASE}/api/upload`, {
+    method: "POST",
+    headers: cookie(MEMBER.token),
+    body: form,
+  });
+  assert.equal(res.status, 429);
 });
 
 // ===================== Review replies =====================

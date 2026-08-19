@@ -14,6 +14,7 @@ import {
   unauthorized,
 } from "@/lib/auth/server";
 import { hydrateShops, type ShopRow } from "@/lib/shops/dbMapper";
+import { deleteR2Objects } from "@/lib/images/r2Cleanup";
 
 async function loadShop(
   db: import("@cloudflare/workers-types").D1Database,
@@ -165,14 +166,41 @@ export async function DELETE(
   _request: Request,
   { params }: { params: { id: string } },
 ): Promise<Response> {
-  const { db, user } = await getServerContext();
+  const { db, images, user } = await getServerContext();
   if (!user) return unauthorized();
   if (user.role !== "admin") return forbidden();
+
+  // Collect every R2 key the cascade is about to orphan — gallery,
+  // catalog photos, staff portraits — BEFORE the rows disappear.
+  const keyQueries = [
+    db.prepare("SELECT r2_key AS k FROM shop_images WHERE shop_id = ?").bind(params.id),
+    db.prepare("SELECT image_r2_key AS k FROM meat_products WHERE shop_id = ?").bind(params.id),
+    db.prepare("SELECT image_r2_key AS k FROM doctors WHERE shop_id = ?").bind(params.id),
+    db.prepare("SELECT image_r2_key AS k FROM beauty_stylists WHERE shop_id = ?").bind(params.id),
+    db
+      .prepare(
+        `SELECT i.r2_key AS k FROM car_listing_images i
+           JOIN car_listings l ON l.id = i.listing_id
+          WHERE l.shop_id = ?`,
+      )
+      .bind(params.id),
+    db
+      .prepare(
+        `SELECT i.r2_key AS k FROM travel_package_images i
+           JOIN travel_packages p ON p.id = i.package_id
+          WHERE p.shop_id = ?`,
+      )
+      .bind(params.id),
+  ];
+  const gathered = await db.batch<{ k: string | null }>(keyQueries);
+  const keys = gathered.flatMap((r) => (r.results ?? []).map((row) => row.k));
 
   const result = await db
     .prepare("DELETE FROM shops WHERE id = ?")
     .bind(params.id)
     .run();
   if (!result.meta.changes) return notFound("Shop not found");
+
+  await deleteR2Objects(images, keys);
   return Response.json({ ok: true });
 }
