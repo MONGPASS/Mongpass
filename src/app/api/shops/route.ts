@@ -12,6 +12,24 @@ import { hydrateShops, type ShopRow } from "@/lib/shops/dbMapper";
 
 const ALLOWED_STATUSES = new Set(["pending", "approved", "rejected"]);
 
+/**
+ * Every category a shop may be registered under. Must stay in sync
+ * with the `ShopCategory` union (src/components/shop/types.ts) and
+ * CATEGORY_REGISTRY — an unknown value here silently degrades to the
+ * "Бусад" fallback everywhere in the UI, so reject it at the door.
+ */
+const ALLOWED_CATEGORIES = new Set([
+  "meat",
+  "restaurant",
+  "food",
+  "cargo",
+  "hospital",
+  "beauty",
+  "car",
+  "travel",
+  "other",
+]);
+
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const status = url.searchParams.get("status");
@@ -103,6 +121,9 @@ export async function POST(request: Request): Promise<Response> {
       { error: "category and name are required" },
       { status: 400 },
     );
+  }
+  if (!ALLOWED_CATEGORIES.has(body.category)) {
+    return Response.json({ error: "Invalid category" }, { status: 400 });
   }
 
   // One shop per user — enforce on the server too. The /biz/register

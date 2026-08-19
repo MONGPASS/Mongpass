@@ -119,13 +119,3 @@ export async function loadThreadsForShop(shopId: string): Promise<ChatThread[]> 
   return data?.threads ?? [];
 }
 
-/**
- * Total number of chat threads (across both customer-side and shop-owner
- * side) that have new activity the current user hasn't read yet. Used to
- * drive the red dot on the Чат tab in BottomNav. Returns 0 when no user
- * is signed in.
- */
-export async function loadUnreadChatCount(): Promise<number> {
-  const data = await getJson<{ count: number }>("/api/chat/unread");
-  return data?.count ?? 0;
-}

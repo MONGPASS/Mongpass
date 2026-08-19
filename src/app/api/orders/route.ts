@@ -81,7 +81,12 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   const { db, user } = await getServerContext();
-  if (!user) return unauthorized();
+  if (!user) {
+    return Response.json(
+      { error: "Authentication required", code: "unauthenticated" },
+      { status: 401 },
+    );
+  }
 
   type IncomingOrder = Record<string, unknown> & {
     shopId?: string;
@@ -91,22 +96,39 @@ export async function POST(request: Request): Promise<Response> {
 
   if (!body.shopId || !body.shopCategory) {
     return Response.json(
-      { error: "shopId and shopCategory are required" },
+      { error: "shopId and shopCategory are required", code: "invalid" },
       { status: 400 },
     );
   }
 
-  // Verify the shop exists and is approved (can't place orders against
-  // a pending or rejected shop). The category in the body must match
-  // the shop's actual category — prevents clients from spoofing.
+  // Verify the shop exists, is approved, and is currently open. The
+  // category in the body must match the shop's actual category —
+  // prevents clients from spoofing.
   const shop = await db
-    .prepare("SELECT id, category, status FROM shops WHERE id = ?")
+    .prepare("SELECT id, category, status, is_open FROM shops WHERE id = ?")
     .bind(body.shopId)
-    .first<{ id: string; category: string; status: string }>();
-  if (!shop) return notFound("Shop not found");
+    .first<{ id: string; category: string; status: string; is_open: number }>();
+  if (!shop) {
+    return Response.json(
+      { error: "Shop not found", code: "shop_not_found" },
+      { status: 404 },
+    );
+  }
   if (shop.status !== "approved") {
     return Response.json(
-      { error: "Cannot place orders against an unapproved shop" },
+      {
+        error: "Cannot place orders against an unapproved shop",
+        code: "shop_not_approved",
+      },
+      { status: 409 },
+    );
+  }
+  // The customer-facing CTA already hides the order button on a closed
+  // shop; enforce it here too so a direct link (or a shop that closed
+  // mid-checkout) can't slip an order past the owner.
+  if (!shop.is_open) {
+    return Response.json(
+      { error: "Shop is currently closed", code: "shop_closed" },
       { status: 409 },
     );
   }

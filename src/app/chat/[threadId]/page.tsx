@@ -16,6 +16,7 @@ import {
 import { User, getCurrentUser } from "@/lib/userStore";
 import { Shop, findShopById } from "@/lib/shopStore";
 import { r2Url } from "@/lib/images/upload";
+import { useAdaptivePolling } from "@/lib/usePolling";
 
 function fmtTime(iso: string): string {
   const d = parseTimestamp(iso);
@@ -69,15 +70,26 @@ export default function ChatThreadPage({ params }: { params: { threadId: string 
     return () => { active = false; };
   }, [threadId]);
 
-  // Poll every 2s for new messages so the other side's reply appears
-  // without a manual refresh.
-  useEffect(() => {
-    if (!thread) return;
-    const interval = setInterval(() => {
-      loadMessagesForThread(threadId).then((msgs) => setMessages(msgs));
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [thread, threadId]);
+  // Poll for new messages so the other side's reply appears without a
+  // manual refresh — with adaptive backoff. An active conversation
+  // polls every 5s; each quiet poll doubles the delay up to 30s, and
+  // any new message (or sending one — see send()) snaps it back to 5s.
+  // Combined with the tab-hidden pause, an idle open chat costs a few
+  // reads a minute instead of a write+read every 2 seconds.
+  const lastMessageIdRef = useRef<string | null>(null);
+  const bumpPolling = useAdaptivePolling(
+    async () => {
+      const msgs = await loadMessagesForThread(threadId);
+      setMessages(msgs);
+      const lastId = msgs.length > 0 ? msgs[msgs.length - 1].id : null;
+      const changed = lastId !== lastMessageIdRef.current;
+      lastMessageIdRef.current = lastId;
+      return changed;
+    },
+    5000,
+    30000,
+    Boolean(thread),
+  );
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -92,8 +104,9 @@ export default function ChatThreadPage({ params }: { params: { threadId: string 
     const text = draft.trim();
     setDraft("");
     await sendMessage({ threadId, from: side, text });
-    const msgs = await loadMessagesForThread(threadId);
-    setMessages(msgs);
+    // Refetch through the poller: shows our own message immediately
+    // and resets the backoff to 5s, since a reply is likely imminent.
+    bumpPolling();
   }
 
   if (thread === undefined) {

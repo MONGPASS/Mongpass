@@ -62,6 +62,11 @@ export async function GET(
   // Reading the thread auto-marks it seen for the caller's side, so
   // the unread badge clears the moment the chat page mounts and polls.
   // The other side's read timestamp is left alone.
+  //
+  // Guarded so it only writes when something is actually unread: this
+  // GET is hit by the chat page's poll loop, and an unconditional
+  // UPDATE turned every poll of an idle conversation into a billed D1
+  // write. With the guard, an idle thread polls as a pure read.
   const readColumn =
     auth.side === "user" ? "user_last_read_at" : "shop_last_read_at";
   const now = new Date().toISOString();
@@ -69,7 +74,9 @@ export async function GET(
   const [, msgs] = await db.batch([
     db
       .prepare(
-        `UPDATE chat_threads SET ${readColumn} = ? WHERE id = ?`,
+        `UPDATE chat_threads SET ${readColumn} = ?
+          WHERE id = ?
+            AND (${readColumn} IS NULL OR ${readColumn} < last_message_at)`,
       )
       .bind(now, params.threadId),
     db

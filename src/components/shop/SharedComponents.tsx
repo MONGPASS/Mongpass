@@ -146,12 +146,15 @@ export function TabMenu({
 }: { 
   activeTab: string, 
   setActiveTab: (t: string) => void,
-  serviceTabName: string
+  /** null → this category has no catalog, so omit the tab entirely. */
+  serviceTabName: string | null
 }) {
   const tabs = [
     { id: "home", label: "Нүүр" },
     { id: "info", label: "Мэдээлэл" },
-    { id: "service", label: serviceTabName },
+    ...(serviceTabName !== null
+      ? [{ id: "service", label: serviceTabName }]
+      : []),
     { id: "review", label: "Сэтгэгдэл" },
     { id: "photo", label: "Зураг" }
   ];
@@ -218,7 +221,12 @@ export function BottomCTA({
     if (!shop) return;
     const user = await getCurrentUser();
     if (!user) {
-      router.push(`/login?redirect=/category/${encodeURIComponent(shopId)}`);
+      // Include the category slug — without it the post-login redirect
+      // lands on /category/<shopId>, which resolves to an empty list.
+      const back = category
+        ? `/category/${encodeURIComponent(category)}/${encodeURIComponent(shopId)}`
+        : "/";
+      router.push(`/login?redirect=${encodeURIComponent(back)}`);
       return;
     }
     // Ensure a thread exists, then jump to it. If the user is also the

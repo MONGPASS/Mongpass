@@ -17,8 +17,11 @@ import {
   addOrder,
   estimateCargoPrice,
   newOrderId,
+  orderErrorMessage,
 } from "@/lib/orderStore";
 import { uploadImage } from "@/lib/images/upload";
+import { useRequireUser } from "@/lib/auth/useRequireUser";
+import { FormErrorBanner } from "@/components/ui/FormErrorBanner";
 
 const TYPE_ICON: Record<CargoType, typeof Plane> = {
   air: Plane,
@@ -29,6 +32,7 @@ const TYPE_ICON: Record<CargoType, typeof Plane> = {
 export default function CargoOrderPage({ params }: { params: { shopId: string } }) {
   const searchParams = useSearchParams();
   const initialRouteId = searchParams.get("routeId");
+  const { checking } = useRequireUser(`/category/cargo/${params.shopId}/order`);
 
   const [routes, setRoutes] = useState<CargoRoute[]>([]);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(initialRouteId);
@@ -43,6 +47,8 @@ export default function CargoOrderPage({ params }: { params: { shopId: string } 
   const [receiverPhone, setReceiverPhone] = useState("");
   const [receiverAddress, setReceiverAddress] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -69,6 +75,7 @@ export default function CargoOrderPage({ params }: { params: { shopId: string } 
   }, [selectedRoute, weightNum]);
 
   const canSubmit =
+    !busy &&
     selectedRoute !== null &&
     description.trim().length > 0 &&
     weightNum > 0 &&
@@ -79,6 +86,8 @@ export default function CargoOrderPage({ params }: { params: { shopId: string } 
 
   async function submit() {
     if (!selectedRoute || !canSubmit) return;
+    setBusy(true);
+    setError(null);
     // The server fills id / createdAt / status, so the values here are
     // only placeholders to satisfy the type. customer_user_id comes
     // from the session.
@@ -113,9 +122,18 @@ export default function CargoOrderPage({ params }: { params: { shopId: string } 
       },
       estimatedPrice,
     };
-    const created = await addOrder(order);
-    if (!created) return;
-    setSubmitted(true);
+    try {
+      await addOrder(order);
+      setSubmitted(true);
+    } catch (err) {
+      setError(orderErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (checking) {
+    return <main className="w-full min-h-screen bg-gray-50" />;
   }
 
   if (submitted) {
@@ -375,6 +393,7 @@ export default function CargoOrderPage({ params }: { params: { shopId: string } 
       {/* Sticky bottom — price breakdown + submit */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-40">
         <div className="max-w-[480px] mx-auto">
+          <FormErrorBanner message={error} />
           {selectedRoute && weightNum > 0 ? (
             <div className="mb-2 text-[11px] text-gray-500 leading-relaxed">
               <div className="flex justify-between items-baseline">
@@ -395,7 +414,7 @@ export default function CargoOrderPage({ params }: { params: { shopId: string } 
             disabled={!canSubmit}
             className="w-full bg-blue-500 text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
           >
-            <Send className="w-4 h-4" /> Захиалга илгээх
+            <Send className="w-4 h-4" /> {busy ? "Илгээж байна..." : "Захиалга илгээх"}
           </button>
         </div>
       </div>

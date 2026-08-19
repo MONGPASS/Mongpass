@@ -3,8 +3,9 @@
 import { Home, Users, MessageCircle, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { loadUnreadChatCount } from "@/lib/chatStore";
+import { useCallback, useEffect, useState } from "react";
+import { loadBadges } from "@/lib/badgeStore";
+import { usePolling } from "@/lib/usePolling";
 
 const navItems = [
   { id: "home", label: "Нүүр", icon: Home, href: "/" },
@@ -23,23 +24,20 @@ export default function BottomNav() {
   const [unread, setUnread] = useState(0);
 
   // Poll the unread count so a reply landing while the user is on
-  // another tab lights up the red badge without a page reload.
-  // 8s is comfortably faster than the user's attention span and
-  // doesn't hammer the API.
+  // another page lights up the red badge without a reload. 15s is
+  // comfortably faster than the user's attention span; polling pauses
+  // entirely while the tab is hidden and refreshes on return, so a
+  // parked tab costs nothing.
+  const refresh = useCallback(() => {
+    loadBadges().then((b) => setUnread(b.chatUnread));
+  }, []);
+  usePolling(refresh, 15000);
+
+  // Route changes should re-check immediately rather than waiting out
+  // the interval (e.g. leaving a chat clears its unread state).
   useEffect(() => {
-    let active = true;
-    const refresh = () => {
-      loadUnreadChatCount().then((n) => {
-        if (active) setUnread(n);
-      });
-    };
     refresh();
-    const interval = setInterval(refresh, 8000);
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [pathname]);
+  }, [pathname, refresh]);
 
   return (
     <nav className="fixed bottom-0 w-full max-w-[480px] bg-white border-t border-gray-100 pb-safe z-50">

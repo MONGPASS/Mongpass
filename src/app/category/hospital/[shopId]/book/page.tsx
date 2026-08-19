@@ -12,11 +12,15 @@ import {
   HospitalAppointment,
   addOrder,
   newOrderId,
+  orderErrorMessage,
 } from "@/lib/orderStore";
+import { useRequireUser } from "@/lib/auth/useRequireUser";
+import { FormErrorBanner } from "@/components/ui/FormErrorBanner";
 
 export default function HospitalBookPage({ params }: { params: { shopId: string } }) {
   const searchParams = useSearchParams();
   const initialDoctorId = searchParams.get("doctorId");
+  const { checking } = useRequireUser(`/category/hospital/${params.shopId}/book`);
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(initialDoctorId);
@@ -27,6 +31,8 @@ export default function HospitalBookPage({ params }: { params: { shopId: string 
   const [preferredTime, setPreferredTime] = useState("");
   const [symptom, setSymptom] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -45,6 +51,7 @@ export default function HospitalBookPage({ params }: { params: { shopId: string 
   );
 
   const canSubmit =
+    !busy &&
     selectedDoctor !== null &&
     patientName.trim().length > 0 &&
     patientPhone.trim().length > 0 &&
@@ -53,6 +60,8 @@ export default function HospitalBookPage({ params }: { params: { shopId: string 
 
   async function submit() {
     if (!selectedDoctor || !canSubmit) return;
+    setBusy(true);
+    setError(null);
     const order: HospitalAppointment = {
       id: newOrderId(),
       shopCategory: "hospital",
@@ -73,9 +82,18 @@ export default function HospitalBookPage({ params }: { params: { shopId: string 
       },
       symptom: symptom.trim() || undefined,
     };
-    const created = await addOrder(order);
-    if (!created) return;
-    setSubmitted(true);
+    try {
+      await addOrder(order);
+      setSubmitted(true);
+    } catch (err) {
+      setError(orderErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (checking) {
+    return <main className="w-full min-h-screen bg-gray-50" />;
   }
 
   if (submitted) {
@@ -251,12 +269,14 @@ export default function HospitalBookPage({ params }: { params: { shopId: string 
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-40">
         <div className="max-w-[480px] mx-auto">
+          <FormErrorBanner message={error} />
           <button
             onClick={submit}
             disabled={!canSubmit}
             className="w-full bg-purple-500 text-white font-bold py-3.5 rounded-xl text-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
           >
-            <Send className="w-4 h-4" /> Цаг захиалга илгээх
+            <Send className="w-4 h-4" />{" "}
+            {busy ? "Илгээж байна..." : "Цаг захиалга илгээх"}
           </button>
         </div>
       </div>
