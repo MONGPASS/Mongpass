@@ -12,6 +12,8 @@ export interface Report {
   reason: string;
   status: "open" | "resolved";
   createdAt: string;
+  targetHref?: string;
+  parentId?: string;
 }
 
 /** Returns false only on hard failure (signed out / server error). */

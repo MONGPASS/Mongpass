@@ -1,161 +1,284 @@
-'use client';
+"use client";
 
-import { Ban, Search, ShieldCheck, Undo2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { parseTimestamp } from "@/lib/datetime";
-
-/**
- * Admin user directory + ban controls. The `banned` column existed
- * since the first migration, but flipping it required a manual SQL
- * session — meaning in practice nobody ever got banned. Search-first:
- * moderation starts from a name/email seen in a report or a shop.
- */
+import { Ban, Search, ShieldCheck, Undo2 } from "lucide-react";
+import { adminFetch, formatDate } from "@/lib/admin/types";
+import {
+  EmptyState,
+  ErrorNotice,
+  Modal,
+  PageHeading,
+  Pagination,
+} from "@/components/admin/AdminUI";
 
 interface AdminUser {
   id: string;
-  email: string;
   name: string;
+  email: string;
   role: "user" | "admin";
   banned: boolean;
   bannedReason?: string;
   createdAt: string;
 }
-
+interface UsersPage {
+  users: AdminUser[];
+  page: number;
+  limit: number;
+  total: number;
+}
 export default function AdminUsersPage() {
   const [q, setQ] = useState("");
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [busyId, setBusyId] = useState<string | null>(null);
-
-  const refresh = useCallback(async (query: string) => {
-    const res = await fetch(
-      `/api/admin/users${query ? `?q=${encodeURIComponent(query)}` : ""}`,
-      { credentials: "same-origin" },
-    );
-    if (!res.ok) return;
-    const data = (await res.json()) as { users: AdminUser[] };
-    setUsers(data.users);
-    setLoaded(true);
-  }, []);
-
-  // Debounced live search — 300ms after the last keystroke.
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("all");
+  const [page, setPage] = useState(1);
+  const [data, setData] = useState<UsersPage | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [target, setTarget] = useState<AdminUser | null>(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => refresh(q.trim()), 300);
-    return () => clearTimeout(t);
-  }, [q, refresh]);
-
-  async function setBanned(u: AdminUser, banned: boolean) {
-    if (busyId) return;
-    let reason: string | undefined;
-    if (banned) {
-      const input = window.prompt(
-        `${u.name} (${u.email}) хэрэглэгчийг хориглох шалтгаан:`,
-        "",
-      );
-      if (input === null) return; // cancelled
-      reason = input.trim() || undefined;
-    } else if (!window.confirm(`${u.name}-н хоригийг цуцлах уу?`)) {
-      return;
-    }
-    setBusyId(u.id);
-    try {
-      const res = await fetch(`/api/users/${encodeURIComponent(u.id)}/ban`, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ banned, reason }),
-      });
-      if (!res.ok) {
-        alert("Алдаа гарлаа. Дахин оролдоно уу.");
-        return;
+    const timer = setTimeout(() => {
+      setQuery(q.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [q]);
+  const refresh = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoading(true);
+      setError("");
+      try {
+        setData(
+          await adminFetch<UsersPage>(
+            "/api/admin/users?" +
+              new URLSearchParams({ q: query, status, page: String(page) }),
+            { signal },
+          ),
+        );
+      } catch (cause) {
+        if (!signal?.aborted)
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "회원 목록을 불러오지 못했어요.",
+          );
+      } finally {
+        if (!signal?.aborted) setLoading(false);
       }
-      await refresh(q.trim());
+    },
+    [query, status, page],
+  );
+  useEffect(() => {
+    const controller = new AbortController();
+    refresh(controller.signal);
+    return () => controller.abort();
+  }, [refresh]);
+  async function changeBan() {
+    if (!target || busy) return;
+    setBusy(true);
+    try {
+      await adminFetch(`/api/users/${encodeURIComponent(target.id)}/ban`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ banned: !target.banned, reason: reason.trim() }),
+      });
+      setTarget(null);
+      await refresh();
+      setMessage(
+        target.banned
+          ? "회원 이용 제한을 해제했습니다."
+          : "회원 이용을 제한했습니다. 기존 로그인 세션도 해제됩니다.",
+      );
+    } catch (cause) {
+      setTarget(null);
+      setError(cause instanceof Error ? cause.message : "변경하지 못했습니다.");
     } finally {
-      setBusyId(null);
+      setBusy(false);
     }
   }
-
   return (
-    <div className="p-4 lg:p-8 max-w-4xl">
-      <h1 className="text-xl font-bold text-gray-900 mb-1">Хэрэглэгчид</h1>
-      <p className="text-[13px] text-gray-500 mb-5">
-        Нэр эсвэл имэйлээр хайж, зөрчилтэй хэрэглэгчийг хориглоно.
-        Хориглогдсон хэрэглэгч тэр даруй гарч, дахин нэвтэрч чадахгүй.
-      </p>
-
-      <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input
-          type="text"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Нэр / имэйлээр хайх..."
-          className="w-full bg-white border border-gray-200 rounded-xl py-2.5 pl-9 pr-4 text-sm"
-        />
-      </div>
-
-      {!loaded ? (
-        <p className="text-sm text-gray-400 py-8 text-center">Уншиж байна...</p>
-      ) : users.length === 0 ? (
-        <p className="text-sm text-gray-400 py-8 text-center">
-          Хэрэглэгч олдсонгүй
-        </p>
-      ) : (
-        <div className="bg-white rounded-2xl shadow-sm divide-y divide-gray-100">
-          {users.map((u) => (
-            <div key={u.id} className="px-4 py-3 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold text-sm shrink-0">
-                {u.name.slice(0, 1).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="font-bold text-sm text-gray-900 truncate">{u.name}</p>
-                  {u.role === "admin" && (
-                    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">
-                      <ShieldCheck className="w-3 h-3" /> админ
-                    </span>
-                  )}
-                  {u.banned && (
-                    <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
-                      хориглогдсон
-                    </span>
-                  )}
-                </div>
-                <p className="text-[12px] text-gray-500 truncate">{u.email}</p>
-                {u.banned && u.bannedReason && (
-                  <p className="text-[11px] text-red-500 truncate">
-                    Шалтгаан: {u.bannedReason}
-                  </p>
-                )}
-              </div>
-              <span className="text-[11px] text-gray-400 shrink-0 hidden sm:block">
-                {parseTimestamp(u.createdAt).toLocaleDateString("mn-MN")}
-              </span>
-              {u.role !== "admin" && (
-                <button
-                  onClick={() => setBanned(u, !u.banned)}
-                  disabled={busyId === u.id}
-                  className={`shrink-0 flex items-center gap-1 text-[12px] font-bold px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50 ${
-                    u.banned
-                      ? "border-gray-200 text-gray-600 bg-white"
-                      : "border-red-200 text-red-600 bg-red-50"
-                  }`}
-                >
-                  {u.banned ? (
-                    <>
-                      <Undo2 className="w-3.5 h-3.5" /> Сэргээх
-                    </>
-                  ) : (
-                    <>
-                      <Ban className="w-3.5 h-3.5" /> Хориглох
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-          ))}
+    <>
+      <PageHeading
+        title="회원 관리"
+        description="회원 정보를 검색하고, 안전한 커뮤니티를 위해 이용 상태를 관리해요."
+      />
+      {error && <ErrorNotice message={error} onRetry={() => refresh()} />}
+      {message && (
+        <div className="mp-success" role="status">
+          {message}
         </div>
       )}
-    </div>
+      <section className="mp-panel" aria-busy={loading}>
+        <div className="mp-tabs" role="group" aria-label="회원 상태">
+          {[
+            { value: "all", label: "전체 회원" },
+            { value: "active", label: "이용 중" },
+            { value: "banned", label: "이용 제한" },
+            { value: "admin", label: "관리자" },
+          ].map((tab) => (
+            <button
+              key={tab.value}
+              aria-pressed={status === tab.value}
+              className={status === tab.value ? "active" : ""}
+              onClick={() => {
+                setStatus(tab.value);
+                setPage(1);
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <div className="mp-toolbar">
+          <label className="mp-search-input">
+            <Search size={15} />
+            <input
+              aria-label="회원 이름 또는 이메일 검색"
+              placeholder="회원 이름 또는 이메일 검색"
+              value={q}
+              onChange={(event) => setQ(event.target.value)}
+            />
+          </label>
+        </div>
+        {loading ? (
+          <div className="mp-loading" role="status">
+            회원 목록을 불러오고 있어요…
+          </div>
+        ) : !data?.users.length ? (
+          <EmptyState title="조건에 맞는 회원이 없어요" />
+        ) : (
+          <div className="mp-table-scroll">
+            <table className="mp-table">
+              <thead>
+                <tr>
+                  <th>회원</th>
+                  <th>이메일</th>
+                  <th>가입일</th>
+                  <th>역할</th>
+                  <th>이용 상태</th>
+                  <th style={{ textAlign: "right" }}>관리</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.users.map((user) => (
+                  <tr key={user.id}>
+                    <td>
+                      <strong>{user.name}</strong>
+                    </td>
+                    <td>{user.email}</td>
+                    <td>{formatDate(user.createdAt)}</td>
+                    <td>
+                      {user.role === "admin" ? (
+                        <span className="mp-status">
+                          <ShieldCheck size={11} />
+                          관리자
+                        </span>
+                      ) : (
+                        "일반 회원"
+                      )}
+                    </td>
+                    <td>
+                      <span
+                        className={`mp-status ${user.banned ? "rejected" : "approved"}`}
+                      >
+                        {user.banned ? "이용 제한" : "이용 중"}
+                      </span>
+                      {user.bannedReason && (
+                        <p
+                          title={user.bannedReason}
+                          style={{
+                            maxWidth: 160,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {user.bannedReason}
+                        </p>
+                      )}
+                    </td>
+                    <td>
+                      <div className="mp-row-actions">
+                        {user.role !== "admin" && (
+                          <button
+                            className={`mp-btn mp-btn-small ${user.banned ? "" : "mp-btn-danger"}`}
+                            disabled={busy}
+                            onClick={() => {
+                              setTarget(user);
+                              setReason("");
+                              setMessage("");
+                            }}
+                          >
+                            {user.banned ? (
+                              <Undo2 size={12} />
+                            ) : (
+                              <Ban size={12} />
+                            )}
+                            {user.banned ? "제한 해제" : "이용 제한"}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {data && (
+          <Pagination
+            page={page}
+            total={data.total}
+            limit={data.limit}
+            onChange={setPage}
+          />
+        )}
+      </section>
+      {target && (
+        <Modal
+          title={
+            target.banned
+              ? "이용 제한을 해제할까요?"
+              : "회원 이용을 제한할까요?"
+          }
+          onClose={() => {
+            if (!busy) setTarget(null);
+          }}
+        >
+          <p>
+            <b>{target.name}</b> ({target.email})<br />
+            {target.banned
+              ? "이 회원이 다시 로그인하고 서비스를 이용할 수 있습니다."
+              : "이 회원의 로그인 세션이 종료되며, 다시 로그인할 수 없습니다. 제한 사유를 입력해 주세요."}
+          </p>
+          {!target.banned && (
+            <textarea
+              aria-label="이용 제한 사유"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              maxLength={1000}
+              placeholder="운영 정책 위반 내용을 입력해 주세요."
+            />
+          )}
+          <div className="mp-modal-actions">
+            <button
+              className="mp-btn"
+              disabled={busy}
+              onClick={() => setTarget(null)}
+            >
+              취소
+            </button>
+            <button
+              className={`mp-btn ${target.banned ? "mp-btn-primary" : "mp-btn-danger"}`}
+              disabled={busy || (!target.banned && !reason.trim())}
+              onClick={changeBan}
+            >
+              {busy ? "처리 중…" : target.banned ? "제한 해제" : "이용 제한"}
+            </button>
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }

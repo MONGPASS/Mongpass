@@ -11,6 +11,7 @@
 export const runtime = "edge";
 
 import { forbidden, getServerContext, unauthorized } from "@/lib/auth/server";
+import { clampLimit } from "@/lib/pagination";
 
 const TARGET_TYPES = new Set(["post", "comment", "review", "shop"]);
 const MAX_REASON = 500;
@@ -66,7 +67,27 @@ export async function GET(request: Request): Promise<Response> {
   if (user.role !== "admin") return forbidden();
 
   const url = new URL(request.url);
-  const status = url.searchParams.get("status") === "resolved" ? "resolved" : "open";
+  const status =
+    url.searchParams.get("status") === "resolved" ? "resolved" : "open";
+  const page = Math.max(
+    1,
+    Math.min(100000, Math.floor(Number(url.searchParams.get("page")) || 1)),
+  );
+  const limit = clampLimit(url.searchParams.get("limit"), 20, 100);
+  const q = url.searchParams.get("q")?.trim().slice(0, 200) ?? "";
+  const values: string[] = [status];
+  const conditions = ["r.status = ?"];
+  if (q) {
+    conditions.push("(r.reason LIKE ? OR u.name LIKE ?)");
+    values.push(`%${q}%`, `%${q}%`);
+  }
+  const where = conditions.join(" AND ");
+  const count = await db
+    .prepare(
+      `SELECT COUNT(*) AS count FROM reports r LEFT JOIN users u ON u.id = r.reporter_id WHERE ${where}`,
+    )
+    .bind(...values)
+    .first<{ count: number }>();
 
   const result = await db
     .prepare(
@@ -74,11 +95,11 @@ export async function GET(request: Request): Promise<Response> {
               r.target_id, r.reason, r.status, r.created_at
          FROM reports r
          LEFT JOIN users u ON u.id = r.reporter_id
-        WHERE r.status = ?
-        ORDER BY r.created_at DESC
-        LIMIT 100`,
+        WHERE ${where}
+        ORDER BY r.created_at DESC, r.id DESC
+        LIMIT ? OFFSET ?`,
     )
-    .bind(status)
+    .bind(...values, limit, (page - 1) * limit)
     .all<ReportRow>();
   const rows = result.results ?? [];
 
@@ -91,38 +112,56 @@ export async function GET(request: Request): Promise<Response> {
     byType.set(r.target_type, list);
   }
   const previews = new Map<string, string>();
+  const targets = new Map<string, { targetHref: string; parentId?: string }>();
   const key = (t: string, id: string) => `${t}:${id}`;
 
-  async function collect(
-    type: string,
-    sql: string,
-  ): Promise<void> {
+  async function collect(type: string, sql: string): Promise<void> {
     const ids = byType.get(type);
     if (!ids || ids.length === 0) return;
     const placeholders = ids.map(() => "?").join(",");
     const res = await db
       .prepare(sql.replace("__IDS__", placeholders))
       .bind(...ids)
-      .all<{ id: string; preview: string }>();
+      .all<{ id: string; preview: string; href: string; parent_id?: string }>();
     for (const row of res.results ?? []) {
       previews.set(key(type, row.id), row.preview);
+      targets.set(key(type, row.id), {
+        targetHref: row.href,
+        parentId: row.parent_id,
+      });
     }
   }
 
   await Promise.all([
-    collect("post", "SELECT id, title AS preview FROM community_posts WHERE id IN (__IDS__)"),
-    collect("comment", "SELECT id, content AS preview FROM community_comments WHERE id IN (__IDS__)"),
-    collect("review", "SELECT id, comment AS preview FROM reviews WHERE id IN (__IDS__)"),
-    collect("shop", "SELECT id, name AS preview FROM shops WHERE id IN (__IDS__)"),
+    collect(
+      "post",
+      "SELECT id, title AS preview, '/community/' || id AS href FROM community_posts WHERE id IN (__IDS__)",
+    ),
+    collect(
+      "comment",
+      "SELECT id, content AS preview, post_id AS parent_id, '/community/' || post_id AS href FROM community_comments WHERE id IN (__IDS__)",
+    ),
+    collect(
+      "review",
+      "SELECT r.id, r.comment AS preview, '/category/' || s.category || '/' || s.id AS href FROM reviews r JOIN shops s ON s.id = r.shop_id WHERE r.id IN (__IDS__)",
+    ),
+    collect(
+      "shop",
+      "SELECT id, name AS preview, '/category/' || category || '/' || id AS href FROM shops WHERE id IN (__IDS__)",
+    ),
   ]);
 
   return Response.json({
+    page,
+    limit,
+    total: count?.count ?? 0,
     reports: rows.map((r) => ({
       id: r.id,
       reporterId: r.reporter_id,
       reporterName: r.reporter_name ?? "—",
       targetType: r.target_type,
       targetId: r.target_id,
+      ...targets.get(key(r.target_type, r.target_id)),
       // "(устгагдсан)" = target already deleted; keep the report so
       // the moderator can still see the pattern / ban the reporter's
       // target if needed, then resolve it.

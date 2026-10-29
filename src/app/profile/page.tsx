@@ -114,9 +114,9 @@ export default function ProfilePage() {
             <ChevronRight size={20} className="text-gray-400" />
           </Link>
         ) : (
-          <div className="p-5 text-[13px] text-gray-400 text-center">
-            Нэвтэрсний дараа дэлгүүр бүртгэх боломжтой
-          </div>
+          <Link href="/login?redirect=%2Fbiz" className="flex items-center justify-between p-5 active:bg-gray-50">
+            <div className="flex items-center gap-3"><Store size={22} className="text-primary" /><div><p className="font-bold text-[15px] text-gray-900">Бизнесээ удирдах</p><p className="text-[12px] text-gray-500 mt-1">Нэвтэрч захиалга, бараа, чатаа удирдаарай</p></div></div><ChevronRight size={20} className="text-gray-400" />
+          </Link>
         )}
         <Link href="#" className="flex items-center justify-between p-5 border-t border-gray-50 active:bg-gray-50 transition-colors">
           <div className="flex items-center gap-3 text-gray-900">

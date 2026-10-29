@@ -227,7 +227,7 @@ export default function ShopRegisterPage() {
                 type="text"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder="경기도 안산시 ..."
+                placeholder="Жишээ: Гёнги-ду, Ансан хот..."
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
               />
             </div>

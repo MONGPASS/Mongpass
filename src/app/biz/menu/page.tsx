@@ -1,24 +1,22 @@
-'use client';
+"use client";
+import { Plus, Edit2, Trash2, Save, Search, Utensils, Info, Check } from "lucide-react";
 
-import { ArrowLeft, Plus, Edit2, Trash2, Save, X } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  MenuItem,
-  loadMenuItems,
-  createMenuItem,
-  updateMenuItem,
-  deleteMenuItem,
-  groupItems,
-} from "@/lib/menuStore";
-import { findShopByOwner } from "@/lib/shopStore";
-import { getCurrentUser } from "@/lib/userStore";
+import { type MenuItem, groupItems } from "@/lib/menuStore";
+import { useBusiness } from "@/components/biz/BizContext";
+import { adminFetch } from "@/lib/admin/types";
+import { EmptyState, ErrorNotice, Modal, PageHeading } from "@/components/admin/AdminUI";
 
 export default function RestaurantMenuAdminPage() {
+  const { shop, request: customRequest, preview } = useBusiness();
+  const request = customRequest ?? adminFetch;
+  const shopId = shop.id;
   const router = useRouter();
-  const [shopId, setShopId] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("");
   const [items, setItems] = useState<MenuItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
@@ -30,32 +28,28 @@ export default function RestaurantMenuAdminPage() {
     desc: "",
     price: "",
   });
-
   useEffect(() => {
+    if (!["restaurant", "food"].includes(shop.category)) {
+      router.replace(preview ? "/preview/biz" : "/biz");
+      return;
+    }
     let active = true;
-    (async () => {
-      const user = await getCurrentUser();
-      if (!active) return;
-      if (!user) {
-        router.replace("/login?redirect=/biz/menu");
-        return;
-      }
-      const shop = await findShopByOwner(user.id);
-      if (!active) return;
-      if (!shop) {
-        router.replace("/biz/register");
-        return;
-      }
-      if (shop.category !== "restaurant" && shop.category !== "food") {
-        router.replace("/biz");
-        return;
-      }
-      setShopId(shop.id);
-      setItems(await loadMenuItems(shop.id));
-      if (active) setAuthChecked(true);
-    })();
-    return () => { active = false; };
-  }, [router]);
+    request<{ items: MenuItem[] }>(
+      "/api/shops/" + encodeURIComponent(shopId) + "/menu",
+    )
+      .then((data) => {
+        if (active) setItems(data.items);
+      })
+      .catch(() => {
+        if (active) setError("Цэсийг ачаалж чадсангүй.");
+      })
+      .finally(() => {
+        if (active) setAuthChecked(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [request, shopId, shop.category, router, preview]);
 
   function flash() {
     setSavedFlash(true);
@@ -63,13 +57,20 @@ export default function RestaurantMenuAdminPage() {
   }
 
   function startAdd() {
+    setError("");
     setForm({ category: "Гол хоол", name: "", desc: "", price: "" });
     setIsAdding(true);
     setEditingId(null);
   }
 
   function startEdit(item: MenuItem) {
-    setForm({ category: item.category, name: item.name, desc: item.desc, price: item.price });
+    setError("");
+    setForm({
+      category: item.category,
+      name: item.name,
+      desc: item.desc,
+      price: item.price,
+    });
     setEditingId(item.id);
     setIsAdding(false);
   }
@@ -81,24 +82,42 @@ export default function RestaurantMenuAdminPage() {
 
   async function submit() {
     if (!shopId || busy) return;
-    if (!form.name.trim() || !form.price.trim()) return;
+    if (!form.category.trim() || !form.name.trim() || !form.price.trim()) return;
     setBusy(true);
     try {
       if (isAdding) {
-        const created = await createMenuItem(shopId, form);
+        const created = await request<{ item: MenuItem }>(
+          `/api/shops/${encodeURIComponent(shopId)}/menu`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(form),
+          },
+        ).then((data) => data.item);
         if (created) {
           setItems((prev) => [...prev, created]);
           setIsAdding(false);
           flash();
         }
       } else if (editingId) {
-        const updated = await updateMenuItem(shopId, editingId, form);
+        const updated = await request<{ item: MenuItem }>(
+          `/api/shops/${encodeURIComponent(shopId)}/menu/${encodeURIComponent(editingId)}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(form),
+          },
+        ).then((data) => data.item);
         if (updated) {
-          setItems((prev) => prev.map((i) => (i.id === editingId ? updated : i)));
+          setItems((prev) =>
+            prev.map((i) => (i.id === editingId ? updated : i)),
+          );
           setEditingId(null);
           flash();
         }
       }
+    } catch {
+      setError("Цэсийг хадгалж чадсангүй. Дахин оролдоно уу.");
     } finally {
       setBusy(false);
     }
@@ -107,140 +126,69 @@ export default function RestaurantMenuAdminPage() {
   async function remove(id: string) {
     if (!shopId) return;
     if (!confirm("Энэ цэсийг устгах уу?")) return;
-    const ok = await deleteMenuItem(shopId, id);
-    if (ok) setItems((prev) => prev.filter((i) => i.id !== id));
+    try {
+      await request(
+        `/api/shops/${encodeURIComponent(shopId)}/menu/${encodeURIComponent(id)}`,
+        { method: "DELETE" },
+      );
+      setItems((prev) => prev.filter((i) => i.id !== id));
+    } catch {
+      setError("Цэсийг устгаж чадсангүй. Дахин оролдоно уу.");
+    }
   }
 
-  if (!authChecked) {
-    return <main className="w-full min-h-screen bg-gray-50" />;
-  }
-
-  const grouped = groupItems(items);
+  const categories = Array.from(new Set(items.map((item) => item.category)));
+  const visible = items.filter((item) =>
+    (!category || item.category === category) &&
+    `${item.name} ${item.desc}`.toLowerCase().includes(search.toLowerCase()),
+  );
+  const grouped = groupItems(visible);
   const showForm = isAdding || editingId !== null;
 
   return (
-    <main className="w-full min-h-screen bg-gray-50 pb-24">
-      <header className="sticky top-0 z-30 bg-white border-b border-gray-200">
-        <div className="flex items-center h-14 px-4 gap-3">
-          <Link href="/biz" className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <h1 className="font-bold text-base flex-1">Цэс удирдах</h1>
-          {savedFlash && (
-            <span className="text-xs text-green-600 font-semibold">Хадгалагдлаа</span>
-          )}
+    <>
+      <PageHeading title={"Бараа, цэсийн удирдлага"} description={"Бизнесийнхээ цэсийг бүртгэж, харилцагчдадаа танилцуулаарай."}>
+        {savedFlash && <span className="mp-save-message" role="status"><Check size={14} /> Хадгаллаа</span>}
+        <button className="mp-btn mp-btn-primary" onClick={startAdd}><Plus size={16} /> Цэс нэмэх</button>
+      </PageHeading>
+      {error && <ErrorNotice message={error} />}
+      <div className="mp-catalog-help"><Info size={15} /><span>Бүртгэсэн хоол харилцагчид харагдах цэсийн хэсэгт орно. Нэр, үнийг зөв оруулна уу.</span></div>
+      <section className="mp-panel" aria-busy={!authChecked}>
+        <div className="mp-catalog-bar">
+          <span>Нийт цэс <b>{items.length}</b></span>
+          <select aria-label={"Цэсийн ангилал"} value={category} onChange={(event) => setCategory(event.target.value)}>
+            <option value="">Бүх ангилал</option>
+            {categories.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
+          <label className="mp-catalog-search"><Search size={15} /><input aria-label={"Цэс хайх"} placeholder={"Цэсийн нэрээр хайх"} value={search} onChange={(event) => setSearch(event.target.value)} /></label>
         </div>
-      </header>
-
-      <div className="px-4 pt-4">
-        <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm">
-          <p className="text-xs text-gray-500 leading-relaxed">
-            Энд нэмсэн цэс нь зөвхөн таны дэлгүүрийн хуудсан дээр харагдана.
-          </p>
-        </div>
-
-        {!showForm && (
-          <button
-            onClick={startAdd}
-            className="w-full bg-primary text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-sm"
-          >
-            <Plus className="w-5 h-5" /> Шинэ цэс нэмэх
-          </button>
-        )}
-
-        {showForm && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <h2 className="font-bold mb-3 text-sm">
-              {isAdding ? "Шинэ цэс" : "Цэс засах"}
-            </h2>
-            <div className="space-y-3">
-              <input
-                type="text"
-                placeholder="Ангилал (жишээ: Гол хоол)"
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
-              />
-              <input
-                type="text"
-                placeholder="Цэсийн нэр"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
-              />
-              <textarea
-                placeholder="Тайлбар"
-                value={form.desc}
-                onChange={(e) => setForm({ ...form, desc: e.target.value })}
-                rows={2}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm resize-none"
-              />
-              <input
-                type="text"
-                placeholder="Үнэ (жишээ: 12,000₩)"
-                value={form.price}
-                onChange={(e) => setForm({ ...form, price: e.target.value })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
-              />
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={submit}
-                  disabled={busy || !form.name.trim() || !form.price.trim()}
-                  className="flex-1 bg-primary text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  <Save className="w-4 h-4" /> {busy ? "..." : "Хадгалах"}
-                </button>
-                <button
-                  onClick={cancel}
-                  className="flex-1 bg-gray-100 text-gray-700 font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2"
-                >
-                  <X className="w-4 h-4" /> Болих
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="px-4 mt-6">
-        {grouped.length === 0 && (
-          <p className="text-center text-gray-400 text-sm py-12">Цэс хоосон байна</p>
-        )}
-        {grouped.map((cat) => (
-          <div key={cat.category} className="mb-5">
-            <h3 className="font-bold text-xs text-gray-600 uppercase tracking-wider mb-2 px-1">
-              {cat.category}
-            </h3>
-            <div className="bg-white rounded-2xl shadow-sm divide-y divide-gray-100">
-              {cat.items.map((item) => (
-                <div key={item.id} className="p-4 flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-sm text-gray-900 mb-1">{item.name}</h4>
-                    <p className="text-xs text-gray-500 line-clamp-2 mb-1">{item.desc}</p>
-                    <p className="font-bold text-sm text-gray-900">{item.price}</p>
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    <button
-                      onClick={() => startEdit(item)}
-                      className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
-                      aria-label="Засах"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => remove(item.id)}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
-                      aria-label="Устгах"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+        {!authChecked ? <div className="mp-skeleton" /> : grouped.length === 0 ? <EmptyState title={items.length ? "Хайлтад тохирох цэс алга" : "Анхны цэсээ нэмээрэй"} description={items.length ? "Өөр үг эсвэл ангилал сонгоно уу." : "Өөрийн онцлог хоолоо харилцагчдадаа танилцуулаарай."} /> : grouped.map((group) => (
+          <div key={group.category}>
+            <h2 className="mp-catalog-category">{group.category}<span>{group.items.length} ш</span></h2>
+            {group.items.map((item) => (
+              <article className="mp-catalog-row" key={item.id}>
+                <div className="mp-catalog-symbol"><Utensils size={22} strokeWidth={1.5} /></div>
+                <div className="mp-catalog-copy"><h3>{item.name}</h3><p>{item.desc}</p><strong>{item.price}</strong></div>
+                <div className="mp-catalog-actions">
+                  <button className="mp-btn mp-btn-small" aria-label={`${item.name} Засах`} onClick={() => startEdit(item)}><Edit2 size={12} /> Засах</button>
+                  <button className="mp-icon-button" aria-label={`${item.name} Устгах`} onClick={() => remove(item.id)}><Trash2 size={15} /></button>
                 </div>
-              ))}
-            </div>
+              </article>
+            ))}
           </div>
         ))}
-      </div>
-    </main>
+      </section>
+      {showForm && <Modal title={isAdding ? "Шинэ цэс нэмэх" : "Цэс засах"} onClose={() => { if (!busy) cancel(); }}>
+        {error && <ErrorNotice message={error} />}
+        <p className="mp-form-help">Харилцагчид ойлгомжтой байхаар цэсээ танилцуулна уу.</p>
+        <form className="mp-catalog-form" onSubmit={(event) => { event.preventDefault(); submit(); }}>
+          <label>Ангилал <small>Заавал</small><input required maxLength={100} placeholder={"Жишээ: Гол хоол"} value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} /></label>
+          <label>Цэсийн нэр <small>Заавал</small><input required maxLength={200} placeholder={"Цэсийн нэрийг оруулна уу"} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
+          <label>Цэсийн тайлбар<textarea rows={3} maxLength={2000} placeholder={"Орц, порц зэрэг хоолны онцлогийг тайлбарлана уу"} value={form.desc} onChange={(event) => setForm({ ...form, desc: event.target.value })} /></label>
+          <label>Үнэ <small>Заавал</small><input required maxLength={50} placeholder={"Жишээ: 12,000₩"} value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} /></label>
+          <div className="mp-catalog-form-actions"><button type="button" className="mp-btn" onClick={cancel} disabled={busy}>Цуцлах</button><button className="mp-btn mp-btn-primary" disabled={busy || !form.category.trim() || !form.name.trim() || !form.price.trim()}><Save size={14} />{busy ? "Хадгалж байна…" : "Хадгалах"}</button></div>
+        </form>
+      </Modal>}
+    </>
   );
 }

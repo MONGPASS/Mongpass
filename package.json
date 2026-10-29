@@ -13,7 +13,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node --test tests/repository.test.mjs",
+    "test": "node --test tests/repository.test.mjs tests/business-preview.test.mjs",
     "test:api": "node --test --test-timeout=180000 tests/api.e2e.test.mjs",
     "check": "npm run lint && npm test && npm run build",
     "db:migrate:local": "wrangler d1 migrations apply mongpass --local",

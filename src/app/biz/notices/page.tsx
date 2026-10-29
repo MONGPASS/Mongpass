@@ -1,16 +1,20 @@
-'use client';
+"use client";
 
-import { ArrowLeft, Edit2, Megaphone, Plus, Save, Trash2, X } from "lucide-react";
-import { parseTimestamp } from "@/lib/datetime";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 import {
-  Shop,
-  ShopNotice,
-  findShopByOwner,
-} from "@/lib/shopStore";
-import { getCurrentUser } from "@/lib/userStore";
+  Search,
+  Edit2,
+  Megaphone,
+  Plus,
+  Save,
+  Trash2,
+  Check,
+} from "lucide-react";
+import { parseTimestamp } from "@/lib/datetime";
+import { EmptyState, ErrorNotice, Modal, PageHeading } from "@/components/admin/AdminUI";
+import { useBusiness } from "@/components/biz/BizContext";
+import { adminFetch } from "@/lib/admin/types";
+import { useEffect, useState } from "react";
+import { Shop, ShopNotice } from "@/lib/shopStore";
 
 const empty = { title: "", content: "" };
 
@@ -20,8 +24,9 @@ function fmtDate(iso: string): string {
 }
 
 export default function ShopNoticesPage() {
-  const router = useRouter();
-  const [shop, setShop] = useState<Shop | null>(null);
+  const { shop: ownedShop, request: customRequest } = useBusiness();
+  const request = customRequest ?? adminFetch;
+  const [shop, setShop] = useState<Shop | null>(ownedShop);
   const [authChecked, setAuthChecked] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
@@ -29,41 +34,35 @@ export default function ShopNoticesPage() {
   const [savedFlash, setSavedFlash] = useState(false);
 
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
   async function refreshNotices(shopId: string) {
-    const res = await fetch(
+    const data = await request<{ notices: ShopNotice[] }>(
       `/api/shops/${encodeURIComponent(shopId)}/notices`,
-      { credentials: "same-origin" },
     );
-    if (!res.ok) return;
-    const data = (await res.json()) as { notices: ShopNotice[] };
-    setShop((prev) => (prev ? { ...prev, notices: data.notices } : prev));
+    setShop((previous) =>
+      previous ? { ...previous, notices: data.notices } : previous,
+    );
   }
-
   useEffect(() => {
     let active = true;
-    (async () => {
-      const user = await getCurrentUser();
-      if (!active) return;
-      if (!user) {
-        router.replace("/login?redirect=/biz/notices");
-        return;
-      }
-      const s = await findShopByOwner(user.id);
-      if (!active) return;
-      if (!s) {
-        router.replace("/biz/register");
-        return;
-      }
-      setShop(s);
-      // Pull the latest notices from the API in case the shop record's
-      // cached list is stale (the shops API returns them, but this
-      // ensures we get fresh data right after a write).
-      await refreshNotices(s.id);
-      if (active) setAuthChecked(true);
-    })();
-    return () => { active = false; };
-  }, [router]);
+    request<{ notices: ShopNotice[] }>(
+      `/api/shops/${encodeURIComponent(ownedShop.id)}/notices`,
+    )
+      .then((data) => {
+        if (active) setShop({ ...ownedShop, notices: data.notices });
+      })
+      .catch(() => {
+        if (active) setError("Бизнесийн мэдээг ачаалж чадсангүй.");
+      })
+      .finally(() => {
+        if (active) setAuthChecked(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [request, ownedShop]);
 
   function flash() {
     setSavedFlash(true);
@@ -71,12 +70,14 @@ export default function ShopNoticesPage() {
   }
 
   function startAdd() {
+    setError("");
     setForm(empty);
     setIsAdding(true);
     setEditingId(null);
   }
 
   function startEdit(n: ShopNotice) {
+    setError("");
     setForm({ title: n.title, content: n.content });
     setEditingId(n.id);
     setIsAdding(false);
@@ -93,24 +94,17 @@ export default function ShopNoticesPage() {
     setBusy(true);
     try {
       if (isAdding) {
-        const res = await fetch(
-          `/api/shops/${encodeURIComponent(shop.id)}/notices`,
-          {
-            method: "POST",
-            credentials: "same-origin",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: form.title.trim(),
-              content: form.content.trim(),
-            }),
-          },
-        );
-        if (!res.ok) {
-          alert("Мэдээ хадгалахад алдаа гарлаа.");
-          return;
-        }
+        await request(`/api/shops/${encodeURIComponent(shop.id)}/notices`, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: form.title.trim(),
+            content: form.content.trim(),
+          }),
+        });
       } else if (editingId) {
-        const res = await fetch(
+        await request(
           `/api/shops/${encodeURIComponent(shop.id)}/notices/${encodeURIComponent(editingId)}`,
           {
             method: "PATCH",
@@ -122,10 +116,6 @@ export default function ShopNoticesPage() {
             }),
           },
         );
-        if (!res.ok) {
-          alert("Мэдээ засахад алдаа гарлаа.");
-          return;
-        }
       } else {
         return;
       }
@@ -133,6 +123,8 @@ export default function ShopNoticesPage() {
       setIsAdding(false);
       setEditingId(null);
       flash();
+    } catch {
+      setError("Бизнесийн мэдээг хадгалж чадсангүй.");
     } finally {
       setBusy(false);
     }
@@ -140,141 +132,47 @@ export default function ShopNoticesPage() {
 
   async function remove(id: string) {
     if (!shop) return;
-    if (!confirm("Энэ мэдээллийг устгах уу?")) return;
-    const res = await fetch(
-      `/api/shops/${encodeURIComponent(shop.id)}/notices/${encodeURIComponent(id)}`,
-      { method: "DELETE", credentials: "same-origin" },
-    );
-    if (res.ok) {
+    if (!confirm("Энэ мэдээг устгах уу?")) return;
+    try {
+      await request(`/api/shops/${encodeURIComponent(shop.id)}/notices/${encodeURIComponent(id)}`, { method: "DELETE" });
       await refreshNotices(shop.id);
       flash();
+    } catch {
+      setError("Мэдээг устгаж чадсангүй. Дахин оролдоно уу.");
     }
   }
-
-  if (!authChecked || !shop) {
-    return <main className="w-full min-h-screen bg-gray-50" />;
-  }
-
+  const notices = (shop?.notices ?? []).filter((notice) => `${notice.title} ${notice.content}`.toLowerCase().includes(search.toLowerCase()));
   const showForm = isAdding || editingId !== null;
-  const notices = shop.notices ?? [];
-
   return (
-    <main className="w-full min-h-screen bg-gray-50 pb-24">
-      <header className="sticky top-0 z-30 bg-white border-b border-gray-200">
-        <div className="flex items-center h-14 px-4 gap-3">
-          <Link href="/biz" className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <h1 className="font-bold text-base flex-1">Мэдээ удирдах</h1>
-          {savedFlash && <span className="text-xs text-green-600 font-semibold">Хадгалагдлаа</span>}
+    <>
+      <PageHeading title={"Бизнесийн мэдээ"} description={"Шинэ цэс, урамшууллынхаа мэдээг харилцагчдадаа хүргээрэй."}>
+        {savedFlash && <span className="mp-save-message" role="status"><Check size={14} /> Хадгаллаа</span>}
+        <button className="mp-btn mp-btn-primary" onClick={startAdd}><Plus size={16} /> Мэдээ бичих</button>
+      </PageHeading>
+      {error && <ErrorNotice message={error} />}
+      <div className="mp-catalog-help"><Megaphone size={16} /><span>Бизнесийнхээ шинэ мэдээг хуваалцаарай. Нийтэлсэн мэдээ таны бизнесийн дэлгэрэнгүй хуудсанд харагдана.</span></div>
+      <section className="mp-panel" aria-busy={!authChecked}>
+        <div className="mp-catalog-bar">
+          <span>Нийт мэдээ <b>{shop?.notices?.length ?? 0}</b></span>
+          <label className="mp-catalog-search"><Search size={15} /><input aria-label={"Мэдээ хайх"} placeholder={"Гарчиг, агуулгаар хайх"} value={search} onChange={(event) => setSearch(event.target.value)} /></label>
         </div>
-      </header>
-
-      <div className="px-4 pt-4">
-        <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm">
-          <p className="text-xs text-gray-500 leading-relaxed">
-            Энд бичсэн мэдээ нь сүүлд хэрэглэгчийн талд &ldquo;Мэдээлэл&rdquo; таб дээр
-            харагдана. Жишээ нь: урамшуулал, цагийн өөрчлөлт, шинэ үйлчилгээ.
-          </p>
-        </div>
-
-        {!showForm && (
-          <button
-            onClick={startAdd}
-            className="w-full bg-blue-500 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-sm"
-          >
-            <Plus className="w-5 h-5" /> Шинэ мэдээ нэмэх
-          </button>
-        )}
-
-        {showForm && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <h2 className="font-bold mb-3 text-sm">
-              {isAdding ? "Шинэ мэдээ" : "Мэдээ засах"}
-            </h2>
-            <div className="space-y-3">
-              <div>
-                <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">Гарчиг</label>
-                <input
-                  type="text"
-                  placeholder="ж: Шинэ жилийн урамшуулал эхэллээ!"
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-bold text-gray-500 mb-1.5 block">Агуулга</label>
-                <textarea
-                  rows={4}
-                  placeholder="Дэлгэрэнгүй..."
-                  value={form.content}
-                  onChange={(e) => setForm({ ...form, content: e.target.value })}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm resize-none"
-                />
-              </div>
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={submit}
-                  disabled={busy || !form.title.trim() || !form.content.trim()}
-                  className="flex-1 bg-blue-500 text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  <Save className="w-4 h-4" /> {busy ? "..." : "Хадгалах"}
-                </button>
-                <button
-                  onClick={cancel}
-                  className="flex-1 bg-gray-100 text-gray-700 font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2"
-                >
-                  <X className="w-4 h-4" /> Болих
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="px-4 mt-6">
-        {notices.length === 0 ? (
-          <div className="bg-white rounded-2xl p-8 text-center shadow-sm">
-            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-400">
-              <Megaphone className="w-5 h-5" />
-            </div>
-            <p className="text-sm text-gray-500">Одоогоор мэдээ оруулаагүй байна</p>
-          </div>
-        ) : (
-          notices.map((n) => (
-            <div key={n.id} className="bg-white rounded-2xl p-4 mb-3 shadow-sm">
-              <div className="flex items-start gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">
-                    {fmtDate(n.createdAt)}
-                  </p>
-                  <h3 className="font-bold text-sm text-gray-900 mb-1.5">{n.title}</h3>
-                  <p className="text-[12px] text-gray-600 line-clamp-3 leading-relaxed">
-                    {n.content}
-                  </p>
-                </div>
-                <div className="flex flex-col gap-1 shrink-0">
-                  <button
-                    onClick={() => startEdit(n)}
-                    className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg"
-                    aria-label="Засах"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => remove(n.id)}
-                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
-                    aria-label="Устгах"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </main>
+        {!authChecked ? <div className="mp-skeleton" /> : notices.length === 0 ? <EmptyState title={search ? "Хайлтад тохирох мэдээ алга" : "Анхны мэдээгээ нийтлээрэй"} description={search ? "Өөр түлхүүр үг оруулна уу." : "Шинэ цэс, урамшуулал, ажиллах цагийнхаа талаар мэдээлээрэй."} /> : notices.map((notice) => (
+          <article className="mp-catalog-row" key={notice.id}>
+            <div className="mp-catalog-symbol"><Megaphone size={22} strokeWidth={1.5} /></div>
+            <div className="mp-catalog-copy"><time className="mp-catalog-date">{fmtDate(notice.createdAt)}</time><h3>{notice.title}</h3><p className="line-clamp-2">{notice.content}</p></div>
+            <div className="mp-catalog-actions"><button className="mp-btn mp-btn-small" aria-label={`${notice.title} Засах`} onClick={() => startEdit(notice)}><Edit2 size={12} /> Засах</button><button className="mp-icon-button" aria-label={`${notice.title} Устгах`} onClick={() => remove(notice.id)}><Trash2 size={15} /></button></div>
+          </article>
+        ))}
+      </section>
+      {showForm && <Modal title={isAdding ? "Шинэ мэдээ бичих" : "Мэдээ засах"} onClose={() => { if (!busy) cancel(); }}>
+        {error && <ErrorNotice message={error} />}
+        <p className="mp-form-help">Харилцагчдадаа хүргэх бизнесийн мэдээгээ бичнэ үү.</p>
+        <form className="mp-catalog-form" onSubmit={(event) => { event.preventDefault(); submit(); }}>
+          <label>Гарчиг <small>Заавал</small><input required maxLength={200} placeholder={"Мэдээний гарчгийг оруулна уу"} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /></label>
+          <label>Агуулга <small>Заавал</small><textarea required rows={7} maxLength={10000} placeholder={"Шинэ цэс, урамшуулал, ажиллах цагийн талаарх дэлгэрэнгүйг бичнэ үү"} value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} /></label>
+          <div className="mp-catalog-form-actions"><button type="button" className="mp-btn" onClick={cancel} disabled={busy}>Цуцлах</button><button className="mp-btn mp-btn-primary" disabled={busy || !form.title.trim() || !form.content.trim()}><Save size={14} />{busy ? "Хадгалж байна…" : "Мэдээ хадгалах"}</button></div>
+        </form>
+      </Modal>}
+    </>
   );
 }
