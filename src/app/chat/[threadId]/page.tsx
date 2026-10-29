@@ -143,11 +143,11 @@ export default function ChatThreadPage({ params }: { params: { threadId: string 
   }
 
   return (
-    <main className="w-full h-screen bg-gray-50 flex flex-col">
+    <main className="w-full h-[100dvh] bg-gray-50 flex flex-col">
       <header className="bg-white border-b border-gray-200 shrink-0">
         <div className="flex items-center h-14 px-4 gap-3">
           <Link
-            href={side === "shop" ? "/biz" : "/chat"}
+            href={side === "shop" ? "/biz/chat" : "/chat"}
             className="p-2 -ml-2 hover:bg-gray-100 rounded-full"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -211,7 +211,7 @@ export default function ChatThreadPage({ params }: { params: { threadId: string 
       </div>
 
       {/* Composer */}
-      <div className="bg-white border-t border-gray-200 px-4 py-3 shrink-0">
+      <div className="bg-white border-t border-gray-200 px-4 py-3 shrink-0" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -221,7 +221,7 @@ export default function ChatThreadPage({ params }: { params: { threadId: string 
               if (e.key === "Enter") send();
             }}
             placeholder="Мессеж бичих..."
-            className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+            className="flex-1 min-w-0 bg-gray-100 rounded-full px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-primary/20"
           />
           <button
             onClick={send}

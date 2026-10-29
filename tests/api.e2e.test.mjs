@@ -59,7 +59,11 @@ function wranglerCli(args) {
     execFileSync(
       process.platform === "win32" ? "npx.cmd" : "npx",
       ["wrangler", ...args],
-      { cwd: ROOT, stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32" },
+      {
+        cwd: ROOT,
+        stdio: ["ignore", "pipe", "pipe"],
+        shell: process.platform === "win32",
+      },
     );
   } catch (err) {
     const detail = [err.stdout, err.stderr]
@@ -70,7 +74,10 @@ function wranglerCli(args) {
 }
 
 function d1(sql) {
-  const file = join(tmp, `q-${Date.now()}-${Math.random().toString(36).slice(2)}.sql`);
+  const file = join(
+    tmp,
+    `q-${Date.now()}-${Math.random().toString(36).slice(2)}.sql`,
+  );
   writeFileSync(file, sql);
   wranglerCli(["d1", "execute", "mongpass", "--local", "--file", file]);
 }
@@ -211,7 +218,16 @@ test("orders: lifecycle — pending shop 409, closed shop 409, open shop 201", a
   const orderBody = {
     shopId,
     shopCategory: "meat",
-    items: [{ productId: "p", category: "c", name: "n", price: "1000", unit: "kg", qty: 1 }],
+    items: [
+      {
+        productId: "p",
+        category: "c",
+        name: "n",
+        price: "1000",
+        unit: "kg",
+        qty: 1,
+      },
+    ],
     subtotalAmount: 1000,
     deliveryFee: 0,
     totalAmount: 1000,
@@ -219,33 +235,61 @@ test("orders: lifecycle — pending shop 409, closed shop 409, open shop 201", a
     customer: { name: "T", phone: "010", address: "Seoul" },
   };
 
-  const vsPending = await api("/api/orders", { method: "POST", token: MEMBER.token, body: orderBody });
+  const vsPending = await api("/api/orders", {
+    method: "POST",
+    token: MEMBER.token,
+    body: orderBody,
+  });
   assert.equal(vsPending.status, 409);
   assert.equal(vsPending.json.code, "shop_not_approved");
 
-  const approve = await api(`/api/shops/${shopId}/approve`, { method: "POST", token: ADMIN.token, body: {} });
+  const approve = await api(`/api/shops/${shopId}/approve`, {
+    method: "POST",
+    token: ADMIN.token,
+    body: {},
+  });
   assert.equal(approve.status, 200);
 
-  const close = await api(`/api/shops/${shopId}/toggle-open`, { method: "POST", token: ADMIN.token, body: {} });
+  const close = await api(`/api/shops/${shopId}/toggle-open`, {
+    method: "POST",
+    token: ADMIN.token,
+    body: {},
+  });
   assert.equal(close.json.shop.isOpen, false);
-  const vsClosed = await api("/api/orders", { method: "POST", token: MEMBER.token, body: orderBody });
+  const vsClosed = await api("/api/orders", {
+    method: "POST",
+    token: MEMBER.token,
+    body: orderBody,
+  });
   assert.equal(vsClosed.status, 409);
   assert.equal(vsClosed.json.code, "shop_closed");
 
-  await api(`/api/shops/${shopId}/toggle-open`, { method: "POST", token: ADMIN.token, body: {} });
-  const ok = await api("/api/orders", { method: "POST", token: MEMBER.token, body: orderBody });
+  await api(`/api/shops/${shopId}/toggle-open`, {
+    method: "POST",
+    token: ADMIN.token,
+    body: {},
+  });
+  const ok = await api("/api/orders", {
+    method: "POST",
+    token: MEMBER.token,
+    body: orderBody,
+  });
   assert.equal(ok.status, 201);
   assert.equal(ok.json.order.status, "pending");
 
   // Owner sees it in the badge count; a stranger's shopId query is forbidden.
   const badge = await api("/api/me/badges", { token: ADMIN.token });
   assert.ok(badge.json.bizPendingOrders >= 1);
-  const strangerList = await api(`/api/orders?shopId=${shopId}`, { token: MEMBER.token });
+  const strangerList = await api(`/api/orders?shopId=${shopId}`, {
+    token: MEMBER.token,
+  });
   assert.equal(strangerList.status, 403);
 });
 
 test("orders: keyset pagination returns disjoint pages", async () => {
-  const p1 = await api("/api/orders?mine=true&limit=1", { token: MEMBER.token });
+  const p1 = await api("/api/orders?mine=true&limit=1", {
+    token: MEMBER.token,
+  });
   assert.equal(p1.status, 200);
   if (p1.json.nextCursor) {
     const p2 = await api(
@@ -321,13 +365,18 @@ test("reports: member can file, cannot read the queue; dedupe is silent", async 
 test("uploads: per-user rate limit kicks in at the hourly cap", async () => {
   // Seed the log to exactly the hourly cap (30) instead of uploading
   // 30 real files — same code path, none of the R2 churn.
-  const rows = Array.from({ length: 30 }, (_, i) =>
-    `INSERT INTO upload_log (id, user_id) VALUES ('upl-e2e-${RUN}-${i}', '${MEMBER.id}');`,
+  const rows = Array.from(
+    { length: 30 },
+    (_, i) =>
+      `INSERT INTO upload_log (id, user_id) VALUES ('upl-e2e-${RUN}-${i}', '${MEMBER.id}');`,
   ).join("\n");
   d1(rows);
 
   const form = new FormData();
-  form.append("file", new File([new Uint8Array(64)], "t.png", { type: "image/png" }));
+  form.append(
+    "file",
+    new File([new Uint8Array(64)], "t.png", { type: "image/png" }),
+  );
   form.append("kind", "post");
   const res = await fetch(`${BASE}/api/upload`, {
     method: "POST",
@@ -382,7 +431,293 @@ test("review replies: only the shop owner (or admin) can answer", async () => {
   });
   assert.equal(cleared.status, 200);
   const after = await api(`/api/reviews?shopId=${shop.id}`);
-  assert.equal(after.json.reviews.find((r) => r.id === reviewId).reply, undefined);
+  assert.equal(
+    after.json.reviews.find((r) => r.id === reviewId).reply,
+    undefined,
+  );
+});
+
+// ===================== Admin workspace =====================
+
+test("admin: management data requires an authenticated administrator", async () => {
+  for (const path of [
+    "/api/admin/overview",
+    "/api/admin/shops",
+    "/api/admin/orders",
+    "/api/admin/users",
+  ]) {
+    assert.equal((await api(path)).status, 401, path);
+    assert.equal((await api(path, { token: MEMBER.token })).status, 403, path);
+  }
+  assert.equal(
+    (await api("/api/admin/overview?days=999", { token: ADMIN.token })).status,
+    400,
+  );
+  assert.equal(
+    (await api("/api/admin/shops?status=unknown", { token: ADMIN.token }))
+      .status,
+    400,
+  );
+});
+
+test("admin: shop counts cover more than the public list cap; filters and pages stay consistent", async () => {
+  const prefix = "Directory " + RUN;
+  d1(
+    Array.from(
+      { length: 105 },
+      (_, i) =>
+        "INSERT INTO shops (id, owner_id, category, name, status) VALUES ('directory-" +
+        RUN +
+        "-" +
+        i +
+        "', '" +
+        ADMIN.id +
+        "', 'cargo', '" +
+        prefix +
+        " " +
+        String(i).padStart(3, "0") +
+        "', 'pending');",
+    ).join("\n"),
+  );
+  const first = await api(
+    "/api/admin/shops?" +
+      new URLSearchParams({
+        q: prefix,
+        category: "cargo",
+        status: "pending",
+        limit: "15",
+      }),
+    { token: ADMIN.token },
+  );
+  assert.equal(first.status, 200);
+  assert.equal(first.json.total, 105);
+  assert.equal(first.json.counts.all, 105);
+  assert.equal(first.json.shops.length, 15);
+  assert.equal(first.json.shops[0].ownerEmail, ADMIN.email);
+  const second = await api(
+    "/api/admin/shops?" +
+      new URLSearchParams({ q: prefix, page: "2", limit: "15" }),
+    { token: ADMIN.token },
+  );
+  const ids = new Set(first.json.shops.map((shop) => shop.id));
+  assert.ok(second.json.shops.every((shop) => !ids.has(shop.id)));
+  const empty = await api(
+    "/api/admin/shops?" +
+      new URLSearchParams({ q: prefix, category: "hospital" }),
+    { token: ADMIN.token },
+  );
+  assert.equal(empty.json.total, 0);
+  assert.equal(empty.json.shops.length, 0);
+  const approved = await api("/api/shops/directory-" + RUN + "-0/approve", {
+    method: "POST",
+    token: ADMIN.token,
+    body: {},
+  });
+  assert.equal(approved.status, 200);
+  const filtered = await api(
+    "/api/admin/shops?" +
+      new URLSearchParams({ q: prefix, status: "approved" }),
+    { token: ADMIN.token },
+  );
+  assert.equal(filtered.json.total, 1);
+  assert.equal(filtered.json.counts.pending, 104);
+});
+
+test("admin: overview uses complete counts and KST daily buckets for each range", async () => {
+  for (const days of [7, 30, 90]) {
+    const result = await api("/api/admin/overview?days=" + days, {
+      token: ADMIN.token,
+    });
+    assert.equal(result.status, 200);
+    assert.equal(result.json.daily.length, days);
+    const today = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+    assert.equal(result.json.daily.at(-1).date, today);
+    assert.ok(result.json.totals.shops >= 106);
+    for (const key of ["users", "shops", "orders", "posts"]) {
+      assert.equal(
+        result.json.daily.reduce((sum, day) => sum + day[key], 0),
+        result.json.period[key],
+      );
+    }
+    assert.ok(result.json.pendingShops.length <= 5);
+    assert.ok(
+      result.json.pendingShops.every(
+        (shop) => shop.status === "pending" && shop.ownerEmail,
+      ),
+    );
+  }
+});
+
+test("admin: order directory filters by shop and status without exposing data publicly", async () => {
+  const result = await api(
+    "/api/admin/orders?" +
+      new URLSearchParams({ q: "E2E Shop " + RUN, status: "pending" }),
+    { token: ADMIN.token },
+  );
+  assert.equal(result.status, 200);
+  assert.equal(result.json.total, 1);
+  assert.equal(result.json.orders[0].customerName, "E2E Member");
+  assert.equal(JSON.parse(result.json.orders[0].payload).totalAmount, 1000);
+  const empty = await api(
+    "/api/admin/orders?" +
+      new URLSearchParams({ q: "E2E Shop " + RUN, status: "delivered" }),
+    { token: ADMIN.token },
+  );
+  assert.equal(empty.json.total, 0);
+});
+
+test("admin: user filters and report search return totals and source links", async () => {
+  const users = await api(
+    "/api/admin/users?" +
+      new URLSearchParams({ q: RUN, status: "admin", limit: "1" }),
+    { token: ADMIN.token },
+  );
+  assert.equal(users.status, 200);
+  assert.equal(users.json.total, 1);
+  assert.equal(users.json.users[0].id, ADMIN.id);
+  const reports = await api("/api/reports?q=spam&limit=1", {
+    token: ADMIN.token,
+  });
+  assert.equal(reports.status, 200);
+  assert.ok(reports.json.total >= 1);
+  assert.ok(reports.json.reports[0].targetHref.startsWith("/community/"));
+});
+
+test("admin: midnight in Korea assigns records to the correct daily bucket", async () => {
+  const baseline = (
+    await api("/api/admin/overview?days=7", { token: ADMIN.token })
+  ).json;
+  const today = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+  const boundary = new Date(today + "T00:00:00+09:00").getTime();
+  const format = (time) =>
+    new Date(time).toISOString().replace("T", " ").slice(0, 19);
+  d1(
+    "INSERT INTO community_posts (id, author_id, category, title, content, created_at) VALUES ('kst-before-" +
+      RUN +
+      "', '" +
+      ADMIN.id +
+      "', 'Бусад', 'Before midnight', 'x', '" +
+      format(boundary - 1000) +
+      "'), ('kst-after-" +
+      RUN +
+      "', '" +
+      ADMIN.id +
+      "', 'Бусад', 'After midnight', 'x', '" +
+      format(boundary) +
+      "');",
+  );
+  const after = (
+    await api("/api/admin/overview?days=7", { token: ADMIN.token })
+  ).json;
+  assert.equal(after.daily.at(-1).posts, baseline.daily.at(-1).posts + 1);
+  assert.equal(after.daily.at(-2).posts, baseline.daily.at(-2).posts + 1);
+  assert.equal(after.period.posts, baseline.period.posts + 2);
+});
+
+// ===================== Business ownership =====================
+
+test("business: sessions scope every dashboard and directory to the owned shop", async () => {
+  for (const endpoint of [
+    "/api/biz/overview",
+    "/api/biz/orders",
+    "/api/biz/chats",
+  ]) {
+    assert.equal((await api(endpoint)).status, 401);
+    assert.equal((await api(endpoint, { token: MEMBER.token })).status, 404);
+  }
+  const ownId = "own-scope-" + RUN;
+  d1(
+    "INSERT INTO shops (id, owner_id, category, name, status) VALUES ('" +
+      ownId +
+      "', '" +
+      MEMBER.id +
+      "', 'meat', 'Owner Shop " +
+      RUN +
+      "', 'approved');",
+  );
+  const body = {
+    shopId: ownId,
+    shopCategory: "meat",
+    items: [
+      {
+        productId: "p",
+        category: "c",
+        name: "n",
+        price: "1000",
+        unit: "kg",
+        qty: 1,
+      },
+    ],
+    subtotalAmount: 1000,
+    deliveryFee: 0,
+    totalAmount: 1000,
+    bankAccountSnapshot: "KB",
+    customer: { name: "Admin customer", phone: "010", address: "Seoul" },
+  };
+  const created = await api("/api/orders", {
+    method: "POST",
+    token: ADMIN.token,
+    body,
+  });
+  assert.equal(created.status, 201);
+  const ownOrderId = created.json.order.id;
+  const overview = await api("/api/biz/overview?shopId=forged-other-shop", {
+    token: MEMBER.token,
+  });
+  assert.equal(overview.status, 200);
+  assert.equal(overview.json.shop.id, ownId);
+  assert.equal(overview.json.shop.ownerId, MEMBER.id);
+  assert.equal(overview.json.totals.orders, 1);
+  assert.equal(overview.json.totals.pending, 1);
+  assert.equal(overview.json.daily.length, 7);
+  const orders = await api("/api/biz/orders?shopId=forged-other-shop", {
+    token: MEMBER.token,
+  });
+  assert.equal(orders.status, 200);
+  assert.equal(orders.json.total, 1);
+  assert.equal(orders.json.orders[0].id, ownOrderId);
+  const update = await api("/api/orders/" + ownOrderId + "/status", {
+    method: "POST",
+    token: MEMBER.token,
+    body: { status: "received" },
+  });
+  assert.equal(update.status, 200);
+  assert.equal(update.json.order.status, "received");
+  assert.equal(
+    (await api("/api/biz/overview", { token: MEMBER.token })).json.totals
+      .pending,
+    0,
+  );
+  const foreignOrders = await api(
+    "/api/admin/orders?" + new URLSearchParams({ q: "E2E Shop " + RUN }),
+    { token: ADMIN.token },
+  );
+  const forbiddenChange = await api(
+    "/api/orders/" + foreignOrders.json.orders[0].id + "/status",
+    { method: "POST", token: MEMBER.token, body: { status: "received" } },
+  );
+  assert.equal(forbiddenChange.status, 403);
+  const thread = await api("/api/chat/threads", {
+    method: "POST",
+    token: ADMIN.token,
+    body: { shopId: ownId },
+  });
+  assert.equal(thread.status, 201);
+  const ownChats = await api("/api/biz/chats?shopId=forged-other-shop", {
+    token: MEMBER.token,
+  });
+  assert.equal(ownChats.status, 200);
+  assert.equal(ownChats.json.total, 1);
+  assert.ok(ownChats.json.threads.every((item) => item.shopId === ownId));
+  const otherChats = await api("/api/biz/chats", { token: ADMIN.token });
+  assert.equal(
+    otherChats.json.threads.some((item) => item.shopId === ownId),
+    false,
+  );
+  assert.equal(
+    (await api("/api/admin/users", { token: MEMBER.token })).status,
+    403,
+  );
 });
 
 // ===================== Bans =====================

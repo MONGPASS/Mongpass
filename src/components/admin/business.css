@@ -1,0 +1,174 @@
+/* Business workspace proportions follow the supplied Daangn Business reference. */
+.mp-business {
+  --mp-text: #292c30;
+  --mp-muted: #868b94;
+  --mp-border: #eceef0;
+  font-size: 14px;
+  letter-spacing: -0.015em;
+  line-height: 1.55;
+}
+.mp-business .mp-header { height: 64px; padding: 0 28px; gap: 46px; }
+.mp-business .mp-brand { font-size: 21px; }
+.mp-business .mp-brand-label { font-size: 15px; font-weight: 500; }
+.mp-business .mp-brand-symbol { font-size: 31px; }
+.mp-business .mp-top-nav { font-size: 14px; gap: 32px; }
+.mp-business .mp-top-nav .active:after { height: 2px; background: #303438; }
+.mp-business .mp-header-actions { gap: 24px; }
+.mp-business .mp-help-button, .mp-business .mp-profile-button { font-size: 13px; }
+.mp-business .mp-sidebar { top: 64px; width: 216px; padding: 24px 12px; background: #f7f8f9; border-right-color: #f0f1f2; }
+.mp-business .mp-main { top: 64px; left: 216px; }
+.mp-business .mp-workspace { padding: 0 8px 20px; gap: 9px; }
+.mp-business .mp-workspace-icon { width: 34px; height: 34px; border: 1px solid #e7e9ec; background: #fff; border-radius: 50%; }
+.mp-business .mp-workspace-name { max-width: 128px; font-size: 13px; }
+.mp-business .mp-workspace > svg { display: none; }
+.mp-business .mp-workspace span { font-size: 11px; color: #8f959d; }
+.mp-business .mp-sidebar > .mp-btn { background: #fff; border-color: #e7e9ec; font-size: 12px; min-height: 34px; }
+.mp-business .mp-nav-group { font-size: 11px; color: #969ba3; padding: 0 14px; margin: 24px 0 10px; }
+.mp-business .mp-side-nav a { padding: 11px 14px; font-size: 13px; gap: 11px; border-radius: 6px; color: #666d76; margin-bottom: 3px; }
+.mp-business .mp-side-nav a.active { background: #eceef0; color: #292c30; font-weight: 650; }
+.mp-business .mp-side-nav a:hover { background: #eceef0; color: #292c30; }
+.mp-business .mp-side-nav a > span { min-width: 0; line-height: 1.4; }
+.mp-business .mp-nav-count { color: #ff6f0f; background: transparent; font-size: 11px; padding: 0 3px; }
+.mp-business .mp-sidebar-footer { padding: 40px 12px 0; font-size: 11px; color: #858b94; }
+.mp-sidebar-help { display: flex; gap: 7px; align-items: center; }
+.mp-sidebar-help:hover { color: #454c55; }
+.mp-business .mp-breadcrumb { display: none; }
+.mp-business .mp-content { max-width: 1040px; padding: 48px 64px 0; }
+.mp-business .mp-demo-bar { border: 0; border-bottom: 1px solid #f9e9e4; border-radius: 0; background: #fff5f1; color: #9e7970; margin: 0; padding: 11px 30px; font-size: 11px; }
+.mp-business .mp-demo-bar b { font-weight: 500; color: #8b6b62; }
+.mp-business .mp-demo-bar button { color: #a08d86; font-weight: 400; text-decoration: underline; text-underline-offset: 3px; }
+.mp-business .mp-page-heading { margin-bottom: 32px; align-items: center; }
+.mp-business .mp-page-heading h1 { font-size: 27px; font-weight: 750; letter-spacing: -1.2px; }
+.mp-business .mp-page-heading p { font-size: 13px; margin-top: 8px; color: #90959c; }
+.mp-business .mp-btn { min-height: 38px; border-radius: 6px; font-size: 13px; padding: 9px 14px; }
+.mp-business .mp-btn-small { min-height: 30px; padding: 5px 10px; font-size: 12px; }
+.mp-business .mp-btn-subtle { background: #f4f5f6; border-color: #f4f5f6; color: #51565e; }
+.mp-business .mp-btn-primary { background: #ff6f0f; color: #fff; border-color: #ff6f0f; }
+.mp-business .mp-btn-primary:hover { background: #ed650b; border-color: #ed650b; }
+.mp-business .mp-btn-dark { background: #2e3339; border-color: #2e3339; color: white; }
+.mp-business .mp-panel { border-radius: 10px; box-shadow: none; }
+.mp-business .mp-panel-pad { padding: 24px; }
+.mp-business .mp-biz-mission { padding: 20px; background: linear-gradient(105deg, #fffcf9, #fff 80%); border: 1px solid #f5e5d9; border-radius: 10px; }
+.mp-business .mp-eyebrow { font-size: 11px; color: #ee9255; margin-bottom: 9px; gap: 5px; }
+.mp-business .mp-biz-mission h2 { font-size: 17px; letter-spacing: -0.6px; }
+.mp-business .mp-biz-mission p { font-size: 12px; color: #9a9691; margin-top: 5px; }
+.mp-business .mp-biz-mission .mp-btn { min-height: 36px; font-size: 12px; }
+.mp-business .mp-progress-ring { width: 52px; height: 52px; background: conic-gradient(#ffc89f var(--progress), #f3f1ee 0); }
+.mp-business .mp-progress-ring > span { font-size: 15px; background: #fff; }
+.mp-business .mp-recommendations { margin-top: 20px; padding: 20px; }
+.mp-business .mp-section-title { margin-bottom: 16px; }
+.mp-business .mp-section-title h2, .mp-business .mp-stats-top h2, .mp-business .mp-side-card h2 { font-size: 15px; letter-spacing: -0.5px; }
+.mp-recommendation-label { color: #a1a6ad; font-size: 11px; }
+.mp-business .mp-biz-tools { gap: 10px; }
+.mp-business .mp-biz-tools a { padding: 16px; background: #f5f6f8; border-radius: 6px; gap: 10px; transition: background .15s; }
+.mp-business .mp-biz-tools a:hover { background: #eceff3; }
+.mp-business .mp-biz-tools b { font-size: 13px; font-weight: 600; }
+.mp-business .mp-biz-tools p { font-size: 11px; color: #939aa4; }
+.mp-business .mp-tool-icon { width: 32px; height: 32px; background: #e8eef9; color: #8499c5; }
+.mp-business .mp-biz-dashboard-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; margin-top: 20px; }
+.mp-business .mp-stats-top { margin-bottom: 18px; }
+.mp-business select { font-size: 12px; min-height: 34px; padding: 6px 25px 6px 10px; color: #777e88; }
+.mp-business .mp-stat { background: #f5f6f8; border-radius: 6px; padding: 14px; }
+.mp-business .mp-stat:hover { background: #edf1f6; }
+.mp-business .mp-stat.active { background: #f1f6ff; border-color: #adc4e8; box-shadow: 0 0 0 2px #edf3fc; }
+.mp-business .mp-stat-label { font-size: 12px; color: #777e88; }
+.mp-business .mp-stat-label { white-space: normal; }
+.mp-business .mp-stat-label svg { display: none; }
+.mp-business .mp-stat strong { font-size: 26px; margin-top: 5px; }
+.mp-business .mp-stat strong small { font-size: 11px; color: #a1a7af; }
+.mp-business .mp-stat .mp-trend { font-size: 10px; color: #929aa6; margin-top: 6px; }
+.mp-business .mp-chart-header { border-top: 1px solid #f0f1f3; padding-top: 22px; margin-top: 24px; font-size: 11px; }
+.mp-business .mp-chart-header b { font-size: 12px; }
+.mp-business .mp-chart { height: 205px; }
+.mp-business .mp-chart-caption, .mp-business .mp-chart-footer { font-size: 10px; color: #9da3ac; }
+.mp-business .mp-chart-footer { margin-top: 18px; }
+.mp-business .mp-dashboard-aside { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.mp-business .mp-dashboard-aside .mp-side-card { margin: 0; padding: 24px; }
+.mp-business .mp-task-row { font-size: 12px; padding: 15px 0; }
+.mp-business .mp-task-row strong { font-size: 16px; }
+.mp-business .mp-status { font-size: 11px; padding: 4px 8px; }
+.mp-business .mp-table th { font-size: 11px; color: #949ba5; font-weight: 500; background: #f8f9fa; padding: 14px 18px; }
+.mp-business .mp-table td { padding: 19px 18px; font-size: 12px; color: #737b86; }
+.mp-business .mp-table td strong { color: #3b424b; font-weight: 600; }
+.mp-business .mp-tabs { gap: 28px; }
+.mp-business .mp-tabs button { font-size: 13px; }
+.mp-business .mp-toolbar { padding: 20px; }
+.mp-business .mp-text-button { font-size: 12px; }
+.mp-business .mp-page-footer { margin-top: 40px; padding: 24px 0 28px; font-size: 10px; color: #a4aab2; }
+.mp-business .mp-biz-profile-grid { grid-template-columns: minmax(0, 1fr) 240px; gap: 20px; }
+.mp-business .mp-biz-form-grid label { font-size: 13px; color: #606872; }
+.mp-business .mp-biz-form-grid input, .mp-business .mp-biz-form-grid textarea { padding: 12px 14px; border-color: #e3e6ea; font-size: 14px; }
+.mp-business .mp-form-help { font-size: 12px; line-height: 1.7; }
+.mp-catalog-bar { display: flex; align-items: center; gap: 16px; padding: 18px 20px; border-bottom: 1px solid var(--mp-border); }
+.mp-catalog-bar > span { font-size: 13px; white-space: nowrap; color: #69717c; }
+.mp-catalog-bar > span b { color: #ff6f0f; margin-left: 4px; }
+.mp-catalog-search { display: flex; align-items: center; gap: 8px; margin-left: auto; color: #a0a7b1; border: 1px solid #e4e7eb; border-radius: 6px; padding: 9px 12px; width: 240px; }
+.mp-catalog-search input { outline: 0; font-size: 12px; width: 100%; min-width: 0; background: transparent; color: #484f59; }
+.mp-catalog-search input::placeholder { color: #a3a9b2; }
+.mp-catalog-category { padding: 12px 20px; background: #f8f9fa; border-bottom: 1px solid #eef0f2; color: #707985; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.mp-catalog-category span { color: #abb1b9; font-size: 11px; font-weight: 400; }
+.mp-catalog-row { display: flex; align-items: center; gap: 16px; padding: 22px 24px; border-bottom: 1px solid #eff1f3; }
+.mp-catalog-row:last-child { border-bottom: 0; }
+.mp-catalog-symbol { width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; background: #f4f5f7; color: #c1c6ce; border: 1px solid #eff0f2; border-radius: 8px; }
+.mp-catalog-copy { flex: 1; min-width: 0; }
+.mp-catalog-copy h3 { font-size: 14px; font-weight: 600; color: #333a43; }
+.mp-catalog-copy p { font-size: 12px; color: #969da6; margin-top: 5px; line-height: 1.7; }
+.mp-catalog-copy strong { display: block; font-size: 13px; font-weight: 600; margin-top: 7px; color: #4d5662; }
+.mp-catalog-actions { display: flex; align-items: center; gap: 8px; }
+.mp-catalog-actions .mp-icon-button { color: #a7adb6; }
+.mp-catalog-date { display: block; font-size: 11px; color: #a1a8b2; margin-bottom: 8px; }
+.mp-catalog-help { display: flex; align-items: flex-start; gap: 10px; padding: 16px 18px; background: #f8f9fb; border-radius: 7px; margin-bottom: 24px; color: #929aa5; font-size: 12px; line-height: 1.7; }
+.mp-catalog-help svg { margin-top: 3px; }
+.mp-catalog-form { display: grid; gap: 20px; margin-top: 24px; }
+.mp-catalog-form label { display: block; font-size: 13px; font-weight: 600; color: #626b77; }
+.mp-catalog-form label small { color: #ff6f0f; font-size: 10px; font-weight: 400; margin-left: 5px; }
+.mp-catalog-form input, .mp-catalog-form textarea { display: block; margin-top: 9px; width: 100%; border: 1px solid #e0e4e9; border-radius: 6px; padding: 12px 14px; font-size: 14px; color: #3e4651; font-weight: 400; resize: vertical; }
+.mp-business .mp-modal { width: 520px; max-width: calc(100vw - 32px); padding: 28px; }
+.mp-catalog-form input::placeholder, .mp-catalog-form textarea::placeholder { color: #a6adb7; }
+.mp-catalog-form input:focus, .mp-catalog-form textarea:focus { border-color: #ffb17c; outline: 2px solid #fff1e7; }
+.mp-catalog-form-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 20px; border-top: 1px solid #f0f1f3; }
+.mp-save-message { color: #4a9779; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+@media (max-width: 1200px) {
+  .mp-business .mp-top-nav a:last-child { display: none; }
+  .mp-business .mp-content { padding: 36px 40px 0; max-width: 960px; }
+  .mp-business .mp-header { gap: 28px; }
+  .mp-business .mp-header-actions { gap: 16px; }
+  .mp-business .mp-biz-profile-grid { grid-template-columns: 1fr; }
+  .mp-business .mp-biz-profile-grid > aside { display: none; }
+  .mp-business .mp-top-nav { gap: 22px; }
+}
+@media (max-width: 980px) {
+  .mp-business .mp-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mp-business .mp-header-actions { margin-left: auto; }
+  .mp-business .mp-content { padding: 32px 28px 0; }
+  .mp-business .mp-biz-tools { grid-template-columns: 1fr; }
+  .mp-business .mp-recommendation-label { display: none; }
+  .mp-business .mp-dashboard-aside { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .mp-business .mp-header { height: 60px; padding: 0 16px; gap: 10px; }
+  .mp-business .mp-brand { font-size: 19px; }
+  .mp-business .mp-brand-label { font-size: 12px; }
+  .mp-business .mp-sidebar { top: 60px; }
+  .mp-business .mp-main { top: 60px; left: 0; }
+  .mp-business .mp-content { padding: 28px 18px 0; }
+  .mp-business .mp-demo-bar { padding: 10px 18px; font-size: 10px; }
+  .mp-business .mp-demo-bar > span { max-width: 235px; }
+  .mp-business .mp-page-heading { gap: 16px; align-items: flex-start; }
+  .mp-business .mp-page-heading h1 { font-size: 23px; }
+  .mp-business .mp-page-heading p { font-size: 12px; }
+  .mp-business .mp-page-heading-actions .mp-btn { font-size: 11px; min-height: 34px; }
+  .mp-business .mp-biz-mission { padding: 18px; }
+  .mp-business .mp-biz-mission h2 { font-size: 15px; }
+  .mp-business .mp-biz-mission p { font-size: 11px; }
+  .mp-business .mp-panel-pad, .mp-business .mp-dashboard-aside .mp-side-card { padding: 18px; }
+  .mp-business .mp-stat { padding: 12px; }
+  .mp-business .mp-stat strong { font-size: 24px; }
+  .mp-business .mp-recommendations { padding: 18px; }
+  .mp-catalog-bar { padding: 16px; gap: 12px; flex-wrap: wrap; }
+  .mp-catalog-search { width: 100%; }
+  .mp-catalog-row { padding: 18px 16px; gap: 12px; }
+  .mp-catalog-symbol { width: 40px; height: 40px; }
+  .mp-catalog-actions { flex-direction: column; gap: 0; }
+  .mp-business .mp-catalog-actions .mp-btn { min-height: 30px; padding: 4px 8px; font-size: 11px; }
+}

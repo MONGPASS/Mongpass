@@ -21,13 +21,25 @@
             "in": "query",
             "schema": {
               "type": "string",
-              "enum": ["meat", "restaurant", "food", "cargo", "hospital", "beauty", "car", "travel", "other"]
+              "enum": [
+                "meat",
+                "restaurant",
+                "food",
+                "cargo",
+                "hospital",
+                "beauty",
+                "car",
+                "travel",
+                "other"
+              ]
             }
           },
           {
             "name": "featured",
             "in": "query",
-            "schema": { "type": "boolean" }
+            "schema": {
+              "type": "boolean"
+            }
           },
           {
             "name": "limit",
@@ -47,11 +59,15 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["shops"],
+                  "required": [
+                    "shops"
+                  ],
                   "properties": {
                     "shops": {
                       "type": "array",
-                      "items": { "$ref": "#/components/schemas/Shop" }
+                      "items": {
+                        "$ref": "#/components/schemas/Shop"
+                      }
                     }
                   }
                 }
@@ -69,7 +85,9 @@
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -89,7 +107,9 @@
           {
             "name": "category",
             "in": "query",
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -99,11 +119,15 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["posts"],
+                  "required": [
+                    "posts"
+                  ],
                   "properties": {
                     "posts": {
                       "type": "array",
-                      "items": { "$ref": "#/components/schemas/CommunityPost" }
+                      "items": {
+                        "$ref": "#/components/schemas/CommunityPost"
+                      }
                     }
                   }
                 }
@@ -120,7 +144,9 @@
           {
             "name": "category",
             "in": "query",
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -137,12 +163,126 @@
           {
             "name": "shopId",
             "in": "query",
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Review list"
+          }
+        }
+      }
+    },
+    "/admin/overview": {
+      "get": {
+        "summary": "Platform administrator: complete totals and KST daily statistics (days: 7, 30, 90).",
+        "responses": {
+          "200": {
+            "description": "Management data. Directory responses include page, limit and total."
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Administrator role required"
+          }
+        }
+      }
+    },
+    "/admin/shops": {
+      "get": {
+        "summary": "Platform administrator: shop search, status/category filters, full counts and page/limit pagination.",
+        "responses": {
+          "200": {
+            "description": "Management data. Directory responses include page, limit and total."
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Administrator role required"
+          }
+        }
+      }
+    },
+    "/admin/orders": {
+      "get": {
+        "summary": "Platform administrator: read-only order directory with search, status/category filters and pagination.",
+        "responses": {
+          "200": {
+            "description": "Management data. Directory responses include page, limit and total."
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Administrator role required"
+          }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "summary": "Platform administrator: user search and active/banned/admin filters with page/limit pagination.",
+        "responses": {
+          "200": {
+            "description": "Management data. Directory responses include page, limit and total."
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Administrator role required"
+          }
+        }
+      }
+    },
+    "/biz/overview": {
+      "get": {
+        "summary": "Shop owner: own-shop totals, KST daily statistics and recent orders. Ownership comes from the authenticated session; shopId cannot select another shop.",
+        "responses": {
+          "200": {
+            "description": "Management data. Directory responses include page, limit and total."
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "No shop owned by the current user"
+          }
+        }
+      }
+    },
+    "/biz/orders": {
+      "get": {
+        "summary": "Shop owner: own-shop orders with q/status/page/limit filters. Ownership comes from the authenticated session.",
+        "responses": {
+          "200": {
+            "description": "Management data. Directory responses include page, limit and total."
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "No shop owned by the current user"
+          }
+        }
+      }
+    },
+    "/biz/chats": {
+      "get": {
+        "summary": "Shop owner: own-shop conversations with q/unread/page/limit filters. Ownership comes from the authenticated session.",
+        "responses": {
+          "200": {
+            "description": "Management data. Directory responses include page, limit and total."
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "No shop owned by the current user"
           }
         }
       }
@@ -152,35 +292,85 @@
     "schemas": {
       "Shop": {
         "type": "object",
-        "required": ["id", "category", "name", "status"],
+        "required": [
+          "id",
+          "category",
+          "name",
+          "status"
+        ],
         "properties": {
-          "id": { "type": "string" },
-          "category": { "type": "string" },
-          "name": { "type": "string" },
-          "description": { "type": ["string", "null"] },
-          "address": { "type": ["string", "null"] },
+          "id": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "status": {
             "type": "string",
-            "enum": ["pending", "approved", "rejected"]
+            "enum": [
+              "pending",
+              "approved",
+              "rejected"
+            ]
           },
           "images": {
             "type": "array",
-            "items": { "type": "string" }
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
       "CommunityPost": {
         "type": "object",
-        "required": ["id", "authorName", "category", "title", "content", "createdAt"],
+        "required": [
+          "id",
+          "authorName",
+          "category",
+          "title",
+          "content",
+          "createdAt"
+        ],
         "properties": {
-          "id": { "type": "string" },
-          "authorName": { "type": "string" },
-          "category": { "type": "string" },
-          "title": { "type": "string" },
-          "content": { "type": "string" },
-          "likeCount": { "type": "integer" },
-          "commentCount": { "type": "integer" },
-          "createdAt": { "type": "string" }
+          "id": {
+            "type": "string"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "likeCount": {
+            "type": "integer"
+          },
+          "commentCount": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string"
+          }
         }
       }
     }

@@ -151,3 +151,32 @@ Administrators can approve or reject shops and manage editorial content.
 The API is pre-1.0 and may change. Public integrations should pin a commit or
 release and review `CHANGELOG.md`. A generated OpenAPI 3.x contract is planned
 before the first stable API release.
+
+## Administrator Workspaces
+
+`/admin` is the platform administrator workspace. `/biz` is the shop-owner workspace.
+All APIs require a session. Platform APIs additionally require the `admin` role;
+business APIs derive the owned shop from the session and ignore caller-supplied
+shop identifiers.
+
+| Method | Endpoint | Parameters | Purpose |
+| --- | --- | --- | --- |
+| GET | `/admin/overview` | `days=7\|30\|90` | Full platform totals, daily KST registration statistics, pending shops, recent news |
+| GET | `/admin/shops` | `q`, `status`, `category`, `page`, `limit` | Search shops with complete filtered counts and owner details |
+| GET | `/admin/orders` | `q`, `status`, `category`, `page`, `limit` | Read-only directory of all orders |
+| GET | `/admin/users` | `q`, `status=all\|active\|banned\|admin`, `page`, `limit` | User directory |
+| GET | `/biz/overview` | `days=7\|30\|90` | Own-shop totals, daily KST activity, unread chats, unreplied reviews, recent orders |
+| GET | `/biz/orders` | `q`, `status`, `page`, `limit` | Own-shop order directory |
+| GET | `/biz/chats` | `q`, `unread=true`, `page`, `limit` | Own-shop customer conversations |
+
+Directory responses include `page`, `limit`, and `total` in addition to the rows.
+`GET /reports` also supports `q` (reporter or reason), `page`, and `limit` and returns
+source links for reported posts, comments, reviews, and shops. Existing mutation
+endpoints continue to enforce their original role/ownership checks.
+
+Business chat statistics group conversations by their last activity date;
+favorites count current favorite registrations by their creation date. These are
+not page-view or unique-visitor analytics.
+
+`/preview/admin` and `/preview/biz` display explicitly labeled sample data and do
+not create sessions or grant access to management APIs.
